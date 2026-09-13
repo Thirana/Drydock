@@ -235,4 +235,40 @@ export interface ArchitectureModel {
   defects: Defect[];
   journeys: Journey[];
   loadBalancer: LoadBalancerChain;
+  /** How marketing pages preview the map. */
+  showcase?: MapShowcase;
+}
+
+/** What the map needs to draw itself at any phase — the model without its prose. */
+export type MapModel = Pick<
+  ArchitectureModel,
+  "name" | "viewBox" | "groups" | "nodes" | "edges"
+> & {
+  defects: Pick<Defect, "id" | "phase" | "applies">[];
+};
+
+/** A rectangle in map viewBox units. */
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A defect pinned to a box on the showcase map. */
+export interface MapCallout {
+  defect: string;
+  /** Box the pin sits on. It must list the defect. */
+  at: string;
+  /** A few words; defect titles are usually too long for a pin. */
+  label: string;
+  /** Where the label sits relative to the box. Defaults to top. */
+  placement?: "top" | "bottom" | "left" | "right";
+}
+
+export interface MapShowcase {
+  /** Pinned on the landing page map, cleared as their phase is reached. */
+  callouts: MapCallout[];
+  /** Region shown instead of the whole map on narrow screens. */
+  focus: Rect;
 }

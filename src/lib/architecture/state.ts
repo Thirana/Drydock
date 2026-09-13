@@ -5,17 +5,18 @@ import type {
   ArchitectureModel,
   BoxPatch,
   Defect,
+  MapModel,
 } from "./types";
 
 /** Defect ids closed at or before `phase`. */
-export function closedDefects(model: ArchitectureModel, phase: number) {
+export function closedDefects(model: Pick<MapModel, "defects">, phase: number) {
   return new Set(
     model.defects.filter((d) => d.phase <= phase).map((d) => d.id),
   );
 }
 
 /** Box id → merged patch from every defect closed at or before `phase`. */
-export function patchesAt(model: ArchitectureModel, phase: number) {
+export function patchesAt(model: Pick<MapModel, "defects">, phase: number) {
   const patches: Record<string, BoxPatch> = {};
   [...model.defects]
     .sort((a, b) => a.phase - b.phase)
@@ -58,7 +59,7 @@ export function resolveEdge(
   return edge;
 }
 
-export function boxIndex(model: ArchitectureModel) {
+export function boxIndex(model: Pick<ArchitectureModel, "groups" | "nodes">) {
   const index = new Map<string, ArchGroup | ArchNode>();
   for (const box of [...model.groups, ...model.nodes]) index.set(box.id, box);
   return index;

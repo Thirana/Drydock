@@ -80,6 +80,20 @@ export const IconChevronDown = makeIcon(
   12,
   <path d="M3 4.5l3 3 3-3" />,
 );
+export const IconPlay = makeIcon(
+  "IconPlay",
+  12,
+  1.8,
+  12,
+  <path d="M3.5 2.5v7l6-3.5-6-3.5z" />,
+);
+export const IconPause = makeIcon(
+  "IconPause",
+  12,
+  2,
+  12,
+  <path d="M4 2.5v7M8 2.5v7" />,
+);
 
 export const IconBook = makeIcon(
   "IconBook",

@@ -18,7 +18,8 @@ import { KIND_TONE, toneColor } from "@/lib/architecture/tone";
 import type {
   ArchGroup,
   ArchNode,
-  ArchitectureModel,
+  MapModel,
+  Rect,
 } from "@/lib/architecture/types";
 import { cn } from "@/lib/utils";
 import {
@@ -30,8 +31,12 @@ import {
 } from "./svg";
 
 interface ArchitectureDiagramProps {
-  model: ArchitectureModel;
+  model: MapModel;
   phase: number;
+  /** Region of the map to show. Defaults to the whole viewBox. */
+  crop?: Rect;
+  /** Merged over the defaults; pass `min-w-0` to let the map shrink. */
+  className?: string;
   /** Overlay key. Ignored while tracing a journey. */
   layer?: string;
   selectedId?: string | null;
@@ -46,11 +51,14 @@ const SELECTED = "var(--gl-primary)";
 export function ArchitectureDiagram({
   model,
   phase,
+  crop,
+  className,
   layer = "all",
   selectedId = null,
   highlight = null,
   onSelect,
 }: ArchitectureDiagramProps) {
+  const view = crop ?? { x: 0, y: 0, ...model.viewBox };
   const markerId = markerIdFrom(useId());
   const closed = closedDefects(model, phase);
   const patches = patchesAt(model, phase);
@@ -66,8 +74,8 @@ export function ArchitectureDiagram({
 
   return (
     <svg
-      className="block h-auto w-full min-w-[1240px]"
-      viewBox={`0 0 ${model.viewBox.width} ${model.viewBox.height}`}
+      className={cn("block h-auto w-full min-w-[1240px]", className)}
+      viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
       role={clickable ? undefined : "img"}
       aria-label={model.name}
     >

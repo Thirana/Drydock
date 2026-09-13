@@ -435,7 +435,34 @@
   }
 }
 
+@keyframes gl-phase-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @layer utilities {
+  /* Duration is set inline to match the step it is timing. */
+  .animate-phase-progress {
+    animation: gl-phase-progress 1s linear both;
+    transform-origin: left;
+  }
+
+  /* Dissolves the bottom of a showcase panel into the page. */
+  .mask-fade-bottom {
+    -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+    mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  }
+  @media (min-width: 40rem) {
+    .mask-fade-bottom {
+      -webkit-mask-image: linear-gradient(to bottom, #000 48%, transparent 94%);
+      mask-image: linear-gradient(to bottom, #000 48%, transparent 94%);
+    }
+  }
+
   .animate-cursor-blink {
     animation: gl-cursor-blink 1s steps(2) infinite;
   }

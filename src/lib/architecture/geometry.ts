@@ -1,4 +1,4 @@
-import type { Box, Point, Side } from "./types";
+import type { Box, Point, Rect, Side } from "./types";
 
 /** Point on a box side, `offset` along it (defaults to the midpoint). */
 export function anchor(box: Box, side: Side, offset?: number): Point {
@@ -59,4 +59,35 @@ export function labelPosition(points: Point[], minLength = 40): Point | null {
     }
   }
   return best && bestLength > minLength ? best : null;
+}
+
+/** Smallest rectangle around the boxes, padded on every side. */
+export function boundsOf(boxes: Box[], pad = 0): Rect {
+  const x = Math.min(...boxes.map((b) => b.x)) - pad;
+  const y = Math.min(...boxes.map((b) => b.y)) - pad;
+  const right = Math.max(...boxes.map((b) => b.x + b.w)) + pad;
+  const bottom = Math.max(...boxes.map((b) => b.y + b.h)) + pad;
+  return { x, y, width: right - x, height: bottom - y };
+}
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+/** Grows `rect` about its centre to `aspect` (width / height), kept inside `limit`. */
+export function fitAspect(
+  rect: Rect,
+  aspect: number,
+  limit: { width: number; height: number },
+): Rect {
+  let { width, height } = rect;
+  if (width / height < aspect) width = height * aspect;
+  else height = width / aspect;
+  width = Math.min(width, limit.width);
+  height = Math.min(height, limit.height);
+  return {
+    x: clamp(rect.x + rect.width / 2 - width / 2, 0, limit.width - width),
+    y: clamp(rect.y + rect.height / 2 - height / 2, 0, limit.height - height),
+    width,
+    height,
+  };
 }

@@ -37,6 +37,7 @@ content/                         everything an author touches
           nodes.ts groups.ts edges.ts overlays.ts
           phases.ts defects.ts journeys.ts
           components.ts load-balancer.ts
+          showcase.ts            landing page pins + mobile crop (optional)
           index.ts               assembles + validates the model
         views/*.mdx              the prose of each page
 

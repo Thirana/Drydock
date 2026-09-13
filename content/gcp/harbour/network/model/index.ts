@@ -8,6 +8,7 @@ import { loadBalancer } from "./load-balancer";
 import { nodes } from "./nodes";
 import { overlays } from "./overlays";
 import { phases } from "./phases";
+import { showcase } from "./showcase";
 
 export const harbourNetwork = validateArchitecture("gcp/harbour/network", {
   name: "Harbour network architecture diagram",
@@ -22,4 +23,5 @@ export const harbourNetwork = validateArchitecture("gcp/harbour/network", {
   defects,
   journeys,
   loadBalancer,
+  showcase,
 });

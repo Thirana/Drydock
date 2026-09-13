@@ -48,7 +48,7 @@ export const EMPTY_HIGHLIGHT: JourneyHighlight = {
 };
 
 export function journeyHighlight(
-  model: ArchitectureModel,
+  model: Pick<ArchitectureModel, "edges">,
   journey: Journey,
   closed: Set<string>,
 ): JourneyHighlight {

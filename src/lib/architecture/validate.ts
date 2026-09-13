@@ -74,6 +74,29 @@ export function validateArchitecture(name: string, model: ArchitectureModel) {
     }
   }
 
+  if (model.showcase) {
+    const index = new Map(
+      [...model.groups, ...model.nodes].map((b) => [b.id, b]),
+    );
+    for (const c of model.showcase.callouts) {
+      const where = `showcase callout ${c.defect}`;
+      defect(c.defect, where);
+      const at = index.get(c.at);
+      if (!at) errors.push(`${where}: unknown box "${c.at}"`);
+      else if (!at.defects?.includes(c.defect))
+        errors.push(`${where}: box ${c.at} does not list the defect`);
+    }
+    const { x, y, width, height } = model.showcase.focus;
+    if (
+      x < 0 ||
+      y < 0 ||
+      x + width > model.viewBox.width ||
+      y + height > model.viewBox.height
+    ) {
+      errors.push("showcase focus: extends outside the viewBox");
+    }
+  }
+
   for (const id of chainIds) {
     if (!model.loadBalancer.details[id])
       errors.push(`load balancer link ${id}: no detail`);
