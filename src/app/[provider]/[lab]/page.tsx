@@ -72,7 +72,7 @@ export default async function LabPage({
                 <div className="flex items-center gap-3.5">
                   <span
                     aria-hidden="true"
-                    className="bg-gl-primary-soft text-gl-primary inline-flex size-11 items-center justify-center rounded-xl"
+                    className="bg-gl-primary-soft text-gl-primary inline-flex size-11 items-center justify-center rounded-md"
                   >
                     <IconMap size={22} />
                   </span>

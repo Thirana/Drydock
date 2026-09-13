@@ -265,7 +265,7 @@ export function DefectRegister({ model }: { model: ArchitectureModel }) {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="border-gl-border bg-gl-surface-2 rounded-xl border p-4">
+                  <div className="border-gl-border bg-gl-surface-2 rounded-[10px] border p-4">
                     <p className="text-gl-danger font-mono text-[10px] font-bold tracking-[0.12em] uppercase">
                       Now
                     </p>
@@ -273,7 +273,7 @@ export function DefectRegister({ model }: { model: ArchitectureModel }) {
                       {d.before}
                     </p>
                   </div>
-                  <div className="border-gl-border bg-gl-surface-2 rounded-xl border p-4">
+                  <div className="border-gl-border bg-gl-surface-2 rounded-[10px] border p-4">
                     <p className="text-gl-success font-mono text-[10px] font-bold tracking-[0.12em] uppercase">
                       Fixed
                     </p>

@@ -221,6 +221,13 @@ export interface LoadBalancerChain {
   details: Record<string, LoadBalancerDetail>;
 }
 
+/** A top-level range in the IP plan. */
+export interface AddressRange {
+  cidr: string;
+  tone: Tone;
+  label: string;
+}
+
 export interface ArchitectureModel {
   /** Accessible name for the diagram. */
   name: string;
@@ -235,6 +242,8 @@ export interface ArchitectureModel {
   defects: Defect[];
   journeys: Journey[];
   loadBalancer: LoadBalancerChain;
+  /** Top-level ranges of the IP plan. */
+  addressPlan?: AddressRange[];
   /** How marketing pages preview the map. */
   showcase?: MapShowcase;
 }
@@ -258,8 +267,13 @@ export interface Rect {
 /** A defect pinned to a box on the showcase map. */
 export interface MapCallout {
   defect: string;
-  /** Box the pin sits on. It must list the defect. */
+  /** The box with the defect. It must list the defect. */
   at: string;
+  /**
+   * A larger box containing `at` to pin the label to instead, when the space
+   * around `at` is crowded. Defaults to `at`.
+   */
+  anchor?: string;
   /** A few words; defect titles are usually too long for a pin. */
   label: string;
   /** Where the label sits relative to the box. Defaults to top. */
@@ -271,4 +285,10 @@ export interface MapShowcase {
   callouts: MapCallout[];
   /** Region shown instead of the whole map on narrow screens. */
   focus: Rect;
+  /**
+   * Boxes the landing page map holds back until a phase, so the platform
+   * visibly grows as it is fixed. Presentation only: the track's own map
+   * always shows every box.
+   */
+  reveals?: { phase: number; boxes: string[] }[];
 }

@@ -1,4 +1,5 @@
 import { validateArchitecture } from "@/lib/architecture/validate";
+import { addressPlan } from "./address-plan";
 import { componentSections, componentSheets } from "./components";
 import { defects } from "./defects";
 import { edges } from "./edges";
@@ -12,7 +13,7 @@ import { showcase } from "./showcase";
 
 export const harbourNetwork = validateArchitecture("gcp/harbour/network", {
   name: "Harbour network architecture diagram",
-  viewBox: { width: 1580, height: 1000 },
+  viewBox: { width: 1580, height: 1064 },
   overlays,
   groups,
   nodes,
@@ -23,5 +24,6 @@ export const harbourNetwork = validateArchitecture("gcp/harbour/network", {
   defects,
   journeys,
   loadBalancer,
+  addressPlan,
   showcase,
 });

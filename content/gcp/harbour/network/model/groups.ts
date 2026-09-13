@@ -1,4 +1,4 @@
-// Harbour network track data. Positions are in SVG viewBox units (1580 × 1000 for the map).
+// Harbour network track data. Positions are in SVG viewBox units (1580 × 1064 for the map).
 import type { ArchGroup } from "@/lib/architecture/types";
 
 export const groups: ArchGroup[] = [
@@ -20,7 +20,7 @@ export const groups: ArchGroup[] = [
     x: 448,
     y: 80,
     w: 616,
-    h: 890,
+    h: 954,
     label: "harbour-vpc",
     sub: "custom mode · allow-all ingress, no egress rules",
     tone: "lineStrong",
@@ -32,7 +32,7 @@ export const groups: ArchGroup[] = [
     x: 464,
     y: 150,
     w: 584,
-    h: 502,
+    h: 566,
     label: "asia-southeast1 · primary",
     tone: "lineStrong",
   },
@@ -50,7 +50,7 @@ export const groups: ArchGroup[] = [
   {
     id: "G_MGMT",
     x: 478,
-    y: 434,
+    y: 498,
     w: 272,
     h: 116,
     label: "sn-a-mgmt",
@@ -61,7 +61,7 @@ export const groups: ArchGroup[] = [
   {
     id: "G_DATA",
     x: 762,
-    y: 434,
+    y: 498,
     w: 272,
     h: 116,
     label: "sn-a-data",
@@ -73,7 +73,7 @@ export const groups: ArchGroup[] = [
   {
     id: "G_PROXY",
     x: 478,
-    y: 566,
+    y: 630,
     w: 556,
     h: 62,
     label: "sn-a-proxy",
@@ -86,7 +86,7 @@ export const groups: ArchGroup[] = [
   {
     id: "G_REGB",
     x: 464,
-    y: 672,
+    y: 736,
     w: 584,
     h: 98,
     label: "asia-south1 · secondary",

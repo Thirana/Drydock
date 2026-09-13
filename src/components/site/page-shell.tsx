@@ -14,8 +14,8 @@ const HALO = `
 export function PageShell({ children }: { children: ReactNode }) {
   const featured = getFeaturedTrack();
   const links = [
-    { href: "/#labs", label: "Labs" },
-    { href: "/#how-it-works", label: "How it works" },
+    { href: featured ? "/#healthy" : "/#labs", label: "Labs" },
+    ...(featured ? [{ href: "/#as-found", label: "How it works" }] : []),
     ...providers.map((p) => ({ href: providerHref(p), label: p.name })),
   ];
   const cta = featured

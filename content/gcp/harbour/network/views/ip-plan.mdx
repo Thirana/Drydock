@@ -1,3 +1,5 @@
+import { addressPlan } from "../model/address-plan";
+
 ## Address plan
 
 <Lede>
@@ -7,24 +9,11 @@
 </Lede>
 
 <AddressBlocks>
-  <AddressBlock cidr="10.10.0.0/16" tone="compute">
-    Region A — asia-southeast1 (primary)
-  </AddressBlock>
-  <AddressBlock cidr="10.20.0.0/16" tone="external">
-    Region B — asia-south1 (secondary)
-  </AddressBlock>
-  <AddressBlock cidr="10.90.0.0/16" tone="private">
-    Reserved for Private Service Access
-  </AddressBlock>
-  <AddressBlock cidr="10.99.0.0/24" tone="data">
-    Private Service Connect endpoint IPs
-  </AddressBlock>
-  <AddressBlock cidr="172.20.0.0/16" tone="edge">
-    partner-vpc, reached by peering
-  </AddressBlock>
-  <AddressBlock cidr="192.168.0.0/16" tone="edge">
-    Office / on-prem, reached by HA VPN
-  </AddressBlock>
+  {addressPlan.map((range) => (
+    <AddressBlock key={range.cidr} cidr={range.cidr} tone={range.tone}>
+      {range.label}
+    </AddressBlock>
+  ))}
 </AddressBlocks>
 
 ### Region A subnets

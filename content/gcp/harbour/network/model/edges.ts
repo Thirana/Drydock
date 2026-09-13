@@ -1,10 +1,10 @@
-// Harbour network track data. Positions are in SVG viewBox units (1580 × 1000 for the map).
+// Harbour network track data. Positions are in SVG viewBox units (1580 × 1064 for the map).
 import type { ArchEdge } from "@/lib/architecture/types";
 
 // Long runs use dedicated lanes so nothing overlaps:
 // left gutter 412 (health checks) · 438 (run.app bypass)
 // right gutter 1084 · 1106 · 1128 · 1150 · 1172 · 1188
-// bottom lane 940
+// bottom lanes 990 · 1014
 export const edges: ArchEdge[] = [
   {
     from: "USERS",
@@ -73,7 +73,7 @@ export const edges: ArchEdge[] = [
     fromSide: "r",
     toSide: "t",
     via: [
-      { x: 412, y: 580 },
+      { x: 412, y: 644 },
       { x: 412, y: 192 },
       { x: 756, y: 192 },
     ],
@@ -163,8 +163,8 @@ export const edges: ArchEdge[] = [
     fromSide: "b",
     toSide: "l",
     via: [
-      { x: 606, y: 950 },
-      { x: 1172, y: 950 },
+      { x: 606, y: 1014 },
+      { x: 1172, y: 1014 },
       { x: 1172, y: 288 },
     ],
     label: "peering · private IP",
@@ -177,8 +177,8 @@ export const edges: ArchEdge[] = [
     fromSide: "b",
     toSide: "l",
     via: [
-      { x: 606, y: 926 },
-      { x: 1084, y: 926 },
+      { x: 606, y: 990 },
+      { x: 1084, y: 990 },
       { x: 1084, y: 225 },
     ],
     label: "private IP via PSA",
@@ -193,7 +193,7 @@ export const edges: ArchEdge[] = [
     toSide: "l",
     toOffset: 44,
     via: [
-      { x: 1120, y: 888 },
+      { x: 1120, y: 952 },
       { x: 1120, y: 842 },
     ],
     label: "endpoint",
@@ -206,7 +206,7 @@ export const edges: ArchEdge[] = [
     fromSide: "r",
     toSide: "l",
     via: [
-      { x: 1128, y: 816 },
+      { x: 1128, y: 880 },
       { x: 1128, y: 598 },
     ],
     label: "stable IP",
@@ -219,7 +219,7 @@ export const edges: ArchEdge[] = [
     fromSide: "r",
     toSide: "l",
     via: [
-      { x: 1150, y: 816 },
+      { x: 1150, y: 880 },
       { x: 1150, y: 725 },
     ],
     tone: "edge",

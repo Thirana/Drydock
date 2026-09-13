@@ -31,14 +31,15 @@ export function LabCard({ ctx }: { ctx: LabContext }) {
         {ctx.lab.tracks.map((track) => (
           <li
             key={track.slug}
-            className="border-gl-border bg-gl-surface text-gl-text-muted rounded-full border px-2 py-0.5 text-[11px] font-medium"
+            className="border-gl-border bg-gl-surface-2 text-gl-text-muted rounded-full border px-2 py-0.5 text-[11px] font-medium"
           >
             {track.title}
           </li>
         ))}
       </ul>
       <span className="text-gl-primary group-hover:text-gl-primary-hover mt-6 inline-flex items-center gap-1.5 text-[13px] font-semibold">
-        Open lab <IconArrowRight size={12} />
+        See the {trackCount === 1 ? "track" : "tracks"}{" "}
+        <IconArrowRight size={12} />
       </span>
     </Link>
   );

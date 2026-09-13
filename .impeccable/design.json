@@ -1,0 +1,739 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-13T00:00:00Z",
+  "title": "Design System: Drydock",
+  "extensions": {
+    "colorMeta": {
+      "signal-teal": {
+        "role": "primary",
+        "displayName": "Signal Teal",
+        "canonical": "#2eb8a0",
+        "tonalRamp": [
+          "oklch(15% 0.03 177)",
+          "oklch(25% 0.05 177)",
+          "oklch(36% 0.07 177)",
+          "oklch(48% 0.09 177)",
+          "oklch(60% 0.11 177)",
+          "oklch(70% 0.12 177)",
+          "oklch(82% 0.08 177)",
+          "oklch(95% 0.03 177)"
+        ]
+      },
+      "signal-teal-hover": {
+        "role": "primary",
+        "displayName": "Signal Teal Hover",
+        "canonical": "#3ecdb5",
+        "tonalRamp": [
+          "oklch(15% 0.03 177)",
+          "oklch(25% 0.05 177)",
+          "oklch(36% 0.07 177)",
+          "oklch(48% 0.09 177)",
+          "oklch(60% 0.11 177)",
+          "oklch(70% 0.12 177)",
+          "oklch(82% 0.08 177)",
+          "oklch(95% 0.03 177)"
+        ]
+      },
+      "signal-teal-soft": {
+        "role": "primary",
+        "displayName": "Signal Teal Soft",
+        "canonical": "#0d2420",
+        "tonalRamp": [
+          "oklch(15% 0.03 177)",
+          "oklch(25% 0.05 177)",
+          "oklch(36% 0.07 177)",
+          "oklch(48% 0.09 177)",
+          "oklch(60% 0.11 177)",
+          "oklch(70% 0.12 177)",
+          "oklch(82% 0.08 177)",
+          "oklch(95% 0.03 177)"
+        ]
+      },
+      "signal-teal-ink": {
+        "role": "primary",
+        "displayName": "Signal Teal Ink",
+        "canonical": "#051a16",
+        "tonalRamp": [
+          "oklch(15% 0.03 177)",
+          "oklch(25% 0.05 177)",
+          "oklch(36% 0.07 177)",
+          "oklch(48% 0.09 177)",
+          "oklch(60% 0.11 177)",
+          "oklch(70% 0.12 177)",
+          "oklch(82% 0.08 177)",
+          "oklch(95% 0.03 177)"
+        ]
+      },
+      "rust-alarm": {
+        "role": "secondary",
+        "displayName": "Rust Alarm",
+        "canonical": "#b87060",
+        "tonalRamp": [
+          "oklch(15% 0.03 35)",
+          "oklch(25% 0.05 35)",
+          "oklch(36% 0.06 35)",
+          "oklch(48% 0.07 35)",
+          "oklch(62% 0.08 35)",
+          "oklch(72% 0.07 35)",
+          "oklch(83% 0.05 35)",
+          "oklch(95% 0.02 35)"
+        ]
+      },
+      "rust-soft": {
+        "role": "secondary",
+        "displayName": "Rust Soft",
+        "canonical": "#261009",
+        "tonalRamp": [
+          "oklch(15% 0.03 35)",
+          "oklch(25% 0.05 35)",
+          "oklch(36% 0.06 35)",
+          "oklch(48% 0.07 35)",
+          "oklch(62% 0.08 35)",
+          "oklch(72% 0.07 35)",
+          "oklch(83% 0.05 35)",
+          "oklch(95% 0.02 35)"
+        ]
+      },
+      "rust-ink": {
+        "role": "secondary",
+        "displayName": "Rust Ink",
+        "canonical": "#1c0907",
+        "tonalRamp": [
+          "oklch(15% 0.03 35)",
+          "oklch(25% 0.05 35)",
+          "oklch(36% 0.06 35)",
+          "oklch(48% 0.07 35)",
+          "oklch(62% 0.08 35)",
+          "oklch(72% 0.07 35)",
+          "oklch(83% 0.05 35)",
+          "oklch(95% 0.02 35)"
+        ]
+      },
+      "ochre-lamp": {
+        "role": "secondary",
+        "displayName": "Ochre Lamp",
+        "canonical": "#c4a05e",
+        "tonalRamp": [
+          "oklch(15% 0.03 80)",
+          "oklch(25% 0.05 80)",
+          "oklch(37% 0.06 80)",
+          "oklch(50% 0.08 80)",
+          "oklch(62% 0.09 80)",
+          "oklch(72% 0.09 80)",
+          "oklch(84% 0.06 80)",
+          "oklch(95% 0.02 80)"
+        ]
+      },
+      "ochre-soft": {
+        "role": "secondary",
+        "displayName": "Ochre Soft",
+        "canonical": "#231a07",
+        "tonalRamp": [
+          "oklch(15% 0.03 80)",
+          "oklch(25% 0.05 80)",
+          "oklch(37% 0.06 80)",
+          "oklch(50% 0.08 80)",
+          "oklch(62% 0.09 80)",
+          "oklch(72% 0.09 80)",
+          "oklch(84% 0.06 80)",
+          "oklch(95% 0.02 80)"
+        ]
+      },
+      "sage-clear": {
+        "role": "tertiary",
+        "displayName": "Sage Clear",
+        "canonical": "#69b598",
+        "tonalRamp": [
+          "oklch(15% 0.03 165)",
+          "oklch(25% 0.04 165)",
+          "oklch(37% 0.05 165)",
+          "oklch(50% 0.07 165)",
+          "oklch(62% 0.08 165)",
+          "oklch(71% 0.08 165)",
+          "oklch(83% 0.05 165)",
+          "oklch(95% 0.02 165)"
+        ]
+      },
+      "sage-clear-soft": {
+        "role": "tertiary",
+        "displayName": "Sage Clear Soft",
+        "canonical": "#0d2419",
+        "tonalRamp": [
+          "oklch(15% 0.03 165)",
+          "oklch(25% 0.04 165)",
+          "oklch(37% 0.05 165)",
+          "oklch(50% 0.07 165)",
+          "oklch(62% 0.08 165)",
+          "oklch(71% 0.08 165)",
+          "oklch(83% 0.05 165)",
+          "oklch(95% 0.02 165)"
+        ]
+      },
+      "periwinkle-compute": {
+        "role": "tertiary",
+        "displayName": "Periwinkle Compute",
+        "canonical": "#8285ba",
+        "tonalRamp": [
+          "oklch(15% 0.03 280)",
+          "oklch(25% 0.04 280)",
+          "oklch(36% 0.05 280)",
+          "oklch(49% 0.06 280)",
+          "oklch(62% 0.07 280)",
+          "oklch(72% 0.06 280)",
+          "oklch(84% 0.04 280)",
+          "oklch(95% 0.015 280)"
+        ]
+      },
+      "periwinkle-soft": {
+        "role": "tertiary",
+        "displayName": "Periwinkle Soft",
+        "canonical": "#161628",
+        "tonalRamp": [
+          "oklch(15% 0.03 280)",
+          "oklch(25% 0.04 280)",
+          "oklch(36% 0.05 280)",
+          "oklch(49% 0.06 280)",
+          "oklch(62% 0.07 280)",
+          "oklch(72% 0.06 280)",
+          "oklch(84% 0.04 280)",
+          "oklch(95% 0.015 280)"
+        ]
+      },
+      "rose-data": {
+        "role": "tertiary",
+        "displayName": "Rose Data",
+        "canonical": "#b87da2",
+        "tonalRamp": [
+          "oklch(15% 0.03 340)",
+          "oklch(25% 0.04 340)",
+          "oklch(37% 0.06 340)",
+          "oklch(50% 0.07 340)",
+          "oklch(64% 0.08 340)",
+          "oklch(73% 0.07 340)",
+          "oklch(84% 0.05 340)",
+          "oklch(95% 0.02 340)"
+        ]
+      },
+      "drydock-charcoal": {
+        "role": "neutral",
+        "displayName": "Drydock Charcoal",
+        "canonical": "#161918",
+        "tonalRamp": [
+          "oklch(15% 0.006 150)",
+          "oklch(21% 0.006 150)",
+          "oklch(27% 0.007 150)",
+          "oklch(35% 0.008 150)",
+          "oklch(50% 0.01 150)",
+          "oklch(64% 0.01 150)",
+          "oklch(80% 0.008 150)",
+          "oklch(95% 0.005 150)"
+        ]
+      },
+      "keel-shadow": {
+        "role": "neutral",
+        "displayName": "Keel Shadow",
+        "canonical": "#101210",
+        "tonalRamp": [
+          "oklch(15% 0.006 150)",
+          "oklch(21% 0.006 150)",
+          "oklch(27% 0.007 150)",
+          "oklch(35% 0.008 150)",
+          "oklch(50% 0.01 150)",
+          "oklch(64% 0.01 150)",
+          "oklch(80% 0.008 150)",
+          "oklch(95% 0.005 150)"
+        ]
+      },
+      "hull-graphite": {
+        "role": "neutral",
+        "displayName": "Hull Graphite",
+        "canonical": "#1d201e",
+        "tonalRamp": [
+          "oklch(15% 0.006 150)",
+          "oklch(21% 0.006 150)",
+          "oklch(27% 0.007 150)",
+          "oklch(35% 0.008 150)",
+          "oklch(50% 0.01 150)",
+          "oklch(64% 0.01 150)",
+          "oklch(80% 0.008 150)",
+          "oklch(95% 0.005 150)"
+        ]
+      },
+      "raised-graphite": {
+        "role": "neutral",
+        "displayName": "Raised Graphite",
+        "canonical": "#252924",
+        "tonalRamp": [
+          "oklch(15% 0.006 150)",
+          "oklch(21% 0.006 150)",
+          "oklch(27% 0.007 150)",
+          "oklch(35% 0.008 150)",
+          "oklch(50% 0.01 150)",
+          "oklch(64% 0.01 150)",
+          "oklch(80% 0.008 150)",
+          "oklch(95% 0.005 150)"
+        ]
+      },
+      "seam-line": {
+        "role": "neutral",
+        "displayName": "Seam Line",
+        "canonical": "#2c312d",
+        "tonalRamp": [
+          "oklch(15% 0.006 150)",
+          "oklch(21% 0.006 150)",
+          "oklch(27% 0.007 150)",
+          "oklch(35% 0.008 150)",
+          "oklch(50% 0.01 150)",
+          "oklch(64% 0.01 150)",
+          "oklch(80% 0.008 150)",
+          "oklch(95% 0.005 150)"
+        ]
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "Field Line",
+        "canonical": "#383d39",
+        "tonalRamp": [
+          "oklch(15% 0.006 150)",
+          "oklch(21% 0.006 150)",
+          "oklch(27% 0.007 150)",
+          "oklch(35% 0.008 150)",
+          "oklch(50% 0.01 150)",
+          "oklch(64% 0.01 150)",
+          "oklch(80% 0.008 150)",
+          "oklch(95% 0.005 150)"
+        ]
+      },
+      "chalk-line": {
+        "role": "neutral",
+        "displayName": "Chalk Line",
+        "canonical": "#d8ddd6",
+        "tonalRamp": [
+          "oklch(15% 0.006 140)",
+          "oklch(21% 0.006 140)",
+          "oklch(27% 0.007 140)",
+          "oklch(35% 0.008 140)",
+          "oklch(50% 0.01 140)",
+          "oklch(64% 0.01 140)",
+          "oklch(80% 0.008 140)",
+          "oklch(95% 0.005 140)"
+        ]
+      },
+      "chalk-ink": {
+        "role": "neutral",
+        "displayName": "Chalk Ink",
+        "canonical": "#eef0ec",
+        "tonalRamp": [
+          "oklch(15% 0.006 140)",
+          "oklch(21% 0.006 140)",
+          "oklch(27% 0.007 140)",
+          "oklch(35% 0.008 140)",
+          "oklch(50% 0.01 140)",
+          "oklch(64% 0.01 140)",
+          "oklch(80% 0.008 140)",
+          "oklch(95% 0.005 140)"
+        ]
+      },
+      "weathered-sage": {
+        "role": "neutral",
+        "displayName": "Weathered Sage",
+        "canonical": "#8a9189",
+        "tonalRamp": [
+          "oklch(15% 0.008 145)",
+          "oklch(25% 0.01 145)",
+          "oklch(36% 0.012 145)",
+          "oklch(48% 0.013 145)",
+          "oklch(58% 0.014 145)",
+          "oklch(65% 0.014 145)",
+          "oklch(80% 0.01 145)",
+          "oklch(95% 0.005 145)"
+        ]
+      },
+      "faint-sage": {
+        "role": "neutral",
+        "displayName": "Faint Sage",
+        "canonical": "#606963",
+        "tonalRamp": [
+          "oklch(15% 0.008 155)",
+          "oklch(25% 0.01 155)",
+          "oklch(36% 0.012 155)",
+          "oklch(49% 0.014 155)",
+          "oklch(58% 0.014 155)",
+          "oklch(66% 0.013 155)",
+          "oklch(80% 0.01 155)",
+          "oklch(95% 0.005 155)"
+        ]
+      },
+      "halo-sage": {
+        "role": "neutral",
+        "displayName": "Halo Sage",
+        "canonical": "rgba(111, 200, 160, 0.16)",
+        "tonalRamp": [
+          "oklch(15% 0.03 160)",
+          "oklch(25% 0.04 160)",
+          "oklch(37% 0.05 160)",
+          "oklch(50% 0.07 160)",
+          "oklch(62% 0.08 160)",
+          "oklch(74% 0.09 160)",
+          "oklch(85% 0.06 160)",
+          "oklch(95% 0.02 160)"
+        ]
+      },
+      "mask-stop": {
+        "role": "neutral",
+        "displayName": "Mask Stop",
+        "canonical": "#000",
+        "tonalRamp": [
+          "oklch(0% 0 0)",
+          "oklch(15% 0 0)",
+          "oklch(30% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(60% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(88% 0 0)",
+          "oklch(100% 0 0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "the landing H1 only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "centred section intros on provider, lab and fallback pages, with a 680px measure."
+      },
+      "chapter": {
+        "displayName": "Chapter",
+        "purpose": "left-aligned landing chapter headings, with a 640px measure."
+      },
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "the title of a track view."
+      },
+      "feature-title": {
+        "displayName": "Feature title",
+        "purpose": "the featured defect's title and lab names in a finale."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "card titles and lab cards."
+      },
+      "subtitle": {
+        "displayName": "Subtitle",
+        "purpose": "problem list items, tour panel titles, phase names in sequence cards, explorer panel titles."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "the paragraph under a headline or chapter, in weathered sage."
+      },
+      "body-large": {
+        "displayName": "Body large",
+        "purpose": "the opening paragraph of an MDX hero panel."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "long-form MDX prose, capped at 78ch, in weathered sage. Register and card bodies run 14–15px at 1.6–1.7."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "medium buttons, header nav links (500), track sidebar items (13.5px), tour tab titles."
+      },
+      "small-body": {
+        "displayName": "Small body",
+        "purpose": "tour descriptions, register Now/Fixed text, fact lists, dialog and footer copy."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "eyebrows over stats, register sub-sections (\"How you would find it\") and table headers, in weathered sage."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "defect IDs, \"Phase 3\", \"+4 closed\", counts, breadcrumbs (uppercase, 0.06em). Stat values scale up to 28px bold at -0.02em."
+      },
+      "evidence": {
+        "displayName": "Evidence",
+        "purpose": "configuration strings shown as a state (\"allow INGRESS · tcp:22 · source 0.0.0.0/0\")."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "command blocks. Comment lines are italic weathered sage, so the commands stand out in chalk ink."
+      }
+    },
+    "shadows": [
+      {
+        "name": "resting",
+        "value": "0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -10px rgba(0, 0, 0, 0.55)",
+        "purpose": "Default resting cards, stat cards, register entries, active phase step."
+      },
+      {
+        "name": "lifted",
+        "value": "0 2px 4px rgba(0, 0, 0, 0.55), 0 28px 48px -20px rgba(0, 0, 0, 0.7)",
+        "purpose": "Hovered interactive cards, open register entries, floating panels."
+      },
+      {
+        "name": "chalk-line",
+        "value": "4px 4px 0 #d8ddd6",
+        "purpose": "The single showcase diagram frame per page, with a chalk-line border."
+      }
+    ],
+    "motion": [
+      {
+        "name": "micro",
+        "value": "120ms ease-out",
+        "purpose": "Buttons, segments, nav items."
+      },
+      {
+        "name": "hover",
+        "value": "150ms",
+        "purpose": "Card lift, chips, links."
+      },
+      {
+        "name": "progress",
+        "value": "300ms",
+        "purpose": "Register chevron rotation, phase bar and chapter progress colour."
+      },
+      {
+        "name": "ease-entrance",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Headline lines rising 22px over 1s."
+      },
+      {
+        "name": "ease-pop",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "purpose": "The one keyword popping into the hero H1. The only overshoot in the system."
+      },
+      {
+        "name": "walkthrough-step",
+        "value": "2800ms (+2200ms on first and last)",
+        "purpose": "Hero map autoplay, pausable."
+      },
+      {
+        "name": "scroll-reveal",
+        "value": "560ms ease-out, 24px",
+        "purpose": "FadeIn on headers below the fold; body staggered 130ms; never hides content without JS."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Tinted teal CTA with trailing arrow; pairs with a secondary.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Explore Harbour <svg width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 7h8M7 3l4 4-4 4\"/></svg></button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 13px 22px; border: 0; border-radius: 10px; font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap; cursor: pointer; transition: all 120ms ease-out; } .ds-btn:active { transform: scale(0.97); } .ds-btn:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; } .ds-btn-primary { background: color-mix(in srgb, var(--gl-primary) 16%, transparent); color: var(--gl-primary); } .ds-btn-primary:hover { background: color-mix(in srgb, var(--gl-primary) 24%, transparent); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Chalk-tinted companion to the primary CTA.",
+      "html": "<button class=\"ds-btn-secondary\">See how it works</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; padding: 13px 22px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--gl-text) 6%, transparent); color: var(--gl-text); font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; cursor: pointer; transition: all 120ms ease-out; } .ds-btn-secondary:hover { background: color-mix(in srgb, var(--gl-text) 10%, transparent); } .ds-btn-secondary:active { transform: scale(0.97); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "segment-active",
+      "description": "Register filters: keel-shadow well, solid teal active segment.",
+      "html": "<div class=\"ds-seg\" role=\"group\" aria-label=\"Filter by severity\"><button class=\"ds-seg-item is-active\" aria-pressed=\"true\">All</button><button class=\"ds-seg-item\" aria-pressed=\"false\">Critical</button><button class=\"ds-seg-item\" aria-pressed=\"false\">High</button><button class=\"ds-seg-item\" aria-pressed=\"false\">Medium</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--gl-border); border-radius: 9px; background: var(--gl-bg-subtle); } .ds-seg-item { padding: 7px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--gl-text-muted); font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: color 120ms; } .ds-seg-item:hover { color: var(--gl-text); } .ds-seg-item:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; } .ds-seg-item.is-active { background: var(--gl-primary); color: var(--gl-primary-ink); font-weight: 600; }"
+    },
+    {
+      "name": "Toggle Chip",
+      "kind": "chip",
+      "refersTo": "toggle-chip",
+      "description": "Map overlay toggles; teal-soft when active.",
+      "html": "<div style=\"display:flex;gap:8px\"><button class=\"ds-chip is-active\" aria-pressed=\"true\">Defects</button><button class=\"ds-chip\" aria-pressed=\"false\">Firewall</button><button class=\"ds-chip\" aria-pressed=\"false\">Private access</button></div>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--gl-border); border-radius: 999px; background: var(--gl-surface); color: var(--gl-text-muted); font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 12.5px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 150ms; } .ds-chip:hover { border-color: var(--gl-border-input); background: var(--gl-surface-2); color: var(--gl-text); } .ds-chip:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--gl-primary) 30%, transparent); } .ds-chip.is-active { border-color: color-mix(in srgb, var(--gl-primary) 30%, transparent); background: var(--gl-primary-soft); color: var(--gl-primary); font-weight: 600; }"
+    },
+    {
+      "name": "Severity Badges and Defect Chip",
+      "kind": "chip",
+      "refersTo": "severity-critical",
+      "description": "The four severity treatments plus the mono rust defect ID chip.",
+      "html": "<div style=\"display:flex;flex-wrap:wrap;gap:8px;align-items:center\"><a class=\"ds-defect\" href=\"#D3a\">D3a · phase 2</a><span class=\"ds-sev ds-sev-critical\">critical</span><span class=\"ds-sev ds-sev-high\">high</span><span class=\"ds-sev ds-sev-medium\">medium</span><span class=\"ds-sev ds-sev-low\">low</span></div>",
+      "css": ".ds-sev { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 10.5px; line-height: 1; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; } .ds-sev-critical { background: var(--gl-danger); color: var(--gl-danger-ink); } .ds-sev-high { background: var(--gl-danger-soft); color: var(--gl-danger); } .ds-sev-medium { background: var(--gl-warning-soft); color: var(--gl-warning); } .ds-sev-low { border: 1px solid var(--gl-border); background: var(--gl-surface-2); color: var(--gl-text-muted); } .ds-defect { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--gl-danger) 30%, transparent); border-radius: 999px; background: var(--gl-danger-soft); color: var(--gl-danger); font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 1; font-weight: 600; text-decoration: none; white-space: nowrap; transition: border-color 150ms; } .ds-defect:hover { border-color: color-mix(in srgb, var(--gl-danger) 60%, transparent); } .ds-defect:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; }"
+    },
+    {
+      "name": "Phase Rail",
+      "kind": "custom",
+      "refersTo": "phase-step-active",
+      "description": "Signature remediation-sequence stepper; progress bars fill teal up to the active phase.",
+      "html": "<div class=\"ds-rail\" role=\"group\" aria-label=\"Remediation phase\"><button class=\"ds-step\" aria-pressed=\"false\"><span class=\"ds-step-bar is-done\"></span><span class=\"ds-step-num\">Phase 0</span><span class=\"ds-step-name\">As found</span><span class=\"ds-step-meta\">17 open</span></button><button class=\"ds-step is-active\" aria-pressed=\"true\"><span class=\"ds-step-bar is-done\"></span><span class=\"ds-step-num\">Phase 1</span><span class=\"ds-step-name\">Groundwork</span><span class=\"ds-step-meta\">+2 closed</span></button><button class=\"ds-step\" aria-pressed=\"false\"><span class=\"ds-step-bar\"></span><span class=\"ds-step-num\">Phase 2</span><span class=\"ds-step-name\">Secure access</span><span class=\"ds-step-meta\">+3 closed</span></button></div>",
+      "css": ".ds-rail { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--gl-border); border-radius: 12px; background: var(--gl-bg-subtle); } .ds-step { display: flex; flex: 1; min-width: 132px; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border: 1px solid transparent; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; transition: background-color 120ms; } .ds-step:hover { background: color-mix(in srgb, var(--gl-surface) 60%, transparent); } .ds-step:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; } .ds-step.is-active { border-color: var(--gl-border); background: var(--gl-surface); box-shadow: var(--gl-shadow); } .ds-step-bar { display: block; width: 100%; height: 4px; margin-bottom: 4px; border-radius: 999px; background: var(--gl-border); transition: background-color 300ms; } .ds-step-bar.is-done { background: var(--gl-primary); } .ds-step-num { font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gl-text-faint); } .ds-step.is-active .ds-step-num { color: var(--gl-primary); } .ds-step-name { font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 13px; font-weight: 600; color: var(--gl-text-muted); } .ds-step.is-active .ds-step-name { color: var(--gl-text); } .ds-step-meta { font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: var(--gl-text-faint); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Command Block",
+      "kind": "custom",
+      "refersTo": "command-block",
+      "description": "Terminal slab for detect and fix commands; comments dimmed; 12px corners so it nests in 16px cards.",
+      "html": "<div class=\"ds-cmd\"><div class=\"ds-cmd-bar\"><span class=\"ds-cmd-label\">detect</span><span class=\"ds-cmd-dots\" aria-hidden=\"true\"><i></i><i></i><i></i></span></div><pre class=\"ds-cmd-pre\"><code><span class=\"ds-cmd-comment\"># SSH open to the internet?</span>\ngcloud compute firewall-rules list \\\n  --filter=\"allowed.ports:22 AND sourceRanges:0.0.0.0/0\"</code></pre></div>",
+      "css": ".ds-cmd { overflow: hidden; border: 1px solid var(--gl-border); border-radius: 12px; background: var(--gl-bg-subtle); } .ds-cmd-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid var(--gl-border); } .ds-cmd-label { font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gl-text-faint); } .ds-cmd-dots { display: flex; gap: 6px; } .ds-cmd-dots i { display: block; width: 8px; height: 8px; border-radius: 999px; background: var(--gl-border); } .ds-cmd-pre { margin: 0; padding: 16px; overflow-x: auto; font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 12.5px; line-height: 1.7; color: var(--gl-text); } .ds-cmd-comment { color: var(--gl-text-muted); font-style: italic; }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "card-stat",
+      "description": "Register summary tile: faint eyebrow with severity dot, mono value.",
+      "html": "<div style=\"display:flex;gap:14px\"><div class=\"ds-stat\"><p class=\"ds-eyebrow\"><span class=\"ds-dot\" style=\"background:var(--gl-danger)\"></span>critical</p><p class=\"ds-stat-value\">4</p></div><div class=\"ds-stat\"><p class=\"ds-eyebrow\">Total</p><p class=\"ds-stat-value\">17</p></div></div>",
+      "css": ".ds-stat { min-width: 140px; padding: 20px; border: 1px solid var(--gl-border); border-radius: 24px; background: var(--gl-surface); box-shadow: var(--gl-shadow); } .ds-eyebrow { display: flex; align-items: center; gap: 6px; margin: 0; font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gl-text-faint); } .ds-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; } .ds-stat-value { margin: 12px 0 0; font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 28px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; color: var(--gl-text); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Track Sidebar Nav",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Keel-shadow sidebar with solid teal active item and stroke icons.",
+      "html": "<nav class=\"ds-side\" aria-label=\"Track sections\"><a class=\"ds-side-item\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 22 22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 5h16M3 11h16M3 17h16\"/></svg>About</a><a class=\"ds-side-item is-active\" href=\"#\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 22 22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"5\" width=\"16\" height=\"14\" rx=\"2\"/><path d=\"M3 9h16\"/></svg>Map</a><a class=\"ds-side-item\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 22 22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 17h16M6 17v-5M10 17V8M14 17v-7M18 17V5\"/></svg>Defects</a></nav>",
+      "css": ".ds-side { display: flex; width: 240px; flex-direction: column; gap: 2px; padding: 22px 16px; border-right: 1px solid var(--gl-border); background: var(--gl-bg-subtle); } .ds-side-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; color: var(--gl-text-muted); font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 13.5px; font-weight: 500; text-decoration: none; transition: all 120ms; } .ds-side-item:hover { background: var(--gl-surface); color: var(--gl-text); } .ds-side-item:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; } .ds-side-item.is-active { background: var(--gl-primary); color: var(--gl-primary-ink); font-weight: 600; }"
+    },
+    {
+      "name": "Section Header",
+      "kind": "custom",
+      "refersTo": "title",
+      "description": "In-app heading: teal bar, title, extending seam rule.",
+      "html": "<div class=\"ds-sh\"><div class=\"ds-sh-lead\"><span class=\"ds-sh-bar\" aria-hidden=\"true\"></span><h2 class=\"ds-sh-title\">Load balancer chain</h2></div><span class=\"ds-sh-rule\" aria-hidden=\"true\"></span></div>",
+      "css": ".ds-sh { display: flex; align-items: center; gap: 16px; } .ds-sh-lead { display: flex; align-items: center; gap: 10px; } .ds-sh-bar { display: block; width: 3px; height: 18px; border-radius: 999px; background: var(--gl-primary); } .ds-sh-title { margin: 0; font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 15px; font-weight: 700; letter-spacing: -0.015em; color: var(--gl-text); } .ds-sh-rule { flex: 1; border-top: 1px solid var(--gl-border); }"
+    },
+    {
+      "name": "Chapter Marker",
+      "kind": "nav",
+      "refersTo": "chapter-progress",
+      "description": "Sticky rail showing progress from as found to healthy; turns sage at the healthy end.",
+      "html": "<nav class=\"ds-chap\" aria-label=\"Page chapters\"><ol><li><a href=\"#as-found\"><span class=\"ds-chap-dot is-reached\"></span><span class=\"ds-chap-line is-reached\"></span>As found</a></li><li><a href=\"#find\"><span class=\"ds-chap-dot is-reached\"></span><span class=\"ds-chap-line\"></span>Find it</a></li><li><a href=\"#order\" aria-current=\"location\" class=\"is-current\"><span class=\"ds-chap-dot is-reached\"></span><span class=\"ds-chap-line\"></span>Order it</a></li><li><a href=\"#fix\"><span class=\"ds-chap-dot\"></span>Fix it</a></li></ol></nav>",
+      "css": ".ds-chap ol { margin: 0; padding: 0; list-style: none; width: 148px; } .ds-chap a { position: relative; display: flex; min-height: 44px; align-items: center; gap: 12px; color: var(--gl-text-muted); font-family: var(--font-inter), Inter, system-ui, sans-serif; font-size: 13px; font-weight: 500; text-decoration: none; transition: color 300ms; } .ds-chap a:hover { color: var(--gl-text); } .ds-chap a:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; } .ds-chap a.is-current { color: var(--gl-text); font-weight: 600; } .ds-chap-dot { position: relative; z-index: 1; width: 11px; height: 11px; flex-shrink: 0; border: 2px solid var(--gl-border-input); border-radius: 999px; background: var(--gl-bg); transition: background-color 300ms, border-color 300ms; } .ds-chap-dot.is-reached { border-color: var(--gl-primary); background: var(--gl-primary); } .ds-chap-line { position: absolute; left: 5px; top: calc(50% + 5.5px); height: calc(100% - 11px); width: 1px; background: var(--gl-border); } .ds-chap-line.is-reached { background: var(--gl-primary); }"
+    },
+    {
+      "name": "Register Entry with state switch",
+      "kind": "card",
+      "refersTo": "state-well",
+      "description": "One open register entry with a Now/Fixed switch over a mono state well and the fix command.",
+      "html": "<article class=\"ds-entry\"><header class=\"ds-entry-head\"><span class=\"ds-entry-id\">D2</span><span class=\"ds-entry-sev\">high</span><h3>SSH open to the internet</h3></header><div class=\"ds-entry-body\"><div class=\"ds-entry-row\"><div class=\"ds-entry-seg\" role=\"group\" aria-label=\"Show the configuration\"><button aria-pressed=\"false\">Now</button><button aria-pressed=\"true\" class=\"is-active\">Fixed</button></div><span class=\"ds-entry-status\">closed in phase 2</span></div><p class=\"ds-entry-well\" aria-live=\"polite\">allow INGRESS · tcp:22 · source 35.235.240.0/20 · priority 900</p></div></article>",
+      "css": ".ds-entry { max-width: 560px; overflow: hidden; border: 1px solid var(--gl-border); border-radius: 16px; background: var(--gl-surface); box-shadow: var(--gl-shadow-lg); font-family: var(--font-inter), Inter, system-ui, sans-serif; } .ds-entry-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 16px 20px; } .ds-entry-head h3 { margin: 0; flex: 1; color: var(--gl-text); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; } .ds-entry-id { padding: 4px 10px; border-radius: 999px; background: var(--gl-danger-soft); color: var(--gl-danger); font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 1; font-weight: 600; } .ds-entry-sev { padding: 4px 10px; border-radius: 999px; background: var(--gl-danger-soft); color: var(--gl-danger); font-size: 10.5px; line-height: 1; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; } .ds-entry-body { padding: 20px; border-top: 1px solid var(--gl-border); } .ds-entry-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; } .ds-entry-seg { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--gl-border); border-radius: 9px; background: var(--gl-bg-subtle); } .ds-entry-seg button { padding: 7px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--gl-text-muted); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; } .ds-entry-seg button:hover { color: var(--gl-text); } .ds-entry-seg button:focus-visible { outline: 2px solid var(--gl-primary); outline-offset: 2px; } .ds-entry-seg button.is-active { background: var(--gl-primary); color: var(--gl-primary-ink); font-weight: 600; } .ds-entry-status { color: var(--gl-success); font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; } .ds-entry-well { margin: 12px 0 0; padding: 14px 16px; border: 1px solid var(--gl-border); border-radius: 10px; background: var(--gl-bg); color: var(--gl-text); font-family: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace; font-size: 13px; line-height: 1.6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Hull on Blocks",
+    "overview": "A ship in dry dock is lifted out of the water so every seam, weld and patch can be seen. Drydock's interface does the same for a cloud platform. The ground is a calm, green-tinted charcoal. The structure sits on it plainly: diagrams, registers and commands rendered at full fidelity, with nothing decorative in the way. One colour, Signal Teal, marks what is active, selected or moving forward. Everything else is matte and desaturated, so a rust badge or a failing hop reads immediately as the flaw, and sage reads immediately as the fix.\n\nThe density is that of a technical workbench, not a brochure. Type is tight and bold at the top of the hierarchy and quiet below it. Anything that is evidence (defect IDs, phase numbers, counts, IP ranges, configuration, `gcloud` commands) is set in Geist Mono with tabular figures. Depth comes from a four-rung surface ladder with soft shadows rather than lines or ornament. Motion is short, purposeful and always stoppable: headlines rise, the phase rail fills, cards lift a couple of pixels, and anything that plays on its own has a pause.\n\nThe graphics are the product itself. Marketing surfaces show live renders of the real architecture model, a real register entry and real commands, never illustrations or animated stand-ins. The system is dark only, gradient text is retired, and every surface stays readable with JavaScript off.",
+    "keyCharacteristics": [
+      "Dark only, on green-tinted charcoal, never pure black or navy.",
+      "One saturated signal (teal) for state; rust for broken, sage for fixed, ochre for risk.",
+      "Depth from the surface ladder plus soft shadows; one hard chalk-line shadow per page.",
+      "Evidence in mono: IDs, phases, counts, configuration and commands use Geist Mono with tabular figures.",
+      "Product previews built from the real model, not illustrations.",
+      "Nothing below 11px; nothing a reader must read in faint sage.",
+      "Quiet motion that pauses, respects `prefers-reduced-motion`, and never hides content from a page without JavaScript."
+    ],
+    "rules": [
+      {
+        "name": "The Signal Rule",
+        "body": "Teal marks state (active, selected, focused, progressed) and nothing else. It is never a diagram category, a severity or a decorative fill. If removing the teal would not change what a reader knows about where they are, it should not be teal.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rust Means Broken Rule",
+        "body": "Rust appears only where something is defective or failing. A rust element with no defect behind it is a false alarm; risk without a defect is ochre.",
+        "section": "colors"
+      },
+      {
+        "name": "The Passed Means Sage Rule",
+        "body": "Closed defects, passing journeys, fixed configuration and the healthy end state are sage. Teal never marks a completed fix, so \"you are here\" and \"this check passed\" never blur.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tone Map Rule",
+        "body": "Diagram colours come from the `--tone-*` variables (edge → ochre, compute → periwinkle, data → rose, private → sage, danger → rust, external → weathered sage), never from hex literals, and teal stays reserved for selection.",
+        "section": "colors"
+      },
+      {
+        "name": "The Evidence in Mono Rule",
+        "body": "If a value could be copied into a terminal, grepped for or cross-referenced (an ID, phase number, count, CIDR, configuration line or command), it is set in Geist Mono with tabular figures, even inside a sentence. Prose never is.",
+        "section": "typography"
+      },
+      {
+        "name": "The Solid Emphasis Rule",
+        "body": "Emphasis in a heading is at most one word or short phrase in solid Signal Teal. No gradient text, anywhere.",
+        "section": "typography"
+      },
+      {
+        "name": "The 11px Floor Rule",
+        "body": "No text is smaller than 11px. The remaining 10px labels in the track views (register and explorer eyebrows, the component panel, the `Eyebrow` faint variant) are drift to raise, not a precedent.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tightening Rule",
+        "body": "Tracking tightens as size grows (-0.01em at 15px to -0.035em at 78px); uppercase micro-labels go the other way (+0.08em to +0.12em). Headings get `text-wrap: balance`, paragraphs `text-wrap: pretty`.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Rung Rule",
+        "body": "Nest one surface step at a time. A hull-graphite card holds raised-graphite panels, and a recessed well inside it drops to charcoal or keel shadow. Never skip a rung, and never put two adjacent surfaces on the same tone with only a border between them.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Chalk Line Rule",
+        "body": "The hard off-white offset shadow appears at most once per page, around the single most important diagram. A second one makes the page look broken rather than the architecture. Never pair it with a fade or mask that would clip it.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Quiet Halo Rule",
+        "body": "Ambient radial glows (halo sage, 7–16% opacity) sit only at the top of a page, fade to transparent well before the edges, and dissolve into drydock charcoal.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Nested Corner Rule",
+        "body": "An inner radius is never larger than its container's. Inside a 16px card use 10–12px; reserve 24px for blocks that sit directly on the page.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** use Signal Teal (`#2eb8a0`) only for active, selected, focused and progressed states, links, and one highlighted word per heading.",
+      "**Do** mark every closed, passed or fixed state in sage, every defect in rust and every risk in ochre.",
+      "**Do** step the surface ladder one rung per nesting level: keel shadow → charcoal → hull graphite → raised graphite.",
+      "**Do** set IDs, phase numbers, counts, CIDRs, configuration and commands in Geist Mono with tabular figures, even mid-sentence.",
+      "**Do** keep every label at 11px or larger, and set anything a reader needs in weathered sage rather than faint sage.",
+      "**Do** keep inner corners at or below their container's: 10–12px inside a 16px card.",
+      "**Do** colour diagram nodes and edges through the `--tone-*` variables, keeping teal for selection.",
+      "**Do** pair every severity or pass/fail colour with a word, icon or number; colour is never the only signal.",
+      "**Do** build marketing previews from the real architecture model, register and commands (live `ArchitectureDiagram`s, real `gcloud` lines), not illustrations.",
+      "**Do** give anything that moves on its own a pause control, a hover or focus hold where it cycles, and a reduced-motion stop.",
+      "**Do** give every interactive target at least 44px, extending small icons with an inset hit area.",
+      "**Do** put in-app concept callouts behind a 2px teal left rule, and eyebrow sub-sections in 11px uppercase bold at 0.12em.",
+      "**Do** keep wide diagrams at their natural width inside a horizontally scrolling frame, and fade the trailing edge of horizontally scrolling tab rows."
+    ],
+    "donts": [
+      "**Don't** use gradient text (`background-clip: text` with a gradient), including in the hero. Emphasis is solid teal.",
+      "**Don't** add a light theme, or use pure black or a blue-navy ground.",
+      "**Don't** set text a reader must read in faint sage (`#606963`, about 3.1:1), or set any text below 11px.",
+      "**Don't** use rust for anything that is not a defect or a failure, teal for a finished fix, or teal as a diagram category or severity.",
+      "**Don't** apply the chalk-line hard shadow to more than one element per page, or mask and fade the figure that carries it.",
+      "**Don't** render a diagram twice to serve two breakpoints; crop the one SVG with CSS.",
+      "**Don't** hide content until JavaScript runs; hidden start states apply only after load and only below the fold.",
+      "**Don't** hardcode hex values in components; the only exceptions are the halo gradient and mask stops.",
+      "**Don't** add a third button family beyond tinted primary/secondary/ghost and the solid active segment.",
+      "**Don't** push ambient glows above 16% opacity or let them reach the edges of their region.",
+      "**Don't** assume Tailwind's default radii: here `rounded-md` is 12px, `rounded-lg` is 16px and `rounded-xl` is 24px.",
+      "**Don't** pull patterns from `design-system/` that Drydock doesn't ship (typewriter cards, testimonials, auth panels, floating fragments) unless a real surface needs them. Document them here first."
+    ]
+  }
+}

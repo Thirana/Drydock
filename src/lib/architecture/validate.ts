@@ -1,4 +1,10 @@
-import type { ArchitectureModel } from "./types";
+import type { ArchitectureModel, Box } from "./types";
+
+const contains = (outer: Box, inner: Box) =>
+  inner.x >= outer.x &&
+  inner.y >= outer.y &&
+  inner.x + inner.w <= outer.x + outer.w &&
+  inner.y + inner.h <= outer.y + outer.h;
 
 /**
  * Checks every cross-reference in a model. Called when a track is registered,
@@ -85,6 +91,22 @@ export function validateArchitecture(name: string, model: ArchitectureModel) {
       if (!at) errors.push(`${where}: unknown box "${c.at}"`);
       else if (!at.defects?.includes(c.defect))
         errors.push(`${where}: box ${c.at} does not list the defect`);
+      if (c.anchor) {
+        const anchor = index.get(c.anchor);
+        if (!anchor) errors.push(`${where}: unknown anchor box "${c.anchor}"`);
+        else if (at && !contains(anchor, at))
+          errors.push(`${where}: anchor ${c.anchor} does not contain ${c.at}`);
+      }
+    }
+    const revealed = new Set<string>();
+    for (const r of model.showcase.reveals ?? []) {
+      const where = `showcase reveal at phase ${r.phase}`;
+      if (!phases.has(r.phase)) errors.push(`${where}: unknown phase`);
+      for (const id of r.boxes) {
+        box(id, where);
+        if (revealed.has(id)) errors.push(`${where}: box ${id} listed twice`);
+        revealed.add(id);
+      }
     }
     const { x, y, width, height } = model.showcase.focus;
     if (

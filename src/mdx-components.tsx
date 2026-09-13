@@ -1,4 +1,5 @@
 import type { MDXComponents } from "mdx/types";
+import { isValidElement, type ReactNode } from "react";
 import { SeverityBadge } from "@/components/architecture/severity-badge";
 import {
   AddressBlock,
@@ -16,6 +17,23 @@ import {
 // Global MDX components. Most elements are styled by `.gl-prose` in
 // globals.css; h2 and tables need markup of their own. Track-specific
 // components (map, register, …) are bound to their data by the view page.
+/** Plain text of a React node, for building heading anchors. */
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return `${node}`;
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (isValidElement<{ children?: ReactNode }>(node))
+    return textOf(node.props.children);
+  return "";
+}
+
+/** "Where I would push back" → "where-i-would-push-back". */
+function slugOf(node: ReactNode) {
+  return textOf(node)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 const components: MDXComponents = {
   h2: ({ children }) => (
     <div className="mt-12 mb-6 flex items-center gap-4 first:mt-0">
@@ -24,7 +42,10 @@ const components: MDXComponents = {
           aria-hidden="true"
           className="bg-gl-primary h-[18px] w-[3px] shrink-0 rounded-full"
         />
-        <h2 className="text-gl-text text-[15px] font-bold tracking-[-0.015em] text-balance">
+        <h2
+          id={slugOf(children)}
+          className="text-gl-text scroll-mt-32 text-[15px] font-bold tracking-[-0.015em] text-balance"
+        >
           {children}
         </h2>
       </div>

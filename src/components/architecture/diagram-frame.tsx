@@ -61,7 +61,7 @@ function LineSample({
   );
 }
 
-function DiagramLegend() {
+export function DiagramLegend() {
   return (
     <ul className="text-gl-text-muted flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px]">
       <li className="inline-flex items-center gap-2">

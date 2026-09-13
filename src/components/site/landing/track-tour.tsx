@@ -13,16 +13,23 @@ import {
 } from "@/components/ui/icons";
 import { failingHopCount, journeyHighlight } from "@/lib/architecture/journeys";
 import { closedDefects } from "@/lib/architecture/state";
+import { toneColor } from "@/lib/architecture/tone";
 import type { MapModel } from "@/lib/architecture/types";
 import type { FeaturedTrack } from "@/lib/content/featured";
 import { cn } from "@/lib/utils";
 
 const EYEBROW =
-  "text-gl-text-faint text-[10px] font-bold tracking-[0.12em] uppercase";
+  "text-gl-text-muted text-[11px] font-bold tracking-[0.12em] uppercase";
 
 type TrackTourProps = Pick<
   FeaturedTrack,
-  "views" | "map" | "journey" | "components" | "chain" | "spotlight"
+  | "views"
+  | "map"
+  | "journey"
+  | "components"
+  | "chain"
+  | "spotlight"
+  | "addressPlan"
 >;
 
 /** Every view of the featured track as a tab, each with a live preview. */
@@ -52,67 +59,74 @@ export function TrackTour(props: TrackTourProps) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-5">
-      <div
-        role="tablist"
-        aria-label="Views of the track"
-        onKeyDown={onKeyDown}
-        className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 sm:-mx-8 sm:px-8 lg:mx-0 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:px-0"
-      >
-        {views.map((v, i) => {
-          const Icon = v.icon ? ICONS[v.icon] : IconList;
-          const selected = i === active;
-          return (
-            <button
-              key={v.slug}
-              ref={(el) => {
-                tabs.current[i] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`${id}-tab-${i}`}
-              aria-selected={selected}
-              aria-controls={`${id}-panel`}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => setActive(i)}
-              className={cn(
-                "flex shrink-0 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors duration-[120ms] lg:items-start lg:px-4 lg:py-3.5",
-                selected
-                  ? "border-gl-border bg-gl-surface shadow-gl"
-                  : "hover:bg-gl-surface/60 border-transparent",
-              )}
-            >
-              <span
-                aria-hidden="true"
+      <div className="relative min-w-0">
+        <div
+          role="tablist"
+          aria-label="Views of the track"
+          onKeyDown={onKeyDown}
+          className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 sm:-mx-8 sm:px-8 lg:mx-0 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:px-0"
+        >
+          {views.map((v, i) => {
+            const Icon = v.icon ? ICONS[v.icon] : IconList;
+            const selected = i === active;
+            return (
+              <button
+                key={v.slug}
+                ref={(el) => {
+                  tabs.current[i] = el;
+                }}
+                type="button"
+                role="tab"
+                id={`${id}-tab-${i}`}
+                aria-selected={selected}
+                aria-controls={`${id}-panel`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setActive(i)}
                 className={cn(
-                  "inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-[120ms]",
+                  "flex shrink-0 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors duration-[120ms] lg:items-start lg:px-4 lg:py-3.5",
                   selected
-                    ? "bg-gl-primary-soft text-gl-primary"
-                    : "bg-gl-surface-2 text-gl-text-muted",
+                    ? "border-gl-border bg-gl-surface shadow-gl"
+                    : "hover:bg-gl-surface/60 border-transparent",
                 )}
               >
-                <Icon size={16} />
-              </span>
-              <span className="min-w-0">
                 <span
+                  aria-hidden="true"
                   className={cn(
-                    "block text-[14px] font-semibold whitespace-nowrap",
-                    selected ? "text-gl-text" : "text-gl-text-muted",
+                    "inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-[120ms]",
+                    selected
+                      ? "bg-gl-primary-soft text-gl-primary"
+                      : "bg-gl-surface-2 text-gl-text-muted",
                   )}
                 >
-                  {v.title}
+                  <Icon size={16} />
                 </span>
-                <span
-                  className={cn(
-                    "text-gl-text-muted mt-1 hidden text-[12.5px] leading-[1.5] text-pretty",
-                    selected && "lg:block",
-                  )}
-                >
-                  {v.description}
+                <span className="min-w-0">
+                  <span
+                    className={cn(
+                      "block text-[14px] font-semibold whitespace-nowrap",
+                      selected ? "text-gl-text" : "text-gl-text-muted",
+                    )}
+                  >
+                    {v.title}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-gl-text-muted mt-1 hidden text-[12.5px] leading-[1.5] text-pretty",
+                      selected && "lg:block",
+                    )}
+                  >
+                    {v.description}
+                  </span>
                 </span>
-              </span>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
+        {/* More tabs sit off-screen on narrow layouts; fade the edge to say so. */}
+        <div
+          aria-hidden="true"
+          className="from-gl-bg pointer-events-none absolute inset-y-0 -right-5 w-12 bg-gradient-to-l to-transparent sm:-right-8 lg:hidden"
+        />
       </div>
 
       <div
@@ -135,7 +149,7 @@ export function TrackTour(props: TrackTourProps) {
             size="sm"
             trailing={<IconArrow size={12} />}
           >
-            Open
+            Open<span className="sr-only"> {view.title}</span>
           </ButtonLink>
         </div>
         <div key={view.slug} className="animate-fade-in flex flex-1 flex-col">
@@ -160,6 +174,10 @@ function Preview({ slug, ...data }: TrackTourProps & { slug: string }) {
       break;
     case "load-balancing":
       if (data.chain.length) return <ChainPreview chain={data.chain} />;
+      break;
+    case "ip-plan":
+      if (data.addressPlan.length)
+        return <AddressPlanPreview ranges={data.addressPlan} />;
       break;
     case "defects":
       return <RegisterPreview defects={data.spotlight} />;
@@ -197,7 +215,7 @@ function MapPreview({ map }: { map: MapModel }) {
           value={layer}
           onChange={setLayer}
         />
-        <span className="text-gl-text-faint font-mono text-[11px]">
+        <span className="text-gl-text-muted font-mono text-[11px]">
           phase 0 · as found
         </span>
       </Toolbar>
@@ -244,7 +262,7 @@ function JourneyPreview({
           <span
             className={cn(
               "font-mono text-[11.5px] font-semibold",
-              failing ? "text-gl-danger" : "text-gl-primary",
+              failing ? "text-gl-danger" : "text-gl-success",
             )}
           >
             {failing
@@ -275,7 +293,7 @@ function ComponentsPreview({
       {components.map((c) => (
         <li
           key={c.id}
-          className="border-gl-border bg-gl-bg flex flex-col rounded-xl border p-4"
+          className="border-gl-border bg-gl-bg flex flex-col rounded-[10px] border p-4"
         >
           <p className={EYEBROW}>{c.section}</p>
           <p className="text-gl-text mt-1.5 text-[15px] font-bold tracking-[-0.01em]">
@@ -287,7 +305,7 @@ function ComponentsPreview({
           <dl className="border-gl-border mt-4 grid gap-2 border-t pt-3">
             {c.facts.map((f) => (
               <div key={f.label}>
-                <dt className="text-gl-text-faint font-mono text-[10px] tracking-[0.08em] uppercase">
+                <dt className="text-gl-text-muted font-mono text-[11px] tracking-[0.08em] uppercase">
                   {f.label}
                 </dt>
                 <dd className="text-gl-text line-clamp-2 text-[12px] leading-[1.45]">
@@ -328,12 +346,12 @@ function ChainPreview({ chain }: { chain: FeaturedTrack["chain"] }) {
                   <span className="text-gl-text flex items-center gap-2 text-[12.5px] font-semibold whitespace-nowrap">
                     {link.label}
                     {link.defects.length > 0 && (
-                      <span className="text-gl-danger font-mono text-[10.5px]">
+                      <span className="text-gl-danger font-mono text-[11px]">
                         {link.defects.join(" ")}
                       </span>
                     )}
                   </span>
-                  <span className="text-gl-text-faint font-mono text-[10.5px] whitespace-nowrap">
+                  <span className="text-gl-text-muted font-mono text-[11px] whitespace-nowrap">
                     {link.sub}
                   </span>
                 </span>
@@ -346,6 +364,37 @@ function ChainPreview({ chain }: { chain: FeaturedTrack["chain"] }) {
   );
 }
 
+function AddressPlanPreview({
+  ranges,
+}: {
+  ranges: FeaturedTrack["addressPlan"];
+}) {
+  return (
+    <ul className="grid flex-1 content-center gap-3 p-5 sm:grid-cols-2">
+      {ranges.map((r) => (
+        <li
+          key={r.cidr}
+          className="border-gl-border bg-gl-bg rounded-[10px] border p-4"
+        >
+          <span className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full"
+              style={{ background: toneColor(r.tone) }}
+            />
+            <span className="text-gl-text font-mono text-[15px] font-bold tracking-[-0.01em]">
+              {r.cidr}
+            </span>
+          </span>
+          <span className="text-gl-text-muted mt-1.5 block text-[12.5px] leading-[1.5]">
+            {r.label}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function RegisterPreview({ defects }: { defects: FeaturedTrack["spotlight"] }) {
   return (
     <ol className="divide-gl-border flex-1 divide-y">
@@ -354,7 +403,7 @@ function RegisterPreview({ defects }: { defects: FeaturedTrack["spotlight"] }) {
           key={d.id}
           className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-4"
         >
-          <span className="text-gl-text-faint font-mono text-[11.5px] font-semibold">
+          <span className="text-gl-text-muted font-mono text-[11.5px] font-semibold">
             {d.id}
           </span>
           <span className="min-w-0">

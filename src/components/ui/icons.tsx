@@ -73,6 +73,13 @@ export const IconX = makeIcon(
   12,
   <path d="M3 3l6 6M9 3L3 9" />,
 );
+export const IconMenu = makeIcon(
+  "IconMenu",
+  16,
+  1.8,
+  16,
+  <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />,
+);
 export const IconChevronDown = makeIcon(
   "IconChevronDown",
   12,
@@ -169,56 +176,12 @@ export const IconAlert = makeIcon(
     <path d="M11 9v4M11 15.8v.01" />
   </>,
 );
-export const IconEye = makeIcon(
-  "IconEye",
-  22,
-  1.6,
-  22,
-  <>
-    <path d="M2 11s3.5-6.5 9-6.5S20 11 20 11s-3.5 6.5-9 6.5S2 11 2 11z" />
-    <circle cx="11" cy="11" r="2.75" />
-  </>,
-);
 export const IconList = makeIcon(
   "IconList",
   22,
   1.6,
   22,
   <path d="M3 5h16M3 11h16M3 17h16" />,
-);
-export const IconLock = makeIcon(
-  "IconLock",
-  22,
-  1.6,
-  22,
-  <>
-    <rect x="4" y="10" width="14" height="9" rx="2" />
-    <path d="M7.5 10V7a3.5 3.5 0 0 1 7 0v3" />
-  </>,
-);
-export const IconSearch = makeIcon(
-  "IconSearch",
-  22,
-  1.6,
-  22,
-  <>
-    <circle cx="10" cy="10" r="6" />
-    <path d="M14.5 14.5L19 19" />
-  </>,
-);
-export const IconSteps = makeIcon(
-  "IconSteps",
-  22,
-  1.6,
-  22,
-  <path d="M3 18h5v-5h5V8h6V4" />,
-);
-export const IconWrench = makeIcon(
-  "IconWrench",
-  22,
-  1.6,
-  22,
-  <path d="M13.5 3.5a4.5 4.5 0 0 0-4.2 6.1l-5.6 5.6a1.8 1.8 0 0 0 2.5 2.5l5.6-5.6a4.5 4.5 0 0 0 6.1-4.2l-2.7 2.7-2.4-.4-.4-2.4 2.7-2.7a4.4 4.4 0 0 0-1.6-.3z" />,
 );
 
 /** Icons addressable by name from content. */

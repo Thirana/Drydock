@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type SVGProps } from "react";
 import {
   anchor,
   labelPosition,
@@ -37,6 +37,11 @@ interface ArchitectureDiagramProps {
   crop?: Rect;
   /** Merged over the defaults; pass `min-w-0` to let the map shrink. */
   className?: string;
+  /**
+   * Boxes held back, with their edges. Passing this animates boxes in and out
+   * as the set changes.
+   */
+  hidden?: ReadonlySet<string>;
   /** Overlay key. Ignored while tracing a journey. */
   layer?: string;
   selectedId?: string | null;
@@ -53,6 +58,7 @@ export function ArchitectureDiagram({
   phase,
   crop,
   className,
+  hidden,
   layer = "all",
   selectedId = null,
   highlight = null,
@@ -64,6 +70,27 @@ export function ArchitectureDiagram({
   const patches = patchesAt(model, phase);
   const boxes = boxIndex(model);
   const clickable = !highlight && onSelect;
+
+  /** Opacity for a box or edge; faded and scaled in and out when `hidden` is in use. */
+  const visibility = (
+    ids: string[],
+    opacity: number,
+    scale: boolean,
+  ): SVGProps<SVGGElement> => {
+    if (!hidden) return { opacity };
+    const shown = ids.every((id) => !hidden.has(id));
+    return {
+      pointerEvents: shown ? undefined : "none",
+      style: {
+        opacity: shown ? opacity : 0,
+        transform: shown || !scale ? undefined : "scale(0.9)",
+        transformBox: "fill-box",
+        transformOrigin: "center",
+        transition:
+          "opacity 500ms ease, transform 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+      },
+    };
+  };
 
   const boxOpacity = (box: ResolvedBox<ArchGroup | ArchNode>) => {
     if (highlight) return highlight.lit.has(box.id) ? 1 : 0.32;
@@ -90,7 +117,7 @@ export function ArchitectureDiagram({
         return (
           <g
             key={g.id}
-            opacity={boxOpacity(g)}
+            {...visibility([g.id], boxOpacity(g), true)}
             {...selectable(
               g.label,
               clickable ? () => onSelect(g.id) : undefined,
@@ -184,7 +211,10 @@ export function ArchitectureDiagram({
         const labelWidth = (e.label?.length ?? 0) * 5.6 + 12;
 
         return (
-          <g key={`${e.from}-${e.to}-${i}`} opacity={opacity}>
+          <g
+            key={`${e.from}-${e.to}-${i}`}
+            {...visibility([e.from, e.to], opacity, false)}
+          >
             <path
               d={pathData(points)}
               fill="none"
@@ -230,7 +260,7 @@ export function ArchitectureDiagram({
         return (
           <g
             key={n.id}
-            opacity={boxOpacity(n)}
+            {...visibility([n.id], boxOpacity(n), true)}
             className={clickable ? "group" : undefined}
             {...selectable(
               n.label,

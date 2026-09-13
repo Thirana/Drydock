@@ -12,7 +12,7 @@ export function StatPills({
 }) {
   const items = [
     [stats.defects, "defects"],
-    [stats.phases, "phases"],
+    [stats.phases, "remediation phases"],
     [stats.journeys, "journeys"],
     [stats.components, "components"],
   ] as const;

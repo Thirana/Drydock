@@ -10,7 +10,7 @@ export function CommandBlock({
 }) {
   const lines = children.split("\n");
   return (
-    <div className="border-gl-border bg-gl-bg-subtle overflow-hidden rounded-xl border">
+    <div className="border-gl-border bg-gl-bg-subtle overflow-hidden rounded-md border">
       {label && (
         <div className="border-gl-border flex items-center justify-between border-b px-4 py-2">
           <span className="text-gl-text-faint font-mono text-[10.5px] font-semibold tracking-[0.12em] uppercase">

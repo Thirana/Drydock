@@ -16,14 +16,8 @@ export function PhaseSequence({ model }: { model: ArchitectureModel }) {
               className="border-gl-border bg-gl-surface shadow-gl flex flex-col gap-3 rounded-2xl border p-6"
             >
               <div className="flex items-start justify-between">
-                <span className="bg-gl-primary-soft text-gl-primary inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10.5px] leading-none font-semibold tracking-[0.08em] uppercase">
+                <span className="bg-gl-primary-soft text-gl-primary inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[11px] leading-none font-semibold tracking-[0.08em] uppercase">
                   Phase {p.number}
-                </span>
-                <span
-                  aria-hidden="true"
-                  className="text-gl-border font-mono text-[28px] leading-none font-bold"
-                >
-                  {String(p.number).padStart(2, "0")}
                 </span>
               </div>
               <h3 className="text-gl-text text-[18px] leading-[1.25] font-bold tracking-[-0.018em]">
@@ -32,7 +26,7 @@ export function PhaseSequence({ model }: { model: ArchitectureModel }) {
               <p className="text-gl-text-muted flex-1 text-[14px] leading-[1.6] text-pretty">
                 {p.rationale}
               </p>
-              <p className="text-gl-text-faint font-mono text-[11px]">
+              <p className="text-gl-text-muted font-mono text-[11px]">
                 closes {closes} {closes === 1 ? "defect" : "defects"}
               </p>
             </li>

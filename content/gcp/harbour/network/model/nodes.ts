@@ -1,4 +1,4 @@
-// Harbour network track data. Positions are in SVG viewBox units (1580 × 1000 for the map).
+// Harbour network track data. Positions are in SVG viewBox units (1580 × 1064 for the map).
 import type { ArchNode } from "@/lib/architecture/types";
 
 export const nodes: ArchNode[] = [
@@ -39,7 +39,7 @@ export const nodes: ArchNode[] = [
   {
     id: "ONPREM",
     x: 24,
-    y: 704,
+    y: 768,
     w: 168,
     h: 56,
     label: "Office network",
@@ -51,7 +51,7 @@ export const nodes: ArchNode[] = [
   {
     id: "PARTNER",
     x: 24,
-    y: 862,
+    y: 926,
     w: 168,
     h: 52,
     label: "partner-vpc",
@@ -98,7 +98,7 @@ export const nodes: ArchNode[] = [
   {
     id: "IAP",
     x: 232,
-    y: 482,
+    y: 546,
     w: 168,
     h: 52,
     label: "IAP TCP forwarding",
@@ -110,7 +110,7 @@ export const nodes: ArchNode[] = [
   {
     id: "HC",
     x: 232,
-    y: 552,
+    y: 616,
     w: 168,
     h: 56,
     label: "Health check probes",
@@ -121,7 +121,7 @@ export const nodes: ArchNode[] = [
   {
     id: "VPN",
     x: 232,
-    y: 704,
+    y: 768,
     w: 168,
     h: 56,
     label: "HA VPN",
@@ -133,7 +133,7 @@ export const nodes: ArchNode[] = [
   {
     id: "PEER",
     x: 232,
-    y: 862,
+    y: 926,
     w: 168,
     h: 52,
     label: "VPC peering",
@@ -204,7 +204,7 @@ export const nodes: ArchNode[] = [
   {
     id: "BASTION",
     x: 490,
-    y: 480,
+    y: 544,
     w: 248,
     h: 56,
     label: "bastion",
@@ -216,7 +216,7 @@ export const nodes: ArchNode[] = [
   {
     id: "RABBIT",
     x: 774,
-    y: 480,
+    y: 544,
     w: 248,
     h: 56,
     label: "rabbitmq-1",
@@ -227,7 +227,7 @@ export const nodes: ArchNode[] = [
   {
     id: "SNB",
     x: 478,
-    y: 712,
+    y: 776,
     w: 556,
     h: 40,
     label: "sn-b-app · 10.20.0.0/20",
@@ -238,7 +238,7 @@ export const nodes: ArchNode[] = [
   {
     id: "ROUTER",
     x: 464,
-    y: 790,
+    y: 854,
     w: 284,
     h: 52,
     label: "Cloud Router rtr-a",
@@ -249,7 +249,7 @@ export const nodes: ArchNode[] = [
   {
     id: "NAT",
     x: 764,
-    y: 790,
+    y: 854,
     w: 284,
     h: 52,
     label: "Cloud NAT",
@@ -260,7 +260,7 @@ export const nodes: ArchNode[] = [
   {
     id: "PSA",
     x: 464,
-    y: 862,
+    y: 926,
     w: 284,
     h: 52,
     label: "PSA reservation",
@@ -271,7 +271,7 @@ export const nodes: ArchNode[] = [
   {
     id: "PSC",
     x: 764,
-    y: 862,
+    y: 926,
     w: 284,
     h: 52,
     label: "PSC endpoints",
