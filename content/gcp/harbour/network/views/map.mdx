@@ -1,0 +1,22 @@
+<MapExplorer
+  invite="Click any component or group on the map to see what it is for, what it talks to, and what is wrong with it. The panel below updates in place."
+  overviewTitle="The map in three bands"
+>
+
+#### Left — outside Google
+
+Shoppers, Cloudflare, the office network, the partner VPC. None of it is yours to configure, and all of it decides what arrives.
+
+#### Middle — harbour-vpc
+
+The only place you control routes and firewall rules directly. Custom mode, so every range in it was a decision.
+
+#### Right — depended on, not run
+
+Google-managed databases, Google APIs, and third parties on the internet. The two boundaries between these bands are where every interesting question lives.
+
+#### Why the load balancers are single boxes here
+
+At this altitude a load balancer is one thing. It is really a chain of five objects, and the Load balancing tab draws it at its own scale.
+
+</MapExplorer>

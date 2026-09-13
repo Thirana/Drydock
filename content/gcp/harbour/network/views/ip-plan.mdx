@@ -1,0 +1,67 @@
+## Address plan
+
+<Lede>
+  Custom mode, so every range is a decision. Nothing overlaps, because peering
+  and VPN both refuse overlapping ranges and you cannot fix it later without
+  renumbering.
+</Lede>
+
+<AddressBlocks>
+  <AddressBlock cidr="10.10.0.0/16" tone="compute">
+    Region A — asia-southeast1 (primary)
+  </AddressBlock>
+  <AddressBlock cidr="10.20.0.0/16" tone="external">
+    Region B — asia-south1 (secondary)
+  </AddressBlock>
+  <AddressBlock cidr="10.90.0.0/16" tone="private">
+    Reserved for Private Service Access
+  </AddressBlock>
+  <AddressBlock cidr="10.99.0.0/24" tone="data">
+    Private Service Connect endpoint IPs
+  </AddressBlock>
+  <AddressBlock cidr="172.20.0.0/16" tone="edge">
+    partner-vpc, reached by peering
+  </AddressBlock>
+  <AddressBlock cidr="192.168.0.0/16" tone="edge">
+    Office / on-prem, reached by HA VPN
+  </AddressBlock>
+</AddressBlocks>
+
+### Region A subnets
+
+| Subnet       | Range            | Usable | Holds                                                           | Private Google Access                                   | Purpose                                                                  |
+| ------------ | ---------------- | ------ | --------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `sn-a-app`   | `10.10.0.0/20`   | 4,091  | Cloud Run direct VPC egress, app VMs, the legacy MIG            | <Status tone="good">on</Status>                         | regular                                                                  |
+| `sn-a-mgmt`  | `10.10.16.0/24`  | 251    | Bastion, ops tooling                                            | <Status tone="good">on</Status>                         | regular                                                                  |
+| `sn-a-data`  | `10.10.17.0/24`  | 251    | RabbitMQ broker                                                 | <Status tone="bad">off</Status> — <DefectTag id="D4" /> | regular                                                                  |
+| `sn-a-proxy` | `10.10.250.0/24` | n/a    | Nothing you create — Google puts the load balancer proxies here | n/a                                                     | REGIONAL_MANAGED_PROXY — <DefectTag id="D12">D12 not created</DefectTag> |
+
+### Region B subnets
+
+| Subnet     | Range          | Holds                              | Private Google Access           |
+| ---------- | -------------- | ---------------------------------- | ------------------------------- |
+| `sn-b-app` | `10.20.0.0/20` | Failover capacity, currently empty | <Status tone="good">on</Status> |
+
+### Ranges you do not own but must allow
+
+| Range             | What it is                  | Where it shows up                                   |
+| ----------------- | --------------------------- | --------------------------------------------------- |
+| `35.191.0.0/16`   | Google health check probes  | Firewall rule, or every backend reads as unhealthy  |
+| `130.211.0.0/22`  | Google health check probes  | Same rule as above                                  |
+| `35.235.240.0/20` | IAP TCP forwarding          | The SSH ingress rule, once the bastion goes private |
+| `199.36.153.8/30` | `private.googleapis.com`    | What Google API hostnames resolve to under PGA      |
+| `199.36.153.4/30` | `restricted.googleapis.com` | The VPC Service Controls variant                    |
+
+### Three things this plan is deliberately doing
+
+| Choice                                                     | Reason                                                                                                                                                      |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A whole `/16` per region, carved into much smaller subnets | Subnets can be expanded but never shrunk or moved. Leaving room inside the region block means the next subnet never has to go somewhere awkward.            |
+| A `/16` reserved for PSA, not a `/24`                      | Every managed service with a private IP draws from this pool. Running out means a disruptive re-allocation, and the reservation costs nothing while unused. |
+| Proxy-only subnet at the far end of the region block       | It is a whole subnet that holds none of your resources. Putting it at `10.10.250.0/24` keeps it clear of the ranges you will actually grow into.            |
+
+<Note>
+  A `/20` gives 4,091 usable addresses, not 4,094. GCP reserves four in every
+  subnet: network, default gateway, second-to-last, and broadcast. It matters on
+  small subnets, not on this one.
+</Note>
