@@ -27,7 +27,7 @@ export function DiagramFrame({
       </figcaption>
       <div className="bg-gl-bg overflow-x-auto">{children}</div>
       <p className="border-gl-border text-gl-text-muted border-t px-5 py-2.5 text-[12px] lg:hidden">
-        This diagram is wide by design — scroll it sideways, or open it on a
+        This diagram is wide by design - scroll it sideways, or open it on a
         larger screen.
       </p>
     </figure>

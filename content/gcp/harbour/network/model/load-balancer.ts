@@ -101,13 +101,13 @@ export const loadBalancer: LoadBalancerChain = {
       rows: [
         {
           label: "IP address",
-          value: "34.120.95.195 — reserved static, global",
+          value: "34.120.95.195 - reserved static, global",
         },
         { label: "Port", value: "443" },
         { label: "Protocol", value: "HTTPS" },
         {
           label: "Scope",
-          value: "Global — one anycast IP served from every Google edge",
+          value: "Global - one anycast IP served from every Google edge",
         },
         { label: "Points at", value: "target-https-proxy" },
       ],
@@ -130,7 +130,7 @@ export const loadBalancer: LoadBalancerChain = {
         },
         {
           label: "SSL policy",
-          value: "none — negotiates old TLS versions for compatibility",
+          value: "none - negotiates old TLS versions for compatibility",
         },
         { label: "mTLS", value: "off" },
         { label: "Points at", value: "URL map" },
@@ -145,7 +145,7 @@ export const loadBalancer: LoadBalancerChain = {
         { label: "Host rule", value: "harbour.example" },
         {
           label: "/static/*",
-          value: "backend bucket — harbour-static, Cloud CDN on",
+          value: "backend bucket - harbour-static, Cloud CDN on",
         },
         { label: "/api/*", value: "api-backend-service" },
         { label: "default", value: "api-backend-service" },
@@ -159,15 +159,15 @@ export const loadBalancer: LoadBalancerChain = {
       rows: [
         {
           label: "Health check",
-          value: "none — serverless NEGs are not probed",
+          value: "none - serverless NEGs are not probed",
         },
         { label: "Balancing mode", value: "n/a for serverless" },
-        { label: "Session affinity", value: "none — the API is stateless" },
+        { label: "Session affinity", value: "none - the API is stateless" },
         { label: "Connection draining", value: "n/a" },
         { label: "Timeout", value: "30s" },
         {
           label: "Cloud Armor",
-          value: "harbour-waf — OWASP preconfigured rules, rate limit 100/min",
+          value: "harbour-waf - OWASP preconfigured rules, rate limit 100/min",
         },
         { label: "Cloud CDN", value: "off for the API" },
       ],
@@ -195,7 +195,7 @@ export const loadBalancer: LoadBalancerChain = {
         { label: "Type", value: "Cloud Run service" },
         {
           label: "Ingress",
-          value: "all — the run.app URL still answers the internet",
+          value: "all - the run.app URL still answers the internet",
         },
         { label: "Egress", value: "Direct VPC egress, private-ranges-only" },
         {
@@ -210,10 +210,10 @@ export const loadBalancer: LoadBalancerChain = {
       subtitle: "Regional internal ALB",
       position: "link 1 of 5",
       rows: [
-        { label: "IP address", value: "10.10.0.40 — internal, from sn-a-app" },
+        { label: "IP address", value: "10.10.0.40 - internal, from sn-a-app" },
         { label: "Port", value: "80" },
         { label: "Protocol", value: "HTTP" },
-        { label: "Scope", value: "Regional — asia-southeast1 only" },
+        { label: "Scope", value: "Regional - asia-southeast1 only" },
         {
           label: "Blocked by",
           value: "No proxy-only subnet, so the LB cannot be created",
@@ -227,7 +227,7 @@ export const loadBalancer: LoadBalancerChain = {
       position: "link 2 of 5",
       rows: [
         { label: "Type", value: "target-http-proxy" },
-        { label: "TLS", value: "none — plain HTTP inside the VPC" },
+        { label: "TLS", value: "none - plain HTTP inside the VPC" },
         { label: "Certificate", value: "n/a" },
         { label: "mTLS", value: "off" },
       ],
@@ -241,7 +241,7 @@ export const loadBalancer: LoadBalancerChain = {
         { label: "Host rule", value: "none" },
         { label: "default", value: "legacy-backend-service" },
       ],
-      note: "A URL map that sends everything to one backend service is perfectly normal. The object still has to exist — the chain has no optional links.",
+      note: "A URL map that sends everything to one backend service is perfectly normal. The object still has to exist - the chain has no optional links.",
     },
     bs2: {
       title: "Backend service",
@@ -250,12 +250,12 @@ export const loadBalancer: LoadBalancerChain = {
       rows: [
         {
           label: "Health check",
-          value: "TCP on port 80 — proves only that something is listening",
+          value: "TCP on port 80 - proves only that something is listening",
         },
         { label: "Balancing mode", value: "UTILIZATION, target 80% CPU" },
         {
           label: "Session affinity",
-          value: "CLIENT_IP — the legacy app holds sessions in memory",
+          value: "CLIENT_IP - the legacy app holds sessions in memory",
         },
         { label: "Connection draining", value: "300s" },
         { label: "Timeout", value: "30s" },
@@ -284,7 +284,7 @@ export const loadBalancer: LoadBalancerChain = {
       rows: [
         {
           label: "Source ranges",
-          value: "35.191.0.0/16 and 130.211.0.0/22 — fixed and published",
+          value: "35.191.0.0/16 and 130.211.0.0/22 - fixed and published",
         },
         { label: "Type", value: "TCP on port 80" },
         { label: "Interval", value: "10s" },

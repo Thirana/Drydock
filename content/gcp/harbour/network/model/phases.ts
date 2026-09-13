@@ -7,8 +7,8 @@ export const phases: Phase[] = [
     name: "As found",
     goal: "The architecture as it exists today, with every defect in place.",
     changes: "Nothing yet. This is the starting position.",
-    prerequisites: "—",
-    risk: "—",
+    prerequisites: "-",
+    risk: "-",
     verify:
       "Run the detect command on each register card and confirm the finding is real before changing anything.",
   },
@@ -50,7 +50,7 @@ export const phases: Phase[] = [
     changes:
       "Cloud Run ingress set to internal-and-cloud-load-balancing, closing the run.app door. The origin locked to the CDN’s published ranges with an address group.",
     prerequisites:
-      "Know which hostnames are actually proxied by the CDN — you can only lock an origin for traffic that comes through it.",
+      "Know which hostnames are actually proxied by the CDN - you can only lock an origin for traffic that comes through it.",
     risk: "Medium. Locking the origin to the wrong range set takes the site down.",
     riskLevel: "medium",
     verify:
@@ -65,7 +65,7 @@ export const phases: Phase[] = [
     changes:
       "Cloud SQL moved to a private IP over the existing PSA peering, and its public IP and authorized-networks list removed. The legacy MIG instances lose their external addresses.",
     prerequisites:
-      "PGA from phase 1. The reserved PSA range confirmed — peering metadata and the reserved-ranges list can disagree.",
+      "PGA from phase 1. The reserved PSA range confirmed - peering metadata and the reserved-ranges list can disagree.",
     risk: "High. The database endpoint changes, so every client connection string changes with it.",
     riskLevel: "high",
     verify:
@@ -80,7 +80,7 @@ export const phases: Phase[] = [
     changes:
       "Cloud Run egress switched to all-traffic so internet calls leave through Cloud NAT. Deny-all egress with a short FQDN allow-list. HTTP health check replacing TCP. Cloud Armor attached to the second backend service. A minimum TLS version set.",
     prerequisites:
-      "The NAT path proven end to end, and every external destination the platform actually calls enumerated — an incomplete allow-list breaks things you did not know were there.",
+      "The NAT path proven end to end, and every external destination the platform actually calls enumerated - an incomplete allow-list breaks things you did not know were there.",
     risk: "High for the egress deny. Medium for the rest.",
     riskLevel: "high",
     verify:

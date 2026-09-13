@@ -16,7 +16,7 @@ export function PhaseSequence({ model }: { model: ArchitectureModel }) {
               className="border-gl-border bg-gl-surface shadow-gl flex flex-col gap-3 rounded-2xl border p-6"
             >
               <div className="flex items-start justify-between">
-                <span className="bg-gl-primary-soft text-gl-primary inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[11px] leading-none font-semibold tracking-[0.08em] uppercase">
+                <span className="bg-gl-primary-soft text-gl-primary inline-flex items-center rounded-full pl-2.5 pr-[calc(0.625rem-0.08em)] py-1 font-mono text-[11px] leading-none font-semibold tracking-[0.08em] uppercase">
                   Phase {p.number}
                 </span>
               </div>

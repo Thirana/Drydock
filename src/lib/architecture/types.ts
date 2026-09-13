@@ -248,7 +248,7 @@ export interface ArchitectureModel {
   showcase?: MapShowcase;
 }
 
-/** What the map needs to draw itself at any phase — the model without its prose. */
+/** What the map needs to draw itself at any phase - the model without its prose. */
 export type MapModel = Pick<
   ArchitectureModel,
   "name" | "viewBox" | "groups" | "nodes" | "edges"

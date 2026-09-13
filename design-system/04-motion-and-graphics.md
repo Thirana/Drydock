@@ -1,4 +1,4 @@
-# 04 — Motion and Graphics
+# 04 - Motion and Graphics
 
 Animation vocabulary, reusable motion hooks, and the decorative graphic techniques that give the product its atmosphere. All keyframes and `animate-*` utilities are defined in `theme.css`.
 
@@ -14,7 +14,7 @@ Animation vocabulary, reusable motion hooks, and the decorative graphic techniqu
 | Content swaps | 260–600ms fade out → swap → fade in |
 | Ambient loops | 5–6.5s per cycle; never faster |
 | Entrance curve | `cubic-bezier(0.22, 1, 0.36, 1)` (fast start, soft landing) |
-| Pop curve | `cubic-bezier(0.34, 1.56, 0.64, 1)` (slight overshoot) — use sparingly |
+| Pop curve | `cubic-bezier(0.34, 1.56, 0.64, 1)` (slight overshoot) - use sparingly |
 | Bar-fill curve | `cubic-bezier(0.34, 1.2, 0.64, 1)` (gentle overshoot) |
 | Reduced motion | Honour `prefers-reduced-motion` (handled globally in `theme.css`) |
 
@@ -38,7 +38,7 @@ Animation vocabulary, reusable motion hooks, and the decorative graphic techniqu
 | `animate-cursor-blink` | 1s `steps(2)` blink | Typing caret |
 | `animation-delay-100` … `-800` | Delays in 100ms steps | Staggering |
 
-`tw-animate-css` also provides `animate-in fade-in-0 slide-in-from-bottom-1/2 duration-200/300` — used for list items appearing and wizard step changes (combine with `key={step}` to replay).
+`tw-animate-css` also provides `animate-in fade-in-0 slide-in-from-bottom-1/2 duration-200/300` - used for list items appearing and wizard step changes (combine with `key={step}` to replay).
 
 ### Hover and press
 
@@ -73,7 +73,7 @@ Beat 1 (0ms): line one rises. Beat 2 (500ms): line two rises. Beat 3 (800ms): th
 
 ---
 
-## Scroll reveal — `FadeIn`
+## Scroll reveal - `FadeIn`
 
 Wrap each section header and each section body. Stagger the body by 130ms after the header.
 
@@ -133,7 +133,7 @@ Usage: `<FadeIn>{header}</FadeIn><FadeIn delay={130}>{content}</FadeIn>`.
 
 ---
 
-## Fade cycle — rotating widget values
+## Fade cycle - rotating widget values
 
 Makes static marketing widgets feel alive. The value only changes while invisible.
 
@@ -170,7 +170,7 @@ Use **different, non-multiple intervals** per widget (e.g. 5500 / 6000 / 6500ms)
 
 ---
 
-## Typewriter — hero object card
+## Typewriter - hero object card
 
 ```ts
 export function useTypewriter(text: string, charDelayMs = 16): string {
@@ -202,7 +202,7 @@ Caret after the text:
 
 ## Auto-advancing tabs
 
-- Active index drives a `setTimeout(5000)` keyed on the index — clicking restarts it.
+- Active index drives a `setTimeout(5000)` keyed on the index - clicking restarts it.
 - Separate `active` (pill highlight) from `displayed` (rendered panel) so the old panel fades out (260ms) before the new one fades in.
 - Progress bar under the active pill uses `animate-tab-progress` (5s, same as the interval). Remount it on change so it restarts.
 
@@ -234,7 +234,7 @@ The core graphic language. Instead of illustrations, render **small, static, rea
 
 ### Rules
 
-1. Build previews from the same tokens and component recipes as the real UI — they must look like screenshots, not drawings.
+1. Build previews from the same tokens and component recipes as the real UI - they must look like screenshots, not drawings.
 2. Use realistic, specific sample content (dates, numbers, short sentences), not lorem ipsum.
 3. Scale down: previews use the smaller ends of the type scale (`text-[9px]`–`[14px]`) and `p-3.5`–`p-5`.
 4. Keep them non-interactive; decorative copies get `aria-hidden="true"`.
@@ -304,7 +304,7 @@ Behind the auth form on large screens, scatter ~20 tiny pieces of product UI at 
 
 ## Showcase accents
 
-- **Hard shadow panel** (`border-gl-border-strong shadow-gl-hard`) — one per page, around the most important product showcase. The off-white offset shadow is the brand's signature detail against the soft dark UI.
-- **Giant faint numerals** (`font-mono text-[28px] font-bold text-gl-border`) for step numbers — they read as texture, not content.
+- **Hard shadow panel** (`border-gl-border-strong shadow-gl-hard`) - one per page, around the most important product showcase. The off-white offset shadow is the brand's signature detail against the soft dark UI.
+- **Giant faint numerals** (`font-mono text-[28px] font-bold text-gl-border`) for step numbers - they read as texture, not content.
 - **Accent bar** (`h-[18px] w-[3px] rounded-full bg-gl-primary`) before in-app section titles.
 - **Left accent rule** (`border-l-2 border-gl-primary pl-4`) on revealed answers and callouts.

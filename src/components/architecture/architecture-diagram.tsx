@@ -45,6 +45,8 @@ interface ArchitectureDiagramProps {
   /** Overlay key. Ignored while tracing a journey. */
   layer?: string;
   selectedId?: string | null;
+  /** Limits which boxes can be selected; the rest stay inert and out of the tab order. */
+  selectableIds?: ReadonlySet<string>;
   /** Trace a journey instead of applying an overlay. */
   highlight?: JourneyHighlight | null;
   onSelect?: (id: string) => void;
@@ -61,6 +63,7 @@ export function ArchitectureDiagram({
   hidden,
   layer = "all",
   selectedId = null,
+  selectableIds,
   highlight = null,
   onSelect,
 }: ArchitectureDiagramProps) {
@@ -70,6 +73,10 @@ export function ArchitectureDiagram({
   const patches = patchesAt(model, phase);
   const boxes = boxIndex(model);
   const clickable = !highlight && onSelect;
+  const selectHandler = (id: string) =>
+    onSelect && !highlight && (!selectableIds || selectableIds.has(id))
+      ? () => onSelect(id)
+      : undefined;
 
   /** Opacity for a box or edge; faded and scaled in and out when `hidden` is in use. */
   const visibility = (
@@ -118,10 +125,7 @@ export function ArchitectureDiagram({
           <g
             key={g.id}
             {...visibility([g.id], boxOpacity(g), true)}
-            {...selectable(
-              g.label,
-              clickable ? () => onSelect(g.id) : undefined,
-            )}
+            {...selectable(g.label, selectHandler(g.id))}
           >
             <rect
               x={g.x}
@@ -261,11 +265,8 @@ export function ArchitectureDiagram({
           <g
             key={n.id}
             {...visibility([n.id], boxOpacity(n), true)}
-            className={clickable ? "group" : undefined}
-            {...selectable(
-              n.label,
-              clickable ? () => onSelect(n.id) : undefined,
-            )}
+            className={selectHandler(n.id) ? "group" : undefined}
+            {...selectable(n.label, selectHandler(n.id))}
           >
             <rect
               x={n.x}
@@ -278,7 +279,9 @@ export function ArchitectureDiagram({
               className={cn(
                 "transition-[fill] duration-150",
                 selected ? "fill-gl-surface-2" : "fill-gl-surface",
-                clickable && !selected && "group-hover:fill-gl-surface-2",
+                selectHandler(n.id) &&
+                  !selected &&
+                  "group-hover:fill-gl-surface-2",
               )}
               style={{ stroke: selected ? SELECTED : toneColor(tone) }}
             />

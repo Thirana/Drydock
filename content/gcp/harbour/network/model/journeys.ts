@@ -23,7 +23,7 @@ export const journeys: Journey[] = [
         at: "CF",
         afterClosed: "D8",
         where: "Cloudflare",
-        what: "Same work, but now the only way in — the load balancer accepts only Cloudflare’s published ranges",
+        what: "Same work, but now the only way in - the load balancer accepts only Cloudflare’s published ranges",
         why: "Bypassing the CDN no longer reaches the origin",
       },
       {
@@ -56,7 +56,7 @@ export const journeys: Journey[] = [
         afterClosed: "D15",
         where: "target proxy",
         what: "TLS terminates with a minimum of 1.2 and a restricted cipher profile",
-        why: "Everything about TLS lives on this one object — certificate, policy, mTLS",
+        why: "Everything about TLS lives on this one object - certificate, policy, mTLS",
       },
       {
         at: "GLB",
@@ -68,13 +68,13 @@ export const journeys: Journey[] = [
         at: "GLB",
         where: "backend service",
         what: "Cloud Armor inspects the request, then it goes to the serverless NEG",
-        why: "This is the only place the WAF exists — it attaches here, not to the load balancer",
+        why: "This is the only place the WAF exists - it attaches here, not to the load balancer",
       },
       {
         at: "API",
         whileOpen: "D6",
         where: "harbour-api",
-        what: "Cloud Run handles the request — and its run.app URL answers the internet too",
+        what: "Cloud Run handles the request - and its run.app URL answers the internet too",
         why: "Everything above is real and every bit of it can be walked around",
         fails: true,
         fixedBy: "D6",
@@ -100,7 +100,7 @@ export const journeys: Journey[] = [
         afterClosed: "D5",
         where: "PSA peering",
         what: "The database now holds a private IP from the reserved 10.90.0.0/16 range",
-        why: "The peering already existed — Redis was using it. Only the database had to be pointed at it.",
+        why: "The peering already existed - Redis was using it. Only the database had to be pointed at it.",
       },
       {
         at: "SQL",
@@ -158,7 +158,7 @@ export const journeys: Journey[] = [
         afterClosed: "D13",
         where: "a hung instance",
         what: "/health returns 500, so the probe fails three times running",
-        why: "It leaves rotation, and the autohealer replaces it — one setting fixing both",
+        why: "It leaves rotation, and the autohealer replaces it - one setting fixing both",
       },
     ],
   },
@@ -286,7 +286,7 @@ export const journeys: Journey[] = [
     context: ["G_VPC", "G_REGA", "G_MGMT", "G_DATA", "G_APP"],
     switchAt: "D3a",
     noteAfter:
-      "Not the same route made to work. The bastion stops being a box you reach and becomes a box you are tunnelled into — its public address is deleted, not narrowed.",
+      "Not the same route made to work. The bastion stops being a box you reach and becomes a box you are tunnelled into - its public address is deleted, not narrowed.",
     hops: [
       {
         at: "BASTION",
@@ -392,7 +392,7 @@ export const journeys: Journey[] = [
         whileOpen: "D11",
         where: "never reached",
         what: "No firewall rule or route can change the outcome",
-        why: "This is structural, not configuration — which is why the fix is a different path, not a different rule",
+        why: "This is structural, not configuration - which is why the fix is a different path, not a different rule",
         fails: true,
       },
       {

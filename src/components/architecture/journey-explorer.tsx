@@ -183,7 +183,7 @@ export function JourneyExplorer({
                     {(hop.fails || hop.fixedBy) && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {hop.fails && (
-                          <span className="bg-gl-danger-soft text-gl-danger rounded-full px-2 py-0.5 text-[10.5px] font-bold tracking-[0.08em] uppercase">
+                          <span className="bg-gl-danger-soft text-gl-danger rounded-full pl-2 pr-[calc(0.5rem-0.08em)] py-0.5 text-[10.5px] font-bold tracking-[0.08em] uppercase">
                             Fails here
                           </span>
                         )}

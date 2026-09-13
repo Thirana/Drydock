@@ -2,7 +2,7 @@
 
 ## What this is
 
-Harbour is a fictional marketplace platform running on GCP, and it is **deliberately misconfigured**. Every problem in the register is one I put there on purpose, because the point is not the architecture — it is the reasoning about what is wrong with it, why it is wrong, and what order the fixes have to happen in. That last part is the reason for the phase rail: you can walk the whole platform through six remediation steps and watch the failures clear one at a time.
+Harbour is a fictional marketplace platform running on GCP, and it is **deliberately misconfigured**. Every problem in the register is one I put there on purpose, because the point is not the architecture - it is the reasoning about what is wrong with it, why it is wrong, and what order the fixes have to happen in. That last part is the reason for the phase rail: you can walk the whole platform through six remediation steps and watch the failures clear one at a time.
 
 I built it as a learning lab while working through GCP networking end to end. The defects are the kind that appear in real projects: each one started as a reasonable short-term choice that nobody revisited. None of them is obvious from a diagram, which is the whole reason the diagram alone is not enough.
 
@@ -16,7 +16,7 @@ I built it as a learning lab while working through GCP networking end to end. Th
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Map**             | How the platform hangs together. Overlays isolate one concern at a time; the phase rail walks the architecture through the remediation sequence; and every box opens a panel explaining what it is for. |
 | **IP plan**         | Every range, why it is that size, and the ranges you do not own but must allow anyway.                                                                                                                  |
-| **Components**      | The lookup table. External IP, ingress, egress, tags and service account per component — what you check before writing any rule.                                                                        |
+| **Components**      | The lookup table. External IP, ingress, egress, tags and service account per component - what you check before writing any rule.                                                                        |
 | **Load balancing**  | The five-link proxy chain, drawn at its own scale. Click any link to see what actually lives on it.                                                                                                     |
 | **Packet journeys** | Six flows traced hop by hop at any phase of the sequence, with failing hops marked and linked to the defect that closes them.                                                                           |
 | **Defects**         | The register, ordered by phase. Each entry carries how you would detect it, what it teaches, what blocks it, and the change that closes it.                                                             |
@@ -33,7 +33,7 @@ I built it as a learning lab while working through GCP networking end to end. Th
     rules at 65535, hierarchical policies.
   </Column>
   <Column title="Private connectivity">
-    Private Google Access, Private Service Access, Private Service Connect — and
+    Private Google Access, Private Service Access, Private Service Connect - and
     which one solves which problem.
   </Column>
   <Column title="Egress">
@@ -59,12 +59,12 @@ I built it as a learning lab while working through GCP networking end to end. Th
 
 | The situation                              | The tension                                                                                                                                                                                                                                                                                             |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Session affinity on the legacy backend** | Affinity works against even balancing and breaks when the sticky backend goes away. The clean fix is stateless backends with shared session state — but that is an application change, not a network one. Naming which layer a fix belongs to matters more than naming the fix.                         |
+| **Session affinity on the legacy backend** | Affinity works against even balancing and breaks when the sticky backend goes away. The clean fix is stateless backends with shared session state - but that is an application change, not a network one. Naming which layer a fix belongs to matters more than naming the fix.                         |
 | **PSA rather than PSC for the database**   | PSC would have been the better original choice, because it sidesteps the non-transitivity that causes D11. But the PSA peering already exists, so PSA is the shorter path to a private database. Taking the shorter path knowingly is a different thing from not knowing.                               |
-| **Network tags for firewall targeting**    | Anyone who can edit a VM can add a tag and pull in every rule that targets it. Service accounts are a real identity and much harder to attach casually. Harbour uses tags everywhere, like most projects — that is convenience over strength, and worth stating as a choice rather than leaving unsaid. |
+| **Network tags for firewall targeting**    | Anyone who can edit a VM can add a tag and pull in every rule that targets it. Service accounts are a real identity and much harder to attach casually. Harbour uses tags everywhere, like most projects - that is convenience over strength, and worth stating as a choice rather than leaving unsaid. |
 | **Two CDNs in the path**                   | Cloudflare and Cloud CDN can both cache. Running both without deciding which one actually does is the common mistake, and it makes cache invalidation ambiguous. The decision matters more than either answer.                                                                                          |
 | **DNSSEC**                                 | Supported, free, and still skipped by most domains. Whether it is worth enabling depends on the threat model, not on whether it is available. Not every available hardening step earns its place.                                                                                                       |
-| **Global load balancing by default**       | Global is the GCP instinct and the geographic routing is free. Regional is right when data residency or cost dominate — and choosing it deliberately is a better signal than reaching for global because it is the default.                                                                             |
+| **Global load balancing by default**       | Global is the GCP instinct and the geographic routing is free. Regional is right when data residency or cost dominate - and choosing it deliberately is a better signal than reaching for global because it is the default.                                                                             |
 
 ## The remediation sequence
 
@@ -78,7 +78,7 @@ I built it as a learning lab while working through GCP networking end to end. Th
 
 <Lede>
   Move along the phase rail on the Map or Journeys tab and everything follows:
-  boxes change, defect badges clear, and journeys that failed start succeeding —
+  boxes change, defect badges clear, and journeys that failed start succeeding -
   one hop at a time, not all at once.
 </Lede>
 
@@ -90,5 +90,5 @@ I built it as a learning lab while working through GCP networking end to end. Th
 | <SeverityBadge severity="high" />     | Removes a protection that is assumed to be working, or breaks silently                                                                                  |
 | <SeverityBadge severity="medium" />   | Weakens a control, or blocks a hardening step that depends on it                                                                                        |
 | <SeverityBadge severity="low" />      | Causes confusion or a failed change rather than exposure                                                                                                |
-| <PhaseTag>phase 1–6</PhaseTag>        | Which step of the sequence closes it. Ordering is the point — several defects cannot be fixed until another is.                                         |
+| <PhaseTag>phase 1–6</PhaseTag>        | Which step of the sequence closes it. Ordering is the point - several defects cannot be fixed until another is.                                         |
 | Phase rail                            | On the Map and Journeys tabs. Move along it and the architecture, the defect badges, and the journey outcomes all change to that point in the sequence. |

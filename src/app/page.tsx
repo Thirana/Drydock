@@ -69,27 +69,7 @@ function Hero({ featured }: { featured?: FeaturedTrack }) {
   ];
 
   return (
-    <section className="relative pt-16 pb-12 text-center sm:pt-20 sm:pb-16">
-      {featured && (
-        <Link
-          href={featured.href}
-          className="border-gl-border bg-gl-surface text-gl-text-muted hover:border-gl-border-input mb-8 inline-flex items-center gap-2 rounded-full border px-3 py-1 pr-3.5 text-[12px] font-medium transition-colors"
-        >
-          <span className="bg-gl-surface-2 text-gl-text-muted rounded-full px-2 py-0.5 text-[11px] font-bold tracking-[0.08em] uppercase">
-            {featured.provider}
-          </span>
-          <span className="text-gl-text sm:hidden">{featured.lab}</span>
-          <span className="text-gl-text hidden sm:inline">
-            {featured.lab}:{" "}
-            <span className="font-mono tabular-nums">
-              {featured.totals.defects}
-            </span>{" "}
-            deliberate defects
-          </span>
-          <IconArrow size={12} />
-        </Link>
-      )}
-
+    <section className="relative pt-20 pb-12 text-center sm:pt-24 sm:pb-16 lg:pt-28">
       <h1 className="text-gl-text mx-auto mb-6 max-w-[820px] text-[52px] leading-[1.02] font-bold tracking-[-0.035em] text-balance sm:text-[64px] lg:text-[78px]">
         <span className="animate-fade-up-lg inline-block">
           Broken on purpose.
@@ -112,7 +92,7 @@ function Hero({ featured }: { featured?: FeaturedTrack }) {
       >
         Explore a cloud platform built deliberately wrong. Trace packets hop by
         hop, find each defect with a real command, and close them phase by phase
-        — in the order that won’t lock you out.
+        - in the order that won’t lock you out.
       </p>
 
       {featured && (
@@ -230,7 +210,7 @@ function AsFound({ featured }: { featured: FeaturedTrack }) {
   const problems = [
     {
       title: "Invisible on the diagram",
-      body: "A load balancer with a WAF looks protected — until you notice the run.app URL that walks straight around it. None of the defects are obvious from a picture.",
+      body: "A load balancer with a WAF looks protected - until you notice the run.app URL that walks straight around it. None of the defects are obvious from a picture.",
     },
     {
       title: "A list is not a plan",
@@ -253,7 +233,7 @@ function AsFound({ featured }: { featured: FeaturedTrack }) {
           <span className="text-gl-primary">easy half</span>.
         </>
       }
-      lead="Every defect started as a reasonable shortcut that nobody revisited. The hard part is seeing it — and knowing what has to happen first."
+      lead="Every defect started as a reasonable shortcut that nobody revisited. The hard part is seeing it - and knowing what has to happen first."
     >
       <div
         className={cn(
@@ -421,7 +401,7 @@ function Order({ featured }: { featured: FeaturedTrack }) {
                   {p.name}
                 </span>
                 {riskiest?.number === p.number && (
-                  <span className="bg-gl-warning-soft text-gl-warning rounded-full px-2 py-0.5 text-[11px] font-bold tracking-[0.08em] uppercase">
+                  <span className="bg-gl-warning-soft text-gl-warning rounded-full pl-2 pr-[calc(0.5rem-0.08em)] py-0.5 text-[11px] font-bold tracking-[0.08em] uppercase">
                     High risk
                   </span>
                 )}
@@ -525,7 +505,7 @@ function Fix({ featured }: { featured: FeaturedTrack }) {
           <span className="text-gl-primary">closes it</span>.
         </>
       }
-      lead="Every register entry pairs the finding with the before, the after and the change itself — and the map, journeys and badges update as it lands."
+      lead="Every register entry pairs the finding with the before, the after and the change itself - and the map, journeys and badges update as it lands."
     >
       <div className="max-w-[880px]">
         <RegisterEntry defect={d} />
@@ -555,10 +535,14 @@ function EveryAngle({ featured }: { featured: FeaturedTrack }) {
         views={featured.views}
         map={featured.map}
         journey={featured.journey}
-        components={featured.components}
+        componentMap={featured.componentMap}
         chain={featured.chain}
+        bypass={featured.bypass}
         spotlight={featured.spotlight}
+        severityCounts={featured.severityCounts}
+        totals={featured.totals}
         addressPlan={featured.addressPlan}
+        addressMap={featured.addressMap}
       />
     </Chapter>
   );

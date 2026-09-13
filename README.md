@@ -84,9 +84,9 @@ The UI follows the design system in `design-system/` (dark only, forest-charcoal
 
 ## Adding content
 
-- **A view** — add `views/<slug>.mdx` and list it in `track.ts`.
-- **A track** (e.g. IAM for Harbour) — add `harbour/iam/track.ts` and list it in `lab.ts`. A track with a different data shape adds its own optional model to `Track` in `src/lib/content/types.ts`, plus a matching MDX component factory.
-- **A lab** — add `<provider>/<lab>/lab.ts` and list it in `provider.ts`.
-- **A provider** — add `<provider>/provider.ts` and list it in `content/index.ts`.
+- **A view** - add `views/<slug>.mdx` and list it in `track.ts`.
+- **A track** (e.g. IAM for Harbour) - add `harbour/iam/track.ts` and list it in `lab.ts`. A track with a different data shape adds its own optional model to `Track` in `src/lib/content/types.ts`, plus a matching MDX component factory.
+- **A lab** - add `<provider>/<lab>/lab.ts` and list it in `provider.ts`.
+- **A provider** - add `<provider>/provider.ts` and list it in `content/index.ts`.
 
 Routes are generated from the registry, so none of these need changes under `src/app`.

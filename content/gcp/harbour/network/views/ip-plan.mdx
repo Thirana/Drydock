@@ -22,8 +22,8 @@ import { addressPlan } from "../model/address-plan";
 | ------------ | ---------------- | ------ | --------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `sn-a-app`   | `10.10.0.0/20`   | 4,091  | Cloud Run direct VPC egress, app VMs, the legacy MIG            | <Status tone="good">on</Status>                         | regular                                                                  |
 | `sn-a-mgmt`  | `10.10.16.0/24`  | 251    | Bastion, ops tooling                                            | <Status tone="good">on</Status>                         | regular                                                                  |
-| `sn-a-data`  | `10.10.17.0/24`  | 251    | RabbitMQ broker                                                 | <Status tone="bad">off</Status> — <DefectTag id="D4" /> | regular                                                                  |
-| `sn-a-proxy` | `10.10.250.0/24` | n/a    | Nothing you create — Google puts the load balancer proxies here | n/a                                                     | REGIONAL_MANAGED_PROXY — <DefectTag id="D12">D12 not created</DefectTag> |
+| `sn-a-data`  | `10.10.17.0/24`  | 251    | RabbitMQ broker                                                 | <Status tone="bad">off</Status> - <DefectTag id="D4" /> | regular                                                                  |
+| `sn-a-proxy` | `10.10.250.0/24` | n/a    | Nothing you create - Google puts the load balancer proxies here | n/a                                                     | REGIONAL_MANAGED_PROXY - <DefectTag id="D12">D12 not created</DefectTag> |
 
 ### Region B subnets
 

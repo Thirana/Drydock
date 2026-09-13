@@ -18,7 +18,8 @@ export function SeverityBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] leading-none font-bold tracking-[0.08em] whitespace-nowrap uppercase",
+        // Right padding gives back the trailing letter-spacing so the word sits centred.
+        "inline-flex items-center rounded-full pl-2.5 pr-[calc(0.625rem-0.08em)] py-1 text-[10.5px] leading-none font-bold tracking-[0.08em] whitespace-nowrap uppercase",
         STYLES[severity],
         className,
       )}

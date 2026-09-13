@@ -2,7 +2,7 @@ import Link from "next/link";
 import { site } from "@/config/site";
 import { cn } from "@/lib/utils";
 
-/** Four blocks, one knocked out of place — the only accent element. */
+/** Four blocks, one knocked out of place - the only accent element. */
 export function Logo({
   size = 22,
   className,

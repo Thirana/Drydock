@@ -11,7 +11,7 @@
 
 <Note>
   Serverless NEGs take no health check. Cloud Run manages its own instance
-  health, so there is nothing for the load balancer to probe — which is why the
+  health, so there is nothing for the load balancer to probe - which is why the
   probe path on this diagram only reaches the MIG.
 </Note>
 
@@ -24,4 +24,4 @@
 | Requests hitting the wrong service          | URL map              | Host or path matcher order, or a missing default service                           |
 | WAF rules never fire                        | Backend service      | No policy attached, or traffic is arriving by a path that bypasses the LB entirely |
 | App logs the same client IP for everything  | Nothing is broken    | Proxy LB, so the app must read `X-Forwarded-For` instead of the TCP source         |
-| Backend serves errors but stays in rotation | Backend service      | TCP health check — the port is open, so it passes while the app is broken          |
+| Backend serves errors but stays in rotation | Backend service      | TCP health check - the port is open, so it passes while the app is broken          |

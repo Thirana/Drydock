@@ -1,4 +1,4 @@
-# 03 — Layouts and Pages
+# 03 - Layouts and Pages
 
 How screens are composed from the foundations and components. Replace the reference product's copy and domain objects with your own, but keep structure, rhythm and visual treatment.
 
@@ -55,11 +55,11 @@ Section order tells a story: **promise → pain → capabilities → proof (live
 
 `<section className="relative pt-16 pb-20 text-center sm:pt-20 sm:pb-24">`
 
-1. **Announcement pill** (`mb-8`) — "New" label + one-line value prop + arrow. Shorter copy on mobile (`sm:hidden` / `hidden sm:inline`).
+1. **Announcement pill** (`mb-8`) - "New" label + one-line value prop + arrow. Shorter copy on mobile (`sm:hidden` / `hidden sm:inline`).
 2. **H1** (`mx-auto mb-6 max-w-[820px]`), two lines, three-beat reveal:
-   - Line 1 `animate-fade-up-lg inline-block` — opening phrase in **gradient text** + plain word.
+   - Line 1 `animate-fade-up-lg inline-block` - opening phrase in **gradient text** + plain word.
    - `<br />`
-   - Line 2 `animate-fade-up-lg animation-delay-500 inline-block` — ends with one **key word** in `text-gl-primary animate-scale-in animation-delay-800`.
+   - Line 2 `animate-fade-up-lg animation-delay-500 inline-block` - ends with one **key word** in `text-gl-primary animate-scale-in animation-delay-800`.
 3. **Subtitle** `mx-auto mb-10 max-w-[620px] text-[17px] sm:text-[20px] leading-[1.55] text-gl-text-muted text-pretty`.
 4. **CTAs** `flex flex-wrap items-center justify-center gap-4` → `GlButton primary lg` with arrow + `GlButton secondary lg`.
 5. **Trust badges** `mt-9 flex flex-wrap items-center justify-center gap-x-7 gap-y-3` → check bullet + `text-[13px] font-medium text-gl-text-muted`, three short claims.
@@ -99,7 +99,7 @@ Widget cards: `border border-gl-border bg-gl-surface shadow-gl hover:shadow-gl-l
     inactive: border-gl-border bg-gl-surface text-gl-text-muted hover:border-gl-border-input hover:text-gl-text
   ```
   Active pill has a progress underline: `animate-tab-progress absolute bottom-0 left-0 h-[2px] w-full bg-gl-primary opacity-60` that fills over the 5s interval.
-- **Panels** stacked in one grid cell (`display: grid`, each panel `gridArea: '1 / 1'`) so the container is always the tallest panel — no layout shift. Inactive panels: `opacity 0`, `translateY(10px)`, `visibility: hidden`, `pointer-events: none`. Transition 260ms.
+- **Panels** stacked in one grid cell (`display: grid`, each panel `gridArea: '1 / 1'`) so the container is always the tallest panel - no layout shift. Inactive panels: `opacity 0`, `translateY(10px)`, `visibility: hidden`, `pointer-events: none`. Transition 260ms.
 - Panel layout `grid grid-cols-1 items-center gap-10 lg:grid-cols-[1fr_1.15fr] lg:gap-16`:
   - Left: H3 `text-[28px] sm:text-[32px]` · body `text-[16px] leading-[1.65] mb-7` · bullet list `flex flex-col gap-3.5` with check bullets (`mt-[3px]`) and `text-[14.5px]` text.
   - Right: a rich static **preview card** of that feature (`rounded-2xl p-6 shadow-gl-lg`).
@@ -107,7 +107,7 @@ Widget cards: `border border-gl-border bg-gl-surface shadow-gl hover:shadow-gl-l
 
 ### Live preview
 
-A full, static copy of the real app dashboard rendered with sample data, anchored at `id="preview"` for the hero's secondary CTA. Reuse the real presentational components (stats row, charts, list, heatmaps) fed with fixed data — do **not** call the API from the landing page. Frame it as the showcase panel (`border-gl-border-strong shadow-gl-hard`) with a chrome bar (see "Showcase dashboard panel" below).
+A full, static copy of the real app dashboard rendered with sample data, anchored at `id="preview"` for the hero's secondary CTA. Reuse the real presentational components (stats row, charts, list, heatmaps) fed with fixed data - do **not** call the API from the landing page. Frame it as the showcase panel (`border-gl-border-strong shadow-gl-hard`) with a chrome bar (see "Showcase dashboard panel" below).
 
 ### How it works
 
@@ -123,7 +123,7 @@ A full, static copy of the real app dashboard rendered with sample data, anchore
 
 ### Testimonials (optional)
 
-`grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3` of `<figure>` cards `rounded-2xl p-7 flex flex-col justify-between gap-6` → `<blockquote>` `text-[17px] leading-[1.5] font-medium tracking-[-0.012em] text-gl-text` with curly quotes in `text-gl-primary font-bold` → `<figcaption>` swatch-coloured initials avatar + name (`text-[14px] font-semibold`) + role (`text-[12.5px] text-gl-text-muted`). Do not fabricate named people — use role descriptions.
+`grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3` of `<figure>` cards `rounded-2xl p-7 flex flex-col justify-between gap-6` → `<blockquote>` `text-[17px] leading-[1.5] font-medium tracking-[-0.012em] text-gl-text` with curly quotes in `text-gl-primary font-bold` → `<figcaption>` swatch-coloured initials avatar + name (`text-[14px] font-semibold`) + role (`text-[12.5px] text-gl-text-muted`). Do not fabricate named people - use role descriptions.
 
 ### FAQ
 
@@ -160,7 +160,7 @@ Content (`relative z-10`): row of stat pills (`mb-8`) → headline `max-w-[700px
 
 ```tsx
 <div className="flex min-h-screen">
-  {/* Brand panel — lg+ only */}
+  {/* Brand panel - lg+ only */}
   <div className="bg-gl-bg-subtle relative hidden flex-col overflow-hidden px-10 py-10 lg:flex lg:w-[440px] xl:w-[500px]">
     <div className="pointer-events-none absolute -top-40 -left-40 h-[560px] w-[560px] rounded-full" aria-hidden="true"
       style={{ background: 'radial-gradient(circle, rgba(46,184,160,0.09) 0%, transparent 65%)' }} />
@@ -178,7 +178,7 @@ Content (`relative z-10`): row of stat pills (`mb-8`) → headline `max-w-[700px
   <div className="bg-gl-bg relative flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10">
     <div className="pointer-events-none absolute inset-0" aria-hidden="true"
       style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 40%, rgba(46,184,160,0.04), transparent)' }} />
-    {/* Floating product fragments — lg+ only, opacity 0.3 (see 04) */}
+    {/* Floating product fragments - lg+ only, opacity 0.3 (see 04) */}
     {/* Mobile logo lockup: mb-10 lg:hidden */}
     <div className="relative z-10 w-full max-w-md">{children}</div>
   </div>
@@ -188,7 +188,7 @@ Content (`relative z-10`): row of stat pills (`mb-8`) → headline `max-w-[700px
 ### Auth form content
 
 `space-y-6`:
-1. **Trust pill** — announcement-pill style with a "Free" label + "No credit card required".
+1. **Trust pill** - announcement-pill style with a "Free" label + "No credit card required".
 2. Heading `text-[26px] leading-tight font-bold tracking-[-0.02em]` + sub `mt-1.5 text-[14px] leading-relaxed text-gl-text-muted`.
 3. `<form noValidate>` → **form card** (`rounded-2xl p-6 space-y-4 shadow-gl`) → fields with recessed inputs → full-width solid primary submit (`mt-1`).
 4. Switch link `text-center text-[13.5px] text-gl-text-muted` with inline primary link.
@@ -209,10 +209,10 @@ Same two-column proportions as auth.
   1. Status pill ("● Setting up workspace") `mb-4`
   2. H1 `text-[28px] xl:text-[32px]` with the key noun in gradient text
   3. Helper paragraph `mt-2 text-[14px] leading-relaxed`
-  4. Eyebrow "POPULAR — CLICK TO ADD" (`text-[10.5px] font-semibold tracking-[0.08em] uppercase text-gl-text-faint mb-3`) → suggestion chips `flex flex-wrap gap-2`
+  4. Eyebrow "POPULAR - CLICK TO ADD" (`text-[10.5px] font-semibold tracking-[0.08em] uppercase text-gl-text-faint mb-3`) → suggestion chips `flex flex-wrap gap-2`
   5. Custom-entry card (`rounded-2xl p-5`) with recessed input + neutral "Add" button
-  6. Eyebrow "ADDED — 2 / 5" → list of rows `rounded-xl px-4 py-3.5 shadow-gl` animating in (`animate-in fade-in-0 slide-in-from-bottom-1 duration-200`), remove "×" `text-gl-text-faint hover:text-gl-danger`; or a dashed placeholder when empty
-  7. Full-width solid primary "Continue — next step →" (`mt-8 py-3`), with a faint hint below when disabled
+  6. Eyebrow "ADDED - 2 / 5" → list of rows `rounded-xl px-4 py-3.5 shadow-gl` animating in (`animate-in fade-in-0 slide-in-from-bottom-1 duration-200`), remove "×" `text-gl-text-faint hover:text-gl-danger`; or a dashed placeholder when empty
+  7. Full-width solid primary "Continue - next step →" (`mt-8 py-3`), with a faint hint below when disabled
 
 ---
 
@@ -234,7 +234,7 @@ Same two-column proportions as auth.
 
 Top to bottom:
 1. Logo lockup (`mb-6 px-2 py-1`, size 20, `text-[15px]`).
-2. **Primary create action** — full-width outline accent button "+ Add item" (`mb-4`).
+2. **Primary create action** - full-width outline accent button "+ Add item" (`mb-4`).
 3. **Nav** `ul flex flex-col gap-0.5`: `flex items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-[13.5px] font-medium transition-colors duration-[120ms]` with 18px icon. Active `bg-gl-primary text-gl-primary-ink font-semibold` + `aria-current="page"`; inactive `text-gl-text-muted hover:text-gl-text`.
 4. **Group list** (`mt-6`): eyebrow `mb-2.5 px-2.5 text-[10px]` → sidebar list items with colour dots and mono counts (skeleton rows while loading).
 5. **Footer** (`mt-auto`): Settings link → `mt-2 border-t border-gl-border pt-3` user block with initials avatar, name `text-[12.5px] font-semibold truncate`, email `text-[11px] text-gl-text-muted truncate`.
@@ -243,15 +243,15 @@ Top to bottom:
 
 `border-b border-gl-border px-6 pt-7 pb-6 sm:px-8` → `flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6`:
 - Left: page title `text-[26px] sm:text-[28px] font-bold tracking-[-0.022em]` + momentum badge inline (`flex flex-wrap items-center gap-3`) · date below `mt-1.5 text-[13px] text-gl-text-muted` (e.g. "Thursday, May 15").
-- Right: context chips — "Today:" label + solid swatch chips `rounded-full px-2.5 py-[3px] text-[11.5px] font-semibold` with `backgroundColor: swatch; color: rgba(12,10,5,0.82)`.
+- Right: context chips - "Today:" label + solid swatch chips `rounded-full px-2.5 py-[3px] text-[11.5px] font-semibold` with `backgroundColor: swatch; color: rgba(12,10,5,0.82)`.
 
 ### Dashboard content
 
 Three sections, each with the accent-bar section header:
 
-1. **Overview** — right slot: period segmented control (7 days / 30 days / This week / This month). Stats row → activity card (charts). Dims to 60% while refetching.
-2. **Recent items** — right slot: outline "+ Add item". List card with header (title + filter segmented control + "View all →") and data rows; skeleton / empty / filtered-empty states.
-3. **Patterns** — calendar heatmaps.
+1. **Overview** - right slot: period segmented control (7 days / 30 days / This week / This month). Stats row → activity card (charts). Dims to 60% while refetching.
+2. **Recent items** - right slot: outline "+ Add item". List card with header (title + filter segmented control + "View all →") and data rows; skeleton / empty / filtered-empty states.
+3. **Patterns** - calendar heatmaps.
 
 The create/edit form opens as a right slide-over sheet; delete confirms in a dialog.
 
@@ -259,7 +259,7 @@ The create/edit form opens as a right slide-over sheet; delete confirms in a dia
 
 ## Data visualisation
 
-All charts are hand-built with divs/SVG and tokens — no chart library. This keeps them visually identical to the rest of the UI.
+All charts are hand-built with divs/SVG and tokens - no chart library. This keeps them visually identical to the rest of the UI.
 
 ### Colour rules
 

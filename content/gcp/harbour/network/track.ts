@@ -11,7 +11,7 @@ import Map from "./views/map.mdx";
 export const network: Track = {
   slug: "network",
   title: "Network",
-  heading: "Harbour — GCP network reference architecture",
+  heading: "Harbour - GCP network reference architecture",
   summary:
     "A fictional marketplace platform, built deliberately wrong. Every networking concept from the curriculum lands somewhere on this map, and every defect below gets closed by a specific module.",
   meta: [
@@ -56,7 +56,7 @@ export const network: Track = {
       icon: "server",
       title: "Components",
       description:
-        "External IP, ingress, egress, tags and service account per component — what you check before writing any rule.",
+        "External IP, ingress, egress, tags and service account per component - what you check before writing any rule.",
       Content: Components,
     },
     {

@@ -27,7 +27,7 @@ export interface Track {
   slug: string;
   /** Short name, e.g. "Network". */
   title: string;
-  /** Page heading, e.g. "Harbour — GCP network reference architecture". */
+  /** Page heading, e.g. "Harbour - GCP network reference architecture". */
   heading: string;
   summary: string;
   meta: { label: string; value: string }[];

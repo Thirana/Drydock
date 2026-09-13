@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   Global stylesheet — from design-system/theme.css
+   Global stylesheet - from design-system/theme.css
    Dark-only palette. Forest-charcoal surfaces, cool off-white ink,
    teal-green accent, matte secondary accents.
    ───────────────────────────────────────────────────────────────────────────── */
@@ -13,7 +13,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Surfaces — forest-charcoal (not purple-navy) */
+  /* Surfaces - forest-charcoal (not purple-navy) */
   --gl-bg: #161918;
   --gl-bg-subtle: #101210;
   --gl-surface: #1d201e;
@@ -24,18 +24,18 @@
   --gl-border-strong: #d8ddd6;
   --gl-border-input: #383d39;
 
-  /* Text — cool off-white with slight sage tone */
+  /* Text - cool off-white with slight sage tone */
   --gl-text: #eef0ec;
   --gl-text-muted: #8a9189;
   --gl-text-faint: #606963;
 
-  /* Accent — deep teal-green */
+  /* Accent - deep teal-green */
   --gl-primary: #2eb8a0;
   --gl-primary-hover: #3ecdb5;
   --gl-primary-soft: #0d2420;
   --gl-primary-ink: #051a16;
 
-  /* Type pair — warm ochre (type A) and periwinkle (type B) */
+  /* Type pair - warm ochre (type A) and periwinkle (type B) */
   --gl-work-bg: #28200c;
   --gl-work-fg: #c4a05e;
   --gl-work-ink: #1a1200;
@@ -43,7 +43,7 @@
   --gl-learn-fg: #8285ba;
   --gl-learn-ink: #0d0c1e;
 
-  /* Semantic states — matte */
+  /* Semantic states - matte */
   --gl-success: #69b598;
   --gl-success-soft: #0d2419;
   --gl-warning: #c4a05e;
@@ -53,7 +53,7 @@
   --gl-danger-soft: #261009;
   --gl-danger-ink: #1c0907;
 
-  /* Categorical swatches — matte 6-hue palette */
+  /* Categorical swatches - matte 6-hue palette */
   --gl-swatch-1: #69b598;
   --gl-swatch-2: #8285ba;
   --gl-swatch-3: #b87da2;
@@ -109,12 +109,12 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Tailwind v4 theme — exposes tokens as utilities
+   Tailwind v4 theme - exposes tokens as utilities
    bg-gl-bg, text-gl-text, border-gl-border, shadow-gl, rounded-pill, etc.
    ───────────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
-  /* Fonts — --font-inter / --font-geist-mono are injected by next/font */
+  /* Fonts - --font-inter / --font-geist-mono are injected by next/font */
   --font-sans:
     var(--font-inter), "Inter", "Inter Tight", ui-sans-serif, system-ui,
     -apple-system, sans-serif;
@@ -189,12 +189,12 @@
   --color-gl-swatch-5: var(--gl-swatch-5);
   --color-gl-swatch-6: var(--gl-swatch-6);
 
-  /* Shadows — shadow-gl, shadow-gl-lg, shadow-gl-hard */
+  /* Shadows - shadow-gl, shadow-gl-lg, shadow-gl-hard */
   --shadow-gl: var(--gl-shadow);
   --shadow-gl-lg: var(--gl-shadow-lg);
   --shadow-gl-hard: var(--gl-shadow-hard);
 
-  /* Radius — these REPLACE Tailwind's defaults for the same names.
+  /* Radius - these REPLACE Tailwind's defaults for the same names.
      rounded-sm = 8px, rounded-md = 12px, rounded-lg = 16px, rounded-xl = 24px.
      rounded-2xl (16px) and rounded-3xl (24px) keep Tailwind defaults. */
   --radius-sm: 8px;

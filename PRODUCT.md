@@ -10,8 +10,8 @@ web
 
 Two audiences, weighted equally:
 
-- **Engineers learning cloud networking and security** — cloud and platform engineers working through GCP networking (self-study, certification prep) who learn best by reasoning about realistic failures rather than reading reference docs.
-- **People evaluating the author's work** — hiring managers, peers and clients reading Drydock as a portfolio piece that shows how the author thinks about architecture, sequencing and trade-offs.
+- **Engineers learning cloud networking and security** - cloud and platform engineers working through GCP networking (self-study, certification prep) who learn best by reasoning about realistic failures rather than reading reference docs.
+- **People evaluating the author's work** - hiring managers, peers and clients reading Drydock as a portfolio piece that shows how the author thinks about architecture, sequencing and trade-offs.
 
 ## Product Purpose
 
@@ -43,7 +43,7 @@ The order of the fixes is the argument. Drydock does not stop at a list of findi
 
 - Name: **Drydock**. Tagline: "Deliberately broken cloud architectures, and how to fix them step by step."
 - Lab disclaimer: "Harbour is fictional. The shape is real."
-- Voice: one author, first person, with opinions — including disagreeing with textbook answers where a given system warrants it.
+- Voice: one author, first person, with opinions - including disagreeing with textbook answers where a given system warrants it.
 
 ## Evidence on Hand
 

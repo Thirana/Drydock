@@ -1,4 +1,4 @@
-# 02 — Components
+# 02 - Components
 
 Exact class recipes for every reusable UI element. Build these as shared components before styling any page. All examples are React + Tailwind; the class strings are the source of truth if you use another framework.
 
@@ -11,7 +11,7 @@ Conventions used by the reference:
 
 ## Logo mark
 
-A five-bar "equaliser" — the tallest centre bar uses the accent. Replace with your own mark, but keep the treatment: **one accent element, rest in `gl-text`**, rendered as inline SVG so it inherits tokens.
+A five-bar "equaliser" - the tallest centre bar uses the accent. Replace with your own mark, but keep the treatment: **one accent element, rest in `gl-text`**, rendered as inline SVG so it inherits tokens.
 
 ```tsx
 export function Logo({ size = 22, className }: { size?: number; className?: string }) {
@@ -38,7 +38,7 @@ Custom stroke icons, **not** an icon library (except `Loader2` from lucide for s
 ### Spec
 
 - `fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"`
-- Colour always comes from `currentColor` — set it with `text-gl-*` on the icon or parent.
+- Colour always comes from `currentColor` - set it with `text-gl-*` on the icon or parent.
 - `aria-hidden="true"` and `className={cn('shrink-0', className)}`
 - Props: `{ size?: number; className?: string }`
 
@@ -89,7 +89,7 @@ function makeIcon(viewBox: number, strokeWidth: number, defaultSize: number, chi
 | `IconEyeOff` | 16 | 1.4 | 16 | `<path d="M2 2l12 12M6.5 6.56A2 2 0 0 0 9.44 9.5M5.27 5.27C3.3 6.28 2 8 2 8s2.5 5 6 5a6.4 6.4 0 0 0 2.73-.6M8 3c3.5 0 6 5 6 5a9.9 9.9 0 0 1-1.27 1.73"/>` |
 | `IconTrash` | 14 | 1.6 | 14 | `<path d="M2 4h10M5 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M12 4l-.8 7a1 1 0 0 1-1 .9H3.8a1 1 0 0 1-1-.9L2 4"/>` |
 | `IconEmptyList` | 36 | 1.4 | 36 | `<rect x="6" y="9" width="24" height="20" rx="2"/><path d="M6 15h24M12 22h6M12 25h12"/>` |
-| `IconDots` | 16 | — | 16 | **fill** icon: `fill="currentColor"`, no stroke: `<circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/>` |
+| `IconDots` | 16 | - | 16 | **fill** icon: `fill="currentColor"`, no stroke: `<circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/>` |
 
 Stroke weight follows size: small inline glyphs (11–14 viewBox) use 1.8–2; 22-unit UI icons use 1.6; large/delicate icons use 1.4. Add new icons in the same style.
 
@@ -101,7 +101,7 @@ Stroke weight follows size: small inline glyphs (11–14 viewBox) use 1.8–2; 2
 
 There are **three button families**. Use the right one for the context.
 
-### 1. `GlButton` — tinted, for marketing and navigation CTAs
+### 1. `GlButton` - tinted, for marketing and navigation CTAs
 
 Soft, translucent fill. Used in the landing nav, hero, bottom CTA.
 
@@ -151,7 +151,7 @@ export function GlButton({ className, variant, size, leading, trailing, children
 - Pair: primary "Start for free →" + secondary "See how it works".
 - CTA rows: `flex flex-wrap items-center justify-center gap-3` (or `gap-4` in hero).
 
-### 2. Solid primary — for form submits and wizard "Continue"
+### 2. Solid primary - for form submits and wizard "Continue"
 
 Full-weight, full-width inside form cards.
 
@@ -165,7 +165,7 @@ disabled:pointer-events-none disabled:opacity-50     (wizard: disabled:opacity-4
 
 Pending state swaps the label: `<Loader2 className="size-4 animate-spin" /> Creating account…` (use an ellipsis character `…`).
 
-### 3. App action buttons — inside the product
+### 3. App action buttons - inside the product
 
 | Variant | Classes | Use |
 |---|---|---|
@@ -208,7 +208,7 @@ Sheet variant: label `text-[12.5px] font-semibold`, label row `mb-2`, error `mt-
 
 Right-slot counters: `font-mono text-[11px] text-gl-text-muted`, switching to `text-gl-danger` when near the limit (e.g. > 95%).
 
-### Text input — inside a `gl-surface` card (auth, onboarding)
+### Text input - inside a `gl-surface` card (auth, onboarding)
 
 ```ts
 const inputCls = (hasError: boolean) => cn(
@@ -221,7 +221,7 @@ const inputCls = (hasError: boolean) => cn(
 
 Always set `aria-invalid={hasError}`.
 
-### Text input — directly on a `gl-surface` panel (sheets)
+### Text input - directly on a `gl-surface` panel (sheets)
 
 ```ts
 cn(
@@ -244,7 +244,7 @@ Text input with `pr-10` and an absolutely positioned toggle:
 `<input type="range" className="accent-gl-primary w-full" />` with a tick row below:
 `text-gl-text-faint mt-1 flex justify-between font-mono text-[10.5px]` → `1 · 5 · 10`. Show the current value in the field's right slot as `font-mono text-[12px] text-gl-text-muted` "7 / 10".
 
-### `GlSelect` — custom dropdown (replaces native `<select>`)
+### `GlSelect` - custom dropdown (replaces native `<select>`)
 
 Trigger:
 ```
@@ -488,11 +488,11 @@ Rank `w-4 text-right font-mono text-[11px] text-gl-text-faint` · name row (dot 
 
 ## States
 
-### Loading — pulse skeletons
+### Loading - pulse skeletons
 
 Mirror the real layout with blocks: `bg-gl-border/50 animate-pulse rounded` (sidebar: `bg-gl-border/40 h-[28px] rounded-lg`). Match exact paddings and column widths of the real row so nothing shifts when data arrives. While refetching existing data, dim instead of skeletoning: `transition-opacity duration-200 opacity-60`.
 
-### Error — inline with retry
+### Error - inline with retry
 
 ```tsx
 <div className="border border-gl-border bg-gl-surface shadow-gl mb-4 flex items-center justify-between rounded-xl p-5">
@@ -501,7 +501,7 @@ Mirror the real layout with blocks: `bg-gl-border/50 animate-pulse rounded` (sid
 </div>
 ```
 
-### Empty — centred invitation
+### Empty - centred invitation
 
 ```tsx
 <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
@@ -540,8 +540,8 @@ Filtered-to-nothing: `px-6 py-10 text-center text-[13px] leading-relaxed text-gl
 
 ## Accessibility baseline
 
-- Semantic elements (`nav`, `main`, `section`, `figure`/`blockquote`, `button` — never clickable `div`s for primary actions).
+- Semantic elements (`nav`, `main`, `section`, `figure`/`blockquote`, `button` - never clickable `div`s for primary actions).
 - Focus: global `:focus-visible` outline in `gl-primary`; links/buttons may add `focus-visible:ring-2 focus-visible:ring-gl-primary`.
 - Every input has a `<label>`; errors use `role="alert"`.
-- Colour is never the only signal — type badges carry text, pills carry numbers, trends carry arrows.
+- Colour is never the only signal - type badges carry text, pills carry numbers, trends carry arrows.
 - Decorative SVGs, glows and floating fragments: `aria-hidden="true"` and `pointer-events-none`.

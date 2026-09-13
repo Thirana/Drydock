@@ -14,7 +14,7 @@ export const defects: Defect[] = [
     explanation:
       "It sits above the implied deny at 65535, so it is consulted first and always matches. Every other ingress rule in the project is decoration.",
     concept:
-      "Priority and the implied deny — a rule at 1000 is consulted long before the implied deny at 65535, so one broad allow makes every narrow rule decoration.",
+      "Priority and the implied deny - a rule at 1000 is consulted long before the implied deny at 65535, so one broad allow makes every narrow rule decoration.",
     detection:
       'gcloud compute firewall-rules list --format="table(\n  name,priority,direction,sourceRanges.list(),targetTags.list(),\n  allowed[].map().firewall_rule().list())" \\\n  --filter="direction=INGRESS AND sourceRanges:0.0.0.0/0"',
     before:
@@ -36,7 +36,7 @@ export const defects: Defect[] = [
     blockedBy: [],
     symptom: "Port 22 allowed from 0.0.0.0/0 on every VM.",
     explanation:
-      "The fix is not a narrower IP list, it is removing the need for a public SSH port at all. IAP tunnels SSH through Google after an identity check, and all its traffic arrives from one fixed range — so the firewall narrows the network path to IAP only, and IAP narrows access to authorised identities only. Two narrow layers replacing one wide-open one. Three independent things must all be true for it to work: the iap.googleapis.com API enabled, roles/iap.tunnelResourceAccessor on the identity, and this firewall rule. roles/editor does not include the tunnel role.",
+      "The fix is not a narrower IP list, it is removing the need for a public SSH port at all. IAP tunnels SSH through Google after an identity check, and all its traffic arrives from one fixed range - so the firewall narrows the network path to IAP only, and IAP narrows access to authorised identities only. Two narrow layers replacing one wide-open one. Three independent things must all be true for it to work: the iap.googleapis.com API enabled, roles/iap.tunnelResourceAccessor on the identity, and this firewall rule. roles/editor does not include the tunnel role.",
     concept:
       "Identity-based access beats network-based access. The fix is not a narrower IP list, it is removing the public port.",
     detection:
@@ -44,7 +44,7 @@ export const defects: Defect[] = [
     before: "allow INGRESS · tcp:22 · source 0.0.0.0/0 · target all instances",
     after: "allow INGRESS · tcp:22 · source 35.235.240.0/20 · priority 900",
     remediation:
-      '# ORDER MATTERS. You are changing how you reach the box while using that\n# same access to make the change. Add and verify before deleting anything.\n\n# 1. Additive. Opens nothing new — that range is only reachable after\n#    IAP has already checked your identity.\ngcloud compute firewall-rules create allow-ssh-from-iap \\\n  --network=harbour-vpc --direction=INGRESS --action=allow \\\n  --rules=tcp:22 --source-ranges=35.235.240.0/20 --priority=900\n\n# 2. VERIFY on every VM. Not optional — this is what stands between\n#    "SSH is now secure" and "nobody can SSH to production".\ngcloud compute ssh bastion --zone=asia-southeast1-b \\\n  --tunnel-through-iap --command="echo ok"\n\n# when it fails, this checks all three requirements at once:\ngcloud compute ssh bastion --zone=asia-southeast1-b \\\n  --tunnel-through-iap --troubleshoot\n\n# 3. ONLY after every VM verifies.\ngcloud compute firewall-rules delete default-allow-ssh',
+      '# ORDER MATTERS. You are changing how you reach the box while using that\n# same access to make the change. Add and verify before deleting anything.\n\n# 1. Additive. Opens nothing new - that range is only reachable after\n#    IAP has already checked your identity.\ngcloud compute firewall-rules create allow-ssh-from-iap \\\n  --network=harbour-vpc --direction=INGRESS --action=allow \\\n  --rules=tcp:22 --source-ranges=35.235.240.0/20 --priority=900\n\n# 2. VERIFY on every VM. Not optional - this is what stands between\n#    "SSH is now secure" and "nobody can SSH to production".\ngcloud compute ssh bastion --zone=asia-southeast1-b \\\n  --tunnel-through-iap --command="echo ok"\n\n# when it fails, this checks all three requirements at once:\ngcloud compute ssh bastion --zone=asia-southeast1-b \\\n  --tunnel-through-iap --troubleshoot\n\n# 3. ONLY after every VM verifies.\ngcloud compute firewall-rules delete default-allow-ssh',
     applies: { BASTION: { sub: "SSH via IAP only" } },
   },
   {
@@ -56,7 +56,7 @@ export const defects: Defect[] = [
     blockedBy: ["D2"],
     symptom: "The bastion has a public address so that someone can SSH to it.",
     explanation:
-      "That is the entire reason a bastion exists, and IAP removes the reason. A VM with no external IP needs three things to keep working: IAP for inbound admin access, Private Google Access for Google APIs, and Cloud NAT for the internet. The bastion needs almost nothing outbound, so IAP alone makes its public address unnecessary — which is why this closes now while D3b waits.",
+      "That is the entire reason a bastion exists, and IAP removes the reason. A VM with no external IP needs three things to keep working: IAP for inbound admin access, Private Google Access for Google APIs, and Cloud NAT for the internet. The bastion needs almost nothing outbound, so IAP alone makes its public address unnecessary - which is why this closes now while D3b waits.",
     concept:
       "An external IP is one of only two things that make a VM reachable from the internet. Removing it is the strongest single hardening step.",
     detection:
@@ -80,7 +80,7 @@ export const defects: Defect[] = [
     explanation:
       "Unlike the bastion, these VMs need real outbound access to Google APIs and the internet. Removing the addresses therefore depends on PGA being on, a NAT existing in the region, and the database migration in D5 so the VM reaches Postgres privately rather than through its whitelisted public address. Sequenced work, not a quick win.",
     concept:
-      "Removing an external IP has prerequisites in both directions — inbound admin access, and outbound to both Google APIs and the internet.",
+      "Removing an external IP has prerequisites in both directions - inbound admin access, and outbound to both Google APIs and the internet.",
     detection:
       'gcloud compute instances list \\\n  --filter="networkInterfaces[0].accessConfigs[0].natIP:*" \\\n  --format="table(name,zone,tags.items.list())"\n\n# and check the prerequisites are in place first\ngcloud compute routers nats list --router=rtr-a --region=asia-southeast1',
     before:
@@ -108,7 +108,7 @@ export const defects: Defect[] = [
       'gcloud compute networks subnets list \\\n  --filter="privateIpGoogleAccess=false" \\\n  --format="table(name,region,ipCidrRange,privateIpGoogleAccess)"',
     before: "privateIpGoogleAccess: false on sn-a-data",
     after:
-      "privateIpGoogleAccess: true — Google API hostnames resolve to 199.36.153.8/30 from inside the subnet",
+      "privateIpGoogleAccess: true - Google API hostnames resolve to 199.36.153.8/30 from inside the subnet",
     remediation:
       'gcloud compute networks subnets update sn-a-data \\\n  --region=asia-southeast1 --enable-private-ip-google-access\n\ngcloud compute networks subnets describe sn-a-data \\\n  --region=asia-southeast1 --format="value(privateIpGoogleAccess)"',
     applies: { G_DATA: { sub: "10.10.17.0/24 · PGA on", tone: "compute" } },
@@ -125,7 +125,7 @@ export const defects: Defect[] = [
     explanation:
       "Production database traffic rides the public internet. The PSA peering already exists and Redis already uses it. The work is pointing the database at a path that is already built.",
     concept:
-      "Private Service Access — managed services live in Google’s tenant and reach your VPC over a peering, drawing private IPs from a range you reserve.",
+      "Private Service Access - managed services live in Google’s tenant and reach your VPC over a peering, drawing private IPs from a range you reserve.",
     detection:
       'gcloud sql instances list --format="table(\n  name,settings.ipConfiguration.ipv4Enabled,\n  settings.ipConfiguration.privateNetwork,\n  settings.ipConfiguration.authorizedNetworks[].value.list())"',
     before: "Public IP + authorizedNetworks list. No privateNetwork set.",
@@ -149,15 +149,15 @@ export const defects: Defect[] = [
     concept:
       "A protection is only as good as the narrowest path around it. A WAF on the load balancer does nothing for a door that skips the load balancer.",
     detection:
-      'gcloud run services list --format="yaml(metadata.name, metadata.annotations)" \\\n  | grep -B2 ingress\n\n# then confirm the bypass actually answers\ncurl -sI https://harbour-api-xxxx.a.run.app/ | head -1',
+      "gcloud run services describe harbour-api \\\n  --region=asia-southeast1 \\\n  --format=yaml | grep ingress\n\n# then confirm the bypass actually answers\ncurl -sI https://harbour-api-xxxx.a.run.app/ \\\n  | head -1",
     before: "--ingress=all",
     after:
-      "--ingress=internal-and-cloud-load-balancing — only the LB and the VPC can reach it",
+      "--ingress=internal-and-cloud-load-balancing - only the LB and the VPC can reach it",
     remediation:
       "gcloud run services update harbour-api \\\n  --region=asia-southeast1 \\\n  --ingress=internal-and-cloud-load-balancing",
     applies: {
       API: { sub: "Cloud Run · LB-only ingress" },
-      DIRECT: { sub: "closed — ingress is LB-only", dim: true },
+      DIRECT: { sub: "closed - ingress is LB-only", dim: true },
     },
   },
   {
@@ -171,12 +171,12 @@ export const defects: Defect[] = [
     explanation:
       "The service reaches the private database fine, which is why nobody noticed. But PayGate sees an unpredictable source address, so whitelisting silently fails after a redeploy.",
     concept:
-      "Cloud Run egress modes. private-ranges-only reaches your database fine, which is why the broken payment path goes unnoticed — only all-traffic gives a stable egress IP.",
+      "Cloud Run egress modes. private-ranges-only reaches your database fine, which is why the broken payment path goes unnoticed - only all-traffic gives a stable egress IP.",
     detection:
       'gcloud run services describe harbour-api --region=asia-southeast1 \\\n  --format=yaml | grep -E "vpc-access-egress|network-interfaces"',
     before: "--vpc-egress=private-ranges-only",
     after:
-      "--vpc-egress=all-traffic — internet-bound traffic routes through Cloud NAT",
+      "--vpc-egress=all-traffic - internet-bound traffic routes through Cloud NAT",
     remediation:
       "gcloud run services update harbour-api \\\n  --region=asia-southeast1 \\\n  --network=harbour-vpc --subnet=sn-a-app \\\n  --vpc-egress=all-traffic",
     applies: { API: { sub: "Cloud Run · LB-only · all-traffic" } },
@@ -192,7 +192,7 @@ export const defects: Defect[] = [
     explanation:
       "Traffic can bypass the CDN and the WAF by hitting the load balancer directly. Locking it means allowing only Cloudflare’s published ranges, which change, which is exactly what an address group is for.",
     concept:
-      "Address groups express intent — “the CDN’s edge” — instead of an IP list that goes stale the next time the provider publishes new ranges.",
+      "Address groups express intent - “the CDN’s edge” - instead of an IP list that goes stale the next time the provider publishes new ranges.",
     detection:
       '# does the origin answer someone who is not the CDN?\ncurl -sI --resolve harbour.example:443:34.120.95.195 \\\n  https://harbour.example/ | head -1\n\ngcloud compute security-policies describe harbour-waf \\\n  --format="yaml(rules)"',
     before: "No source restriction on the backend service’s security policy.",
@@ -251,7 +251,7 @@ export const defects: Defect[] = [
       "gcloud compute firewall-policies create \\\n  --organization=ORG_ID --short-name=harbour-baseline\n\ngcloud compute firewall-policies rules create 1000 \\\n  --firewall-policy=harbour-baseline --direction=INGRESS --action=deny \\\n  --src-ip-ranges=0.0.0.0/0 --layer4-configs=tcp:22,tcp:3389",
     applies: {
       G_POL: {
-        sub: "org baseline — no SSH or RDP from the internet",
+        sub: "org baseline - no SSH or RDP from the internet",
         tone: "compute",
         dashed: false,
       },
@@ -269,7 +269,7 @@ export const defects: Defect[] = [
     explanation:
       "Peering does not chain, so traffic cannot cross your peering and then the PSA peering. No rule or route makes this work. The partner needs its own path.",
     concept:
-      "Peering is non-transitive. Traffic cannot cross two peerings, and no firewall rule or route changes that — it is structural, not configuration.",
+      "Peering is non-transitive. Traffic cannot cross two peerings, and no firewall rule or route changes that - it is structural, not configuration.",
     detection:
       "gcloud compute networks peerings list --network=harbour-vpc\n\n# a connectivity test names the reason, not just the failure\ngcloud network-management connectivity-tests create partner-to-db \\\n  --source-network=partner-vpc --destination-ip-address=10.90.0.3",
     before: "Partner sends traffic to 10.90.x.x and it is silently dropped.",
@@ -318,9 +318,9 @@ export const defects: Defect[] = [
     blockedBy: ["D12"],
     symptom: "legacy-backend-service probes TCP on port 80.",
     explanation:
-      "A hung application that still holds the port open passes the check, keeps receiving traffic, and is never replaced by the autohealer — because the MIG uses the same check. One weak setting breaks both rotation and healing.",
+      "A hung application that still holds the port open passes the check, keeps receiving traffic, and is never replaced by the autohealer - because the MIG uses the same check. One weak setting breaks both rotation and healing.",
     concept:
-      "A health check proves only what it actually tests. TCP proves a port is open, not that the application works — and the autohealer trusts the same check.",
+      "A health check proves only what it actually tests. TCP proves a port is open, not that the application works - and the autohealer trusts the same check.",
     detection:
       'gcloud compute backend-services describe legacy-backend-service \\\n  --region=asia-southeast1 --format="value(healthChecks)"\n\ngcloud compute health-checks list \\\n  --format="table(name,type,tcpHealthCheck.port,httpHealthCheck.requestPath)"',
     before:
@@ -342,7 +342,7 @@ export const defects: Defect[] = [
     explanation:
       "Cloud Armor attaches to the backend service, several links down the chain, not to the load balancer. So one path is protected and the other is not, and nothing about the load balancer’s configuration makes that visible. Same outcome as the run.app bypass, opposite cause: there the WAF is walked around, here it was never attached.",
     concept:
-      "Cloud Armor attaches to the backend service, several links down the chain — not to the load balancer. Coverage can differ between two paths on the same LB.",
+      "Cloud Armor attaches to the backend service, several links down the chain - not to the load balancer. Coverage can differ between two paths on the same LB.",
     detection:
       'gcloud compute backend-services list \\\n  --format="table(name,region,protocol,securityPolicy)"',
     before: "legacy-backend-service has no securityPolicy field set.",
@@ -363,7 +363,7 @@ export const defects: Defect[] = [
     explanation:
       "It will negotiate older TLS versions and weaker ciphers with any client that asks. Nothing breaks, nothing warns, and a scanner finds it immediately.",
     concept:
-      "TLS lives entirely on the target proxy — certificate, SSL policy, mTLS. If a client complains about the cipher, that is the link to inspect.",
+      "TLS lives entirely on the target proxy - certificate, SSL policy, mTLS. If a client complains about the cipher, that is the link to inspect.",
     detection:
       'gcloud compute target-https-proxies list \\\n  --format="table(name,sslPolicy,sslCertificates.list())"\n\n# confirm what it will actually negotiate\nnmap --script ssl-enum-ciphers -p 443 harbour.example',
     before:
@@ -383,9 +383,9 @@ export const defects: Defect[] = [
     symptom:
       "Public keys live in project metadata, so a project-level key works on every VM.",
     explanation:
-      "A key in metadata is just a key. Nothing links it to whether the person still works here, so access survives someone leaving until a human notices and deletes it. OS Login ties login to Google identities and IAM instead: grant roles/compute.osLogin and they can log in, revoke it and access to every VM disappears at once. Logs also show which identity logged in, rather than that a key was used. Deliberately sequenced after D2 — change the access path first and prove it, then change the login mechanism, so a failure has only one possible cause.",
+      "A key in metadata is just a key. Nothing links it to whether the person still works here, so access survives someone leaving until a human notices and deletes it. OS Login ties login to Google identities and IAM instead: grant roles/compute.osLogin and they can log in, revoke it and access to every VM disappears at once. Logs also show which identity logged in, rather than that a key was used. Deliberately sequenced after D2 - change the access path first and prove it, then change the login mechanism, so a failure has only one possible cause.",
     concept:
-      "OS Login ties login to IAM, so revocation is central and instant. Metadata keys tie it to nothing — a key outlives the person who owned it.",
+      "OS Login ties login to IAM, so revocation is central and instant. Metadata keys tie it to nothing - a key outlives the person who owned it.",
     detection:
       'gcloud compute project-info describe \\\n  --format="value(commonInstanceMetadata.items.filter(key:enable-oslogin))"\n\n# the keys this would replace\ngcloud compute project-info describe \\\n  --format="value(commonInstanceMetadata.items.filter(key:sshKeys))"',
     before:

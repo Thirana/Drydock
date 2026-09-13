@@ -35,7 +35,7 @@ typography:
     fontWeight: 700
     lineHeight: 1.02
     letterSpacing: "-0.035em"
-    fontFeature: "\"cv02\", \"cv03\", \"cv04\", \"cv11\""
+    fontFeature: '"cv02", "cv03", "cv04", "cv11"'
   headline:
     fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "44px"
@@ -109,7 +109,7 @@ typography:
     fontSize: "11px"
     fontWeight: 600
     lineHeight: 1
-    fontFeature: "\"tnum\""
+    fontFeature: '"tnum"'
   evidence:
     fontFamily: "Geist Mono, JetBrains Mono, ui-monospace, monospace"
     fontSize: "13px"
@@ -297,6 +297,7 @@ The density is that of a technical workbench, not a brochure. Type is tight and 
 The graphics are the product itself. Marketing surfaces show live renders of the real architecture model, a real register entry and real commands, never illustrations or animated stand-ins. The system is dark only, gradient text is retired, and every surface stays readable with JavaScript off.
 
 **Key Characteristics:**
+
 - Dark only, on green-tinted charcoal, never pure black or navy.
 - One saturated signal (teal) for state; rust for broken, sage for fixed, ochre for risk.
 - Depth from the surface ladder plus soft shadows; one hard chalk-line shadow per page.
@@ -310,21 +311,25 @@ The graphics are the product itself. Marketing surfaces show live renders of the
 A near-monochrome forest-charcoal ground with one signal teal and a small set of matte hues, each assigned a single job.
 
 ### Primary
+
 - **Signal Teal** (`signal-teal`): the only saturated colour. Used for the active nav item, the active segment, the selected tour tab, focus rings, phase-rail and chapter progress, links, map selection strokes, tinted primary buttons, the "closes here" marker on a sequence, and one highlighted word per heading. It always means "this is where you are" or "this moved forward", never a category and never a finished fix.
 - **Signal Teal Hover** (`signal-teal-hover`): hover state for teal links and solid teal controls.
 - **Signal Teal Soft** (`signal-teal-soft`): background for active toggle chips, active mobile nav pills and the selected tour tab's icon.
 - **Signal Teal Ink** (`signal-teal-ink`): text on a solid teal fill (active segment, active sidebar item).
 
 ### Secondary
+
 - **Rust Alarm** (`rust-alarm`), **Rust Soft** (`rust-soft`), **Rust Ink** (`rust-ink`): defects and failure. Critical severity is solid rust with rust ink; high severity, defect ID chips, open-defect counts and callouts, failing packet hops, "Now" labels and the focused defect row in a dependency list use rust on rust soft. Danger-toned dashed strokes mark defective paths on the map.
 - **Ochre Lamp** (`ochre-lamp`), **Ochre Soft** (`ochre-soft`): medium severity, risk and caution. The "High risk" phase pill and the verify-before-moving-on panel are ochre. On the map, ochre is the **edge** tone (load balancers, Cloud Armor, public ingress).
 
 ### Tertiary
+
 - **Sage Clear** (`sage-clear`), **Sage Clear Soft** (`sage-clear-soft`): passed and fixed. "Fixed" labels, "all N defects closed" badges, closed map callouts, passing journeys, "Closes in phase N", verifiable claims' check bullets, chapter progress once the reader reaches Healthy, and the map's **private** tone.
 - **Periwinkle Compute** (`periwinkle-compute`), **Periwinkle Soft** (`periwinkle-soft`): the map's **compute** tone.
 - **Rose Data** (`rose-data`): the map's **data** tone (Cloud SQL, storage, caches).
 
 ### Neutral
+
 - **Drydock Charcoal** (`drydock-charcoal`): page background. Also the recessed ground inside diagram frames, preview wells and the Now/Fixed state well.
 - **Keel Shadow** (`keel-shadow`): the lowest rung. Track sidebar, command blocks, segmented-control and phase-rail wells, table headers, figure chrome bars.
 - **Hull Graphite** (`hull-graphite`): cards, register entries, stat cards, the active phase step, announcement pills.
@@ -337,10 +342,12 @@ A near-monochrome forest-charcoal ground with one signal teal and a small set of
 - **Faint Sage** (`faint-sage`): non-essential metadata only (footnotes, lab labels in chrome, decorative arrows, placeholder text). About 3.1:1 on charcoal and 2.9:1 on hull graphite.
 
 ### Atmosphere
+
 - **Halo Sage** (`halo-sage`): the radial glow at the top of marketing pages, between 7% and 16% opacity, fading to transparent into drydock charcoal.
 - **Mask Stop** (`mask-stop`): opaque stops inside CSS `mask-image` gradients. Only its alpha matters; it is never a visible colour.
 
 ### Named Rules
+
 **The Signal Rule.** Teal marks state (active, selected, focused, progressed) and nothing else. It is never a diagram category, a severity or a decorative fill. If removing the teal would not change what a reader knows about where they are, it should not be teal.
 
 **The Rust Means Broken Rule.** Rust appears only where something is defective or failing. A rust element with no defect behind it is a false alarm; risk without a defect is ochre.
@@ -358,6 +365,7 @@ A near-monochrome forest-charcoal ground with one signal teal and a small set of
 **Character:** Inter carries the argument: bold, tightly tracked headings and plain, readable prose, with character variants cv02/cv03/cv04/cv11 for open digits and an unambiguous l. Geist Mono carries the evidence, making anything you could paste into a terminal or cross-reference look like data.
 
 ### Hierarchy
+
 - **Display** (700, 52px → 64px at sm → 78px at lg, line-height 1.02, -0.035em): the landing H1 only.
 - **Headline** (700, 36px → 44px at sm, 1.08, -0.025em → -0.028em): centred section intros on provider, lab and fallback pages, with a 680px measure.
 - **Chapter** (700, 32px → 40px at sm, 1.1, -0.025em → -0.028em): left-aligned landing chapter headings, with a 640px measure.
@@ -377,6 +385,7 @@ A near-monochrome forest-charcoal ground with one signal teal and a small set of
 - **Code** (Geist Mono, 12.5px, 1.7): command blocks. Comment lines are italic weathered sage, so the commands stand out in chalk ink.
 
 ### Named Rules
+
 **The Evidence in Mono Rule.** If a value could be copied into a terminal, grepped for or cross-referenced (an ID, phase number, count, CIDR, configuration line or command), it is set in Geist Mono with tabular figures, even inside a sentence. Prose never is.
 
 **The Solid Emphasis Rule.** Emphasis in a heading is at most one word or short phrase in solid Signal Teal. No gradient text, anywhere.
@@ -401,14 +410,16 @@ Breakpoints are Tailwind's defaults (sm 640, md 768, lg 1024, xl 1280). Styles a
 
 ## Elevation & Depth
 
-Depth comes first from the surface ladder: keel shadow → drydock charcoal → hull graphite → raised graphite. Each nesting level steps up exactly one rung, and a well or input inside a card steps *down*. Soft, dark shadows then lift resting cards off the page, and a larger shadow marks something open, hovered or showcased. Borders stay 1px and low-contrast, so they define edges without drawing lines.
+Depth comes first from the surface ladder: keel shadow → drydock charcoal → hull graphite → raised graphite. Each nesting level steps up exactly one rung, and a well or input inside a card steps _down_. Soft, dark shadows then lift resting cards off the page, and a larger shadow marks something open, hovered or showcased. Borders stay 1px and low-contrast, so they define edges without drawing lines.
 
 ### Shadow Vocabulary
+
 - **Resting** (`box-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 8px 24px -10px rgba(0,0,0,0.55)`): default for cards, stat cards, register entries, dependency and sequence panels, the active phase step and the active form segment.
 - **Lifted** (`box-shadow: 0 2px 4px rgba(0,0,0,0.55), 0 28px 48px -20px rgba(0,0,0,0.7)`): hover on interactive cards, an open register entry, the landing register entry, the healthy finale map, the floating chapter pill and floating panels.
 - **Chalk line** (`box-shadow: 4px 4px 0 #d8ddd6`): the showcase figure only (the hero map on the landing page, `DiagramFrame` in track views), paired with a chalk-line border.
 
 ### Named Rules
+
 **The One Rung Rule.** Nest one surface step at a time. A hull-graphite card holds raised-graphite panels, and a recessed well inside it drops to charcoal or keel shadow. Never skip a rung, and never put two adjacent surfaces on the same tone with only a border between them.
 
 **The One Chalk Line Rule.** The hard off-white offset shadow appears at most once per page, around the single most important diagram. A second one makes the page look broken rather than the architecture. Never pair it with a fade or mask that would clip it.
@@ -432,12 +443,15 @@ Softly rounded, never sharp and never bubbly. Corners scale with the size of the
 Diagram geometry follows the same language in SVG: groups at rx 12 (dashed where a group is not yet built), nodes at rx 8, edge labels at rx 4.
 
 ### Named Rules
+
 **The Nested Corner Rule.** An inner radius is never larger than its container's. Inside a 16px card use 10–12px; reserve 24px for blocks that sit directly on the page.
 
 ## Components
 
 ### Buttons
+
 Precise instruments, softly tinted: translucent fills rather than solid slabs, with a small, quick press.
+
 - **Shape:** gently rounded (16px at sm/md, 10px at lg).
 - **Primary:** Signal Teal text on a 16% teal tint; hover deepens to 24%. Semibold, -0.005em tracking. Sizes are sm (13px, 6px 12px), md (14px, 9px 14px) and lg (15px, 13px 22px). Primary CTAs carry a trailing arrow icon.
 - **Secondary:** chalk ink on a 6% chalk tint, 10% on hover. It always pairs with a primary ("Open Harbour →" + "See how it works").
@@ -447,6 +461,7 @@ Precise instruments, softly tinted: translucent fills rather than solid slabs, w
 - **Labels:** one verb per destination. Every link to a lab's first view reads "Open {lab}"; screen-reader text completes short visible labels ("Open" + hidden view name).
 
 ### Chips
+
 - **Toggle chip** (map overlays, pickers): a pill on hull graphite with a seam-line border and weathered-sage text. Hover moves to raised graphite and a field-line border. Active is teal soft with a 30%-teal border, teal text and semibold weight. It uses `aria-pressed`.
 - **Severity badge:** an uppercase 10.5px bold pill with 0.08em tracking. Critical is solid rust, high is rust on rust soft, medium is ochre on ochre soft, low is weathered sage on raised graphite with a border. It always shows the word, not just the colour.
 - **Defect chip:** a mono 11px semibold rust pill on rust soft with a 30%-rust border (60% on hover). It links to the defect's register entry ("D3a · phase 2").
@@ -454,10 +469,14 @@ Precise instruments, softly tinted: translucent fills rather than solid slabs, w
 - **Risk pill:** "High risk" in uppercase 11px ochre on ochre soft, beside the phase it applies to.
 - **Stat pill:** a raised-graphite pill with a teal mono value followed by a weathered-sage label ("6 remediation phases").
 
+**Optical centring.** Every uppercase, letter-spaced pill (severity badges, risk pills, provider and phase pills) trims its right padding by the letter-spacing (`pr-[calc(<padding>-0.08em)]`), because browsers add the spacing after the last letter too; equal padding would push the word left of centre.
+
 ### Segmented control
+
 A keel-shadow well (9px radius, 1px seam-line border, 4px padding) of 7px segments at 12.5px. The active segment is solid Signal Teal with teal ink; inactive segments are weathered sage, brightening on hover. The well scrolls horizontally rather than wrapping.
 
 ### Cards / Containers
+
 - **Corner Style:** 16px for feature, register and panel cards; 24px only for standalone stat cards and blocks; 10–12px for anything nested.
 - **Background:** hull graphite on the page; nested panels in raised graphite; preview and state wells recessed to charcoal.
 - **Shadow Strategy:** Resting at rest. Interactive feature cards lift 2px on hover and move to Lifted over 150ms, and an open register entry takes Lifted too.
@@ -465,34 +484,43 @@ A keel-shadow well (9px radius, 1px seam-line border, 4px padding) of 7px segmen
 - **Internal Padding:** 20px for stat cards and small-screen cards, 24px from sm, 28px for full feature cards.
 
 ### Navigation
+
 - **Site header:** logo lockup (four blocks with one knocked out of place in teal, plus a 17px bold wordmark), 14px medium weathered-sage links that turn chalk on hover, a thin vertical seam divider and a small tinted primary CTA. The header is transparent at the top and blurred charcoal once scrolled or while the mobile menu is open. Below md a 44px menu button (`aria-expanded`, `aria-controls`) opens a list of 15px links in 44px rows; it closes on Escape, on choosing a link, and when the viewport passes md.
 - **Track sidebar:** 13.5px items with 18px stroke icons. The active item is solid teal with teal ink and semibold weight; inactive items are weathered sage, moving to a hull-graphite hover. The track list below uses a teal dot for the active track and mono defect counts.
 - **Mobile track nav:** a horizontally scrolling row of 12.5px pills. The active pill is teal soft with a 30%-teal border.
 
 ### Chapter Marker (signature)
+
 Shows how far the reader has walked from as found to healthy.
+
 - **Rail (lg):** a sticky list beside the chapters. Each chapter is a 44px link row with an 11px dot and a 13px label; a 1px connector joins consecutive dots. Reached dots are solid teal, unreached dots are charcoal with a field-line ring, and the current label is chalk semibold with `aria-current="location"`. When the current chapter is the healthy end, every reached dot and connector turns sage.
 - **Bar (below lg):** a Lifted, blurred charcoal pill pinned 16px above the bottom of the viewport, holding one 16×4px segment per chapter, the current chapter label and "Next: {chapter}". It links to the next chapter and fades in only once the first chapter is reached.
 - **Behaviour:** the active chapter is the last one whose top has passed 45% of the viewport, or the last chapter at the bottom of the page; progress colours transition over 300ms.
 
 ### Phase Rail (signature)
+
 The component that carries the product's argument. In track views it is a keel-shadow well (12px radius) of equal steps at least 132px wide. Each step stacks a 4px progress bar (teal once reached, seam line ahead), a mono uppercase "Phase N" label (teal when active), the phase name in 13px semibold and a mono count ("17 open" at phase 0, "+3 closed" after). The active step rises to hull graphite with a seam border and a Resting shadow. Bars colour over 300ms, so stepping forward reads as progress.
 
 In the hero map the rail compresses into the figure caption: a pause/play icon button followed by equal-width 4px bars with no labels, sharing the caption's side padding so the last bar ends under the open count. Each bar is a 44px-tall button whose accessible name is "Phase N: name". The current phase is named once, beside the lab title, as a teal mono "Phase N" and the phase name; every change replays a 320ms rise on a teal wash that fades over 1.4s. That label is a polite live region only while the walkthrough is paused, so autoplay is not announced every step.
 
 ### Defect Register Entry (signature)
+
 A `<details>` card in hull graphite. The summary row holds the defect ID chip, the severity badge, a 15px title that turns teal when open, a mono phase pill and a chevron that rotates 180° over 300ms. The body follows a fixed order: symptom (chalk, medium weight), explanation (weathered sage, 80ch), a **Concept** callout set off by a 2px teal left rule, "Cannot start until" and "Blocks" defect chips, the detect command, side-by-side **Now** (rust mono label) and **Fixed** (sage mono label) panels in raised graphite with 10px corners, then the fix command.
 
 ### Register Entry with state switch
+
 The landing page's single, always-open register entry, for following one defect to its fix. A Lifted hull-graphite card: the summary row (ID chip, severity badge, 17px title, mono phase pill), then a Now/Fixed segmented control beside a mono status ("open, as found" in rust, "closed in phase N" in sage), a charcoal state well (10px, `evidence` type) that swaps between the before and after configuration as a polite live region, and the fix command under a "The change that closes it" label.
 
 ### Dependency and Sequence panels
+
 Two Resting cards that show why order matters. The dependency panel lists defects in 10px-rounded rows (mono "phase N" column, mono ID, title, optional "also waits on …" note) grouped under "Lands first" and "Waits for it", with the followed defect's row on rust soft. The sequence panel lists every remediation phase as a divided row (mono "Phase N", name, ochre risk pill where it applies, a teal-soft "{ID} closes here" marker, mono "+N" count), followed by an ochre verify panel for the high-risk phase.
 
 ### Command Block
+
 A terminal slab in keel shadow (12px radius, seam-line border). An optional header bar shows a mono uppercase label ("detect", "fix") and three seam-coloured dots. The code is 12.5px Geist Mono at 1.7 line height; `#` comment lines are italic weathered sage and commands are chalk ink. It shows the full command, scrolls horizontally and never wraps.
 
 ### Diagram Frame (signature)
+
 The one chalk-line showcase per page: a 16px-radius figure with a chalk-line border and the chalk-line hard shadow. A keel-shadow caption bar holds a 16px logo, a bold 13px title, a mono meta line and, in the hero, the open/closed count and phase rail; a keel-shadow strip carries the line legend (solid "traffic path", dim dashed "not built yet", rust dashed "defective path"). The SVG sits on drydock charcoal and is never masked or faded. Nodes use their tone as the stroke; selection switches the stroke to teal at 2–2.4px over a 7% teal wash. Labels are 11–13.5px, with mono for addresses and ports.
 
 Non-showcase diagrams (the healthy finale, map crops) use the same caption bar and charcoal ground in a seam-line card with a Resting or Lifted shadow instead.
@@ -500,9 +528,11 @@ Non-showcase diagrams (the healthy finale, map crops) use the same caption bar a
 **One render per diagram.** Where a small screen should show only part of the map, the same SVG is scaled and shifted with CSS (a focus rectangle expressed as `aspect-ratio`, a width over 100% and negative percentage margins) instead of rendering a second cropped copy.
 
 ### Track Tour
-Every view of a track as a tab beside a live preview panel. Tabs are 16px-rounded buttons with a 32px icon square (teal soft when selected) and roving `tabindex` with arrow, Home and End keys; below lg they scroll horizontally with a faded trailing edge. The panel is a 16px Resting card whose preview is drawn from the model (overlay map, journey at two phases, component tiles, load balancer chain, address ranges, register rows), with a text fallback only when a view has no data.
+
+Every view of a track as a tab beside a live preview panel. Tabs are 16px-rounded buttons with a 32px icon square (teal soft when selected) and roving `tabindex` with arrow, Home and End keys; below lg they scroll horizontally with a faded trailing edge. Tabs carry only an icon and a title, so the selected state looks the same for every view. The panel is a 16px Resting card whose preview is drawn from the model (overlay map, one packet journey snaking through its component boxes (three columns, rows alternating direction; a packet visits each box once per switch; failing hops dashed rust with their defects, repaired hops sage), switchable between as found and fixed, the compute components cropped from the map and selectable with an inspector for the selected one's sheet and defects, a request walked link by link down the load balancer chain (with a route switch that sends it around the chain when the lane's backend carries the bypass defect), the subnets cropped from the map with each range pinned to its box, register rows that fade out under a summary card with a severity bar and the full count, so the preview reads as the top of a longer register), with a text fallback only when a view has no data.
 
 ### Motion
+
 - **Micro-interactions:** 120–150ms ease-out (buttons, chips, links, row hovers).
 - **Headline reveal:** each line rises 22px over 1s on `cubic-bezier(0.22, 1, 0.36, 1)`, with line two 500ms behind. One keyword pops in with a slight overshoot at 800ms; that is the only overshoot in the system.
 - **Hero walkthrough:** the hero map steps through every phase (2.8s a step, 2.2s extra on the first and last), with a pause/play button; choosing a phase stops it.
@@ -513,6 +543,7 @@ Every view of a track as a tab beside a live preview panel. Tabs are 16px-rounde
 ## Do's and Don'ts
 
 ### Do:
+
 - **Do** use Signal Teal (`#2eb8a0`) only for active, selected, focused and progressed states, links, and one highlighted word per heading.
 - **Do** mark every closed, passed or fixed state in sage, every defect in rust and every risk in ochre.
 - **Do** step the surface ladder one rung per nesting level: keel shadow → charcoal → hull graphite → raised graphite.
@@ -528,6 +559,7 @@ Every view of a track as a tab beside a live preview panel. Tabs are 16px-rounde
 - **Do** keep wide diagrams at their natural width inside a horizontally scrolling frame, and fade the trailing edge of horizontally scrolling tab rows.
 
 ### Don't:
+
 - **Don't** use gradient text (`background-clip: text` with a gradient), including in the hero. Emphasis is solid teal.
 - **Don't** add a light theme, or use pure black or a blue-navy ground.
 - **Don't** set text a reader must read in faint sage (`#606963`, about 3.1:1), or set any text below 11px.

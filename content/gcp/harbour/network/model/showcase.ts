@@ -28,7 +28,7 @@ export const showcase: MapShowcase = {
   // Entry points, the load balancer, the app subnet and the bastion.
   focus: { x: 16, y: 140, width: 720, height: 480 },
   // Landing page only: each component appears with the phase that builds or
-  // starts relying on it. Not literal — several exist as found.
+  // starts relying on it. Not literal - several exist as found.
   reveals: [
     { phase: 1, boxes: ["G_PROXY", "ILB"] },
     { phase: 2, boxes: ["IAP"] },

@@ -1,4 +1,4 @@
-# 01 — Foundations
+# 01 - Foundations
 
 Principles, stack setup, colour, typography, spacing, radius and elevation. Every value here is already encoded in `theme.css`; this file explains **what each token is for** and **the rules for using it**.
 
@@ -118,7 +118,7 @@ Use `cn()` for every conditional class list.
 | Token | Hex | Use for |
 |---|---|---|
 | `--gl-border` | `#2c312d` | Default 1px border on all cards, dividers, table rows, section rules |
-| `--gl-border-input` | `#383d39` | Text inputs, selects, secondary button outlines — slightly brighter so fields are findable |
+| `--gl-border-input` | `#383d39` | Text inputs, selects, secondary button outlines - slightly brighter so fields are findable |
 | `--gl-border-strong` | `#d8ddd6` | **Signature accent only**: a showcase panel with `shadow-gl-hard` (4px offset solid off-white shadow). Use at most once per page. |
 
 ### Text
@@ -153,7 +153,7 @@ Each semantic colour has three roles. Always use them together the same way:
 | Tone | Soft | Fg | Ink |
 |---|---|---|---|
 | Primary | `#0d2420` | `#2eb8a0` | `#051a16` |
-| Success | `#0d2419` | `#69b598` | — |
+| Success | `#0d2419` | `#69b598` | - |
 | Warning | `#231a07` | `#c4a05e` | `#1a1200` |
 | Danger | `#261009` | `#b87060` | `#1c0907` |
 | Type A (`work`) | `#28200c` | `#c4a05e` | `#1a1200` |
@@ -161,7 +161,7 @@ Each semantic colour has three roles. Always use them together the same way:
 
 Utilities for the type pair: `bg-gl-work`, `bg-gl-work-bg`, `text-gl-work`, `text-gl-work-ink`, and the same with `learn`.
 
-**Warning tone doubles as "momentum"** — streaks, "best" values, and anything celebratory-but-not-primary use amber.
+**Warning tone doubles as "momentum"** - streaks, "best" values, and anything celebratory-but-not-primary use amber.
 
 ### Threshold colouring
 
@@ -180,7 +180,7 @@ Used for user-created groupings (projects, tags, categories). Show as a small do
 Six CSS tokens: `--gl-swatch-1` … `--gl-swatch-6`
 `#69b598` sage · `#8285ba` periwinkle · `#b87da2` rose · `#c4a05e` ochre · `#b87060` rust · `#62aebf` cyan
 
-Extended 8-colour palette (for user-selectable colours — validate against this list on the backend):
+Extended 8-colour palette (for user-selectable colours - validate against this list on the backend):
 
 ```ts
 export const COLOR_PALETTE = [
@@ -240,25 +240,25 @@ These appear **only** inside gradients and glows, never as flat fills:
 | Card title | 20 | `1.3` | `-0.015em` | bold | |
 | Step / sheet title | 18 | `1.25` / `snug` | `-0.018em` | bold | |
 | Dialog title / list header | 16–17 | `snug` | `-0.015em` | bold | |
-| Section header (app) | 15 | — | `-0.015em` | bold | |
-| Lead paragraph | 17 → 20 (sm) | `1.55` | — | normal | `text-gl-text-muted` |
-| Body large | 16 | `1.65` | — | normal | |
-| Body | 14–15 | `1.6`–`1.65` | — | normal | |
-| UI label / nav | 13–14 | — | — | medium | |
-| Small / helper | 12–13.5 | `relaxed` | — | normal | |
+| Section header (app) | 15 | - | `-0.015em` | bold | |
+| Lead paragraph | 17 → 20 (sm) | `1.55` | - | normal | `text-gl-text-muted` |
+| Body large | 16 | `1.65` | - | normal | |
+| Body | 14–15 | `1.6`–`1.65` | - | normal | |
+| UI label / nav | 13–14 | - | - | medium | |
+| Small / helper | 12–13.5 | `relaxed` | - | normal | |
 | Micro (chip text) | 10.5–11.5 | `none` | `0.01em` | semibold | |
-| Eyebrow | 10–11 | — | `0.12em` | bold, **uppercase** | `text-gl-text-faint text-[11px] font-bold tracking-[0.12em] uppercase` |
+| Eyebrow | 10–11 | - | `0.12em` | bold, **uppercase** | `text-gl-text-faint text-[11px] font-bold tracking-[0.12em] uppercase` |
 | Big stat value | 42 | `none` | `-0.03em` | bold | `tabular-nums` |
 | Widget stat value | 22–28 (mono) / 52 (hero streak) | `none` | `-0.02em` | bold | `font-mono tabular-nums` |
-| Mono meta | 10–12 | — | `0.06`–`0.12em` if uppercase | medium/semibold | `font-mono` |
+| Mono meta | 10–12 | - | `0.06`–`0.12em` if uppercase | medium/semibold | `font-mono` |
 
-Arbitrary pixel sizes (`text-[13.5px]`) are intentional — the scale is finer than Tailwind's defaults. Keep them.
+Arbitrary pixel sizes (`text-[13.5px]`) are intentional - the scale is finer than Tailwind's defaults. Keep them.
 
 ### Text treatments
 
 - **Headings:** add `text-balance`. **Paragraphs:** add `text-pretty`.
 - **Highlight one word** in a section heading with `text-gl-primary` ("Set up and start **growing**.").
-- **Gradient text** only for the primary tagline on hero, auth panel and onboarding panel — one phrase per screen.
+- **Gradient text** only for the primary tagline on hero, auth panel and onboarding panel - one phrase per screen.
 - **User-authored content** (notes, descriptions written by the user) renders in `italic text-gl-text-muted`. This visually separates "your words" from UI chrome.
 - **Measure:** hero sub-copy `max-w-[620px]`, section intros `max-w-[640px]`–`[680px]`, CTA sub-copy `max-w-[520px]`, empty-state copy `max-w-[320px]`.
 
@@ -314,7 +314,7 @@ If you do **not** copy the radius overrides, replace `rounded-lg` → `rounded-[
 
 | Utility | Value | Use for |
 |---|---|---|
-| *(none)* | — | Flat rows inside a card, section dividers |
+| *(none)* | - | Flat rows inside a card, section dividers |
 | `shadow-gl` | `0 1px 2px rgba(0,0,0,.5), 0 8px 24px -10px rgba(0,0,0,.55)` | Default resting card, stat cards, form cards, dropdown menu |
 | `shadow-gl-lg` | `0 2px 4px rgba(0,0,0,.55), 0 28px 48px -20px rgba(0,0,0,.7)` | Hover state of lifting cards, hero object card, previews, dialogs, sheets, tooltips, select listbox |
 | `shadow-gl-hard` | `4px 4px 0 #d8ddd6` | Signature showcase panel only, paired with `border-gl-border-strong` |

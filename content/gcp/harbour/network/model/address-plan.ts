@@ -5,12 +5,12 @@ export const addressPlan: AddressRange[] = [
   {
     cidr: "10.10.0.0/16",
     tone: "compute",
-    label: "Region A — asia-southeast1 (primary)",
+    label: "Region A - asia-southeast1 (primary)",
   },
   {
     cidr: "10.20.0.0/16",
     tone: "external",
-    label: "Region B — asia-south1 (secondary)",
+    label: "Region B - asia-south1 (secondary)",
   },
   {
     cidr: "10.90.0.0/16",
