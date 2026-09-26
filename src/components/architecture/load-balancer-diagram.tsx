@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { pathData } from "@/lib/architecture/geometry";
+import { wrapText } from "@/lib/architecture/text-fit";
 import { toneColor } from "@/lib/architecture/tone";
 import type { LoadBalancerChain, Tone } from "@/lib/architecture/types";
 import { cn } from "@/lib/utils";
@@ -106,7 +107,7 @@ export function LoadBalancerDiagram({
               y={box.y}
               width={box.w}
               height={box.h}
-              rx={8}
+              rx={0}
               strokeWidth={selected ? 2 : 1}
               strokeDasharray={hasDefects && !selected ? "5 4" : undefined}
               className={cn(
@@ -116,39 +117,48 @@ export function LoadBalancerDiagram({
                   : "fill-gl-surface group-hover:fill-gl-surface-2",
               )}
               style={{
-                stroke: selected ? "var(--gl-primary)" : toneColor(box.tone),
+                stroke: selected ? "var(--dd-sel)" : toneColor(box.tone),
               }}
             />
-            <rect
-              x={box.x}
-              y={box.y}
-              width={3}
-              height={box.h}
-              rx={1.5}
-              style={{ fill: toneColor(hasDefects ? "danger" : box.tone) }}
-            />
-            <text
-              x={box.x + 14}
-              y={box.y + 27}
-              fontSize={13}
-              fontWeight={600}
-              className="fill-gl-text"
-            >
-              {box.label}
-            </text>
-            <text
-              x={box.x + 14}
-              y={box.y + 45}
-              fontSize={11}
-              className="fill-gl-text-muted font-mono"
-            >
-              {box.sub}
-            </text>
+            {(() => {
+              // Label and sub-lines, centred as one block so short boxes fit too.
+              const sub = box.sub
+                ? wrapText(box.sub, box.w - 26, 11, "mono")
+                : null;
+              const lines = sub?.lines ?? [];
+              const block = 13 + (lines.length ? 5 + lines.length * 14 : 0);
+              const top = box.y + Math.max(8, (box.h - block) / 2);
+              return (
+                <>
+                  <text
+                    x={box.x + 14}
+                    y={top + 11}
+                    fontSize={13}
+                    fontWeight={600}
+                    className="fill-gl-text"
+                  >
+                    {box.label}
+                  </text>
+                  {lines.map((line, i) => (
+                    <text
+                      key={i}
+                      x={box.x + 14}
+                      y={top + 29 + i * 14}
+                      fontSize={11}
+                      className="fill-gl-text-muted font-mono"
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </>
+              );
+            })()}
             {hasDefects && (
               <DefectMarks
-                x={box.x + box.w - 10}
-                y={box.y + 19}
+                x={box.x + box.w - 8}
+                y={box.y}
                 ids={box.defects!}
+                tag
               />
             )}
           </g>

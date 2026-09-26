@@ -4,6 +4,8 @@ import { SeverityBadge } from "@/components/architecture/severity-badge";
 import {
   AddressBlock,
   AddressBlocks,
+  Argument,
+  Arguments,
   Caption,
   Column,
   Columns,
@@ -36,35 +38,25 @@ function slugOf(node: ReactNode) {
 
 const components: MDXComponents = {
   h2: ({ children }) => (
-    <div className="mt-12 mb-6 flex items-center gap-4 first:mt-0">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div
-          aria-hidden="true"
-          className="bg-gl-primary h-[18px] w-[3px] shrink-0 rounded-full"
-        />
-        <h2
-          id={slugOf(children)}
-          className="text-gl-text scroll-mt-32 text-[15px] font-bold tracking-[-0.015em] text-balance"
-        >
-          {children}
-        </h2>
-      </div>
-      <div
-        aria-hidden="true"
-        className="border-gl-border min-w-0 flex-1 border-t"
-      />
-    </div>
+    <h2
+      id={slugOf(children)}
+      className="dd-head text-ink border-rule mt-20 mb-6 max-w-[760px] scroll-mt-24 border-t pt-10 text-[30px] first:mt-0 first:border-t-0 first:pt-0 sm:text-[34px]"
+    >
+      {children}
+    </h2>
   ),
   table: (props) => (
-    <div className="border-gl-border bg-gl-surface shadow-gl my-6 overflow-x-auto rounded-xl border">
+    <div className="my-8 overflow-x-auto">
       <table
         {...props}
-        className="w-full min-w-[560px] border-collapse text-left text-[13.5px]"
+        className="w-full min-w-[640px] border-collapse text-left"
       />
     </div>
   ),
   AddressBlock,
   AddressBlocks,
+  Argument,
+  Arguments,
   Caption,
   Column,
   Columns,

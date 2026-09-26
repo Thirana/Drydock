@@ -1,11 +1,19 @@
 import type { Severity } from "@/lib/architecture/types";
 import { cn } from "@/lib/utils";
 
-const STYLES: Record<Severity, string> = {
-  critical: "bg-gl-danger text-gl-danger-ink",
-  high: "bg-gl-danger-soft text-gl-danger",
-  medium: "bg-gl-warning-soft text-gl-warning",
-  low: "border border-gl-border bg-gl-surface-2 text-gl-text-muted",
+/** The annotator's marks, borrowed from game notation. Always shown with the word. */
+export const SEVERITY_MARK: Record<Severity, string> = {
+  critical: "??",
+  high: "?",
+  medium: "?!",
+  low: "·",
+};
+
+const TONE: Record<Severity, string> = {
+  critical: "text-fault",
+  high: "text-fault",
+  medium: "text-ink",
+  low: "text-ink-muted",
 };
 
 export function SeverityBadge({
@@ -18,12 +26,14 @@ export function SeverityBadge({
   return (
     <span
       className={cn(
-        // Right padding gives back the trailing letter-spacing so the word sits centred.
-        "inline-flex items-center rounded-full pl-2.5 pr-[calc(0.625rem-0.08em)] py-1 text-[10.5px] leading-none font-bold tracking-[0.08em] whitespace-nowrap uppercase",
-        STYLES[severity],
+        "inline-flex items-baseline gap-1.5 text-[14px] whitespace-nowrap",
+        TONE[severity],
         className,
       )}
     >
+      <span aria-hidden="true" className="w-[2ch] font-mono font-bold">
+        {SEVERITY_MARK[severity]}
+      </span>
       {severity}
     </span>
   );

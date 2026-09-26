@@ -3,36 +3,29 @@ import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Tinted buttons for navigation and calls to action. */
+/** Plain buttons: one solid ink action, an outlined companion, a text link. */
 export const glButtonVariants = cva(
   [
-    "inline-flex items-center justify-center font-semibold whitespace-nowrap",
-    "cursor-pointer select-none tracking-[-0.005em]",
-    "transition-all duration-[120ms] ease-out",
-    "active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
+    "inline-flex items-center justify-center whitespace-nowrap font-semibold",
+    "cursor-pointer select-none rounded-[2px]",
+    "transition-colors duration-[120ms] ease-out",
+    "disabled:pointer-events-none disabled:opacity-50",
   ],
   {
     variants: {
       variant: {
-        primary: [
-          "bg-gl-primary/[0.16] text-gl-primary",
-          "hover:bg-gl-primary/[0.24]",
-        ],
-        secondary: [
-          "bg-gl-text/[0.06] text-gl-text",
-          "hover:bg-gl-text/[0.10]",
-        ],
-        ghost: [
-          "bg-transparent text-gl-text-muted",
-          "hover:bg-gl-text/[0.05] hover:text-gl-text",
-        ],
+        primary: "bg-ink text-ground hover:bg-accent hover:text-accent-ink",
+        secondary: "border border-rule-strong text-ink hover:border-ink",
+        ghost:
+          "text-accent underline decoration-transparent underline-offset-4 hover:decoration-current",
       },
       size: {
-        sm: "gap-1.5 rounded-lg px-3 py-1.5 text-[13px]",
-        md: "gap-2 rounded-lg px-3.5 py-[9px] text-[14px]",
-        lg: "gap-2.5 rounded-[10px] px-[22px] py-[13px] text-[15px]",
+        sm: "min-h-9 gap-1.5 px-3 text-[14px]",
+        md: "min-h-11 gap-2 px-4 text-[15px]",
+        lg: "min-h-12 gap-2 px-5 text-[16px]",
       },
     },
+    compoundVariants: [{ variant: "ghost", className: "!px-0" }],
     defaultVariants: { variant: "primary", size: "md" },
   },
 );

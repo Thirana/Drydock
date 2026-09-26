@@ -19,6 +19,8 @@ export interface TrackView {
   title: string;
   /** Used for page metadata and view cards. */
   description: string;
+  /** Opening paragraph under the view's title. Falls back to `description`. */
+  lead?: string;
   icon?: IconName;
   Content: MDXContent;
 }

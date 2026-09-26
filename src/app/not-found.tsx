@@ -1,29 +1,26 @@
-import Link from "next/link";
 import { PageShell } from "@/components/site/page-shell";
-import { IconArrowRight } from "@/components/ui/icons";
+import { ButtonLink } from "@/components/ui/button";
+import { IconArrow } from "@/components/ui/icons";
 
 export default function NotFound() {
   return (
     <PageShell>
-      <section className="flex flex-col items-center gap-2 px-6 py-24 text-center sm:py-32">
-        <span
-          aria-hidden="true"
-          className="text-gl-border font-mono text-[64px] leading-none font-bold"
-        >
-          404
-        </span>
-        <h1 className="text-gl-text mt-4 text-[26px] leading-tight font-bold tracking-[-0.02em]">
-          Page not found
+      <section className="max-w-[640px] py-24 sm:py-32">
+        <p className="text-fault font-mono text-[20px] font-bold">404??</p>
+        <h1 className="dd-head text-ink mt-3 text-[44px]">
+          Nothing at this address
         </h1>
-        <p className="text-gl-text-muted max-w-[320px] text-[14px] leading-relaxed">
-          There’s nothing at this address.
+        <p className="text-ink-body mt-4 text-[19px] leading-[1.55]">
+          The page may have moved, or the link was mistyped.
         </p>
-        <Link
+        <ButtonLink
           href="/"
-          className="text-gl-primary hover:text-gl-primary-hover mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold"
+          size="lg"
+          className="mt-8"
+          trailing={<IconArrow size={14} />}
         >
-          Back to home <IconArrowRight size={12} />
-        </Link>
+          Back to the start
+        </ButtonLink>
       </section>
     </PageShell>
   );

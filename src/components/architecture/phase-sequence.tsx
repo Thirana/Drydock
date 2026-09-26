@@ -1,37 +1,34 @@
 import type { ArchitectureModel } from "@/lib/architecture/types";
 
-/** The remediation sequence as step cards, straight from the phase data. */
+/** The remediation sequence as numbered moves, each with why it sits where it does. */
 export function PhaseSequence({ model }: { model: ArchitectureModel }) {
+  const steps = model.phases.filter((p) => p.number > 0);
   return (
-    <ol className="not-prose my-6 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-      {model.phases
-        .filter((p) => p.number > 0)
-        .map((p) => {
-          const closes = model.defects.filter(
-            (d) => d.phase === p.number,
-          ).length;
-          return (
-            <li
-              key={p.number}
-              className="border-gl-border bg-gl-surface shadow-gl flex flex-col gap-3 rounded-2xl border p-6"
-            >
-              <div className="flex items-start justify-between">
-                <span className="bg-gl-primary-soft text-gl-primary inline-flex items-center rounded-full pl-2.5 pr-[calc(0.625rem-0.08em)] py-1 font-mono text-[11px] leading-none font-semibold tracking-[0.08em] uppercase">
-                  Phase {p.number}
-                </span>
-              </div>
-              <h3 className="text-gl-text text-[18px] leading-[1.25] font-bold tracking-[-0.018em]">
+    <ol className="not-prose my-8 max-w-[760px]">
+      {steps.map((p) => {
+        const closes = model.defects.filter((d) => d.phase === p.number);
+        return (
+          <li
+            key={p.number}
+            className="border-rule grid grid-cols-[40px_minmax(0,1fr)] border-t py-5"
+          >
+            <span className="text-ink-faint font-mono text-[18px] leading-[1.35] font-bold">
+              {p.number}.
+            </span>
+            <div>
+              <h3 className="dd-head text-ink text-[20px]">
                 {p.name}
+                <span className="text-ink-muted ml-3 font-mono text-[14px] font-normal tracking-normal">
+                  {closes.map((d) => d.id).join(" ")}
+                </span>
               </h3>
-              <p className="text-gl-text-muted flex-1 text-[14px] leading-[1.6] text-pretty">
+              <p className="text-ink-body mt-1.5 text-[17px] leading-[1.6] text-pretty">
                 {p.rationale}
               </p>
-              <p className="text-gl-text-muted font-mono text-[11px]">
-                closes {closes} {closes === 1 ? "defect" : "defects"}
-              </p>
-            </li>
-          );
-        })}
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }

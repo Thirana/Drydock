@@ -57,6 +57,7 @@ export const network: Track = {
       title: "Components",
       description:
         "External IP, ingress, egress, tags and service account per component - what you check before writing any rule.",
+      lead: "Every box on the map, what it is for, and the facts you check before writing any rule. Clicking a box on the map shows one of these on its own, with what it talks to.",
       Content: Components,
     },
     {
@@ -72,6 +73,7 @@ export const network: Track = {
       title: "Packet journeys",
       description:
         "Six flows traced hop by hop at any phase of the sequence, with failing hops marked.",
+      lead: "Six flows traced hop by hop. Pick one and the map shows only the boxes it touches, numbered in order, with the step where it breaks marked in red. Everything else fades out.",
       Content: Journeys,
     },
     {
@@ -80,6 +82,7 @@ export const network: Track = {
       title: "Defects",
       description:
         "The defect register, ordered by phase: how to detect each one, what it teaches, what blocks it, and the change that closes it.",
+      lead: "Every entry is deliberate and realistic. Each carries how you would detect it, what it teaches, what it is blocked by, and the change that closes it - because knowing the fix is the easy half. They are ordered by remediation phase, which is the argument this whole thing is making.",
       Content: Defects,
     },
   ],

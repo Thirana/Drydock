@@ -1,12 +1,11 @@
 import { GlButton } from "@/components/ui/button";
-import { IconArrowLeft } from "@/components/ui/icons";
+import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
 import { boxIndex } from "@/lib/architecture/state";
 import type { ArchitectureModel } from "@/lib/architecture/types";
 import { DefectLink } from "./defect-link";
 import { FactList } from "./fact-list";
 
-const EYEBROW =
-  "text-gl-text-faint text-[10px] font-bold tracking-[0.12em] uppercase";
+const LABEL = "dd-label text-ink-muted";
 
 /** One component sheet, with what it talks to and how it changes by phase. */
 export function ComponentPanel({
@@ -41,18 +40,14 @@ export function ComponentPanel({
     .sort((a, b) => a.phase - b.phase);
 
   return (
-    <>
-      <div className="border-gl-border flex items-start justify-between gap-4 border-b px-5 py-4 sm:px-6">
+    <div key={id} className="animate-fade-in">
+      <div className="flex items-start justify-between gap-4 pt-4 pb-5">
         <div className="min-w-0">
-          <p className={EYEBROW}>{sheet.section}</p>
-          <h3 className="text-gl-text mt-1 text-[18px] leading-snug font-bold tracking-[-0.018em]">
-            {box.label}
-          </h3>
-          {box.sub && (
-            <p className="text-gl-text-muted mt-0.5 font-mono text-[11.5px]">
-              {box.sub}
-            </p>
-          )}
+          <h3 className="dd-head text-ink text-[26px]">{box.label}</h3>
+          <p className="text-ink-muted mt-1.5 text-[15px]">
+            {sheet.section}
+            {box.sub && <> · {box.sub}</>}
+          </p>
         </div>
         <GlButton
           variant="ghost"
@@ -64,37 +59,39 @@ export function ComponentPanel({
         </GlButton>
       </div>
 
-      <div className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[1.25fr_1fr] xl:gap-8">
-        <div>
-          <p className="text-gl-text-muted text-[14.5px] leading-[1.65] text-pretty">
+      <div className="grid gap-x-12 gap-y-8 xl:grid-cols-12">
+        <div className="xl:col-span-7">
+          <p className="text-ink text-[17px] leading-[1.6] text-pretty">
             {sheet.purpose}
           </p>
-          <div className="mt-4">
+          <div className="border-rule mt-5 border-t">
             <FactList facts={sheet.facts} />
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-7 xl:col-span-5">
           {talksTo.length > 0 && (
             <div>
-              <p className={EYEBROW}>Talks to</p>
-              <ul className="mt-2.5 space-y-2">
+              <p className={LABEL}>Talks to</p>
+              <ul className="divide-rule border-rule mt-2 divide-y border-y">
                 {talksTo.map((link, i) => (
                   <li
                     key={i}
-                    className="flex flex-wrap items-center gap-2 text-[13px]"
+                    className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 py-2 text-[15px]"
                   >
                     <span
                       aria-label={link.direction}
-                      className="bg-gl-surface-2 text-gl-text-muted inline-flex size-5 items-center justify-center rounded-[5px] font-mono text-[11px]"
+                      className="text-ink-muted inline-flex w-4 self-center"
                     >
-                      {link.direction === "to" ? "→" : "←"}
+                      {link.direction === "to" ? (
+                        <IconArrowRight size={12} />
+                      ) : (
+                        <IconArrowLeft size={12} />
+                      )}
                     </span>
-                    <span className="text-gl-text font-medium">
-                      {link.name}
-                    </span>
+                    <span className="text-ink font-medium">{link.name}</span>
                     {link.label && (
-                      <span className="text-gl-text-faint font-mono text-[11px]">
+                      <span className="text-ink-muted font-mono text-[13.5px]">
                         {link.label}
                       </span>
                     )}
@@ -106,7 +103,7 @@ export function ComponentPanel({
 
           {box.defects && box.defects.length > 0 && (
             <div>
-              <p className={EYEBROW}>Defects here</p>
+              <p className={LABEL}>Defects here</p>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {box.defects.map((d) => (
                   <DefectLink key={d} id={d} defectsHref={defectsHref} />
@@ -117,20 +114,20 @@ export function ComponentPanel({
 
           {changes.length > 0 && (
             <div>
-              <p className={EYEBROW}>Changes by phase</p>
-              <ul className="mt-2.5 space-y-2">
+              <p className={LABEL}>Changes by phase</p>
+              <ul className="divide-rule border-rule mt-2 divide-y border-y">
                 {changes.map((d) => (
                   <li
                     key={d.id}
-                    className="flex items-start gap-2.5 text-[13px]"
+                    className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-baseline gap-3 py-2 text-[15px]"
                   >
-                    <span className="bg-gl-primary-soft text-gl-primary rounded-[5px] px-1.5 py-0.5 font-mono text-[10.5px] font-semibold">
-                      P{d.phase}
+                    <span className="text-ink-faint font-mono text-[14px] font-bold">
+                      {d.phase}.
                     </span>
-                    <span className="text-gl-text-muted flex-1">
+                    <span className="text-ink-body">
                       {d.applies[id].sub ?? "appearance only"}
                     </span>
-                    <span className="text-gl-text-faint font-mono text-[11px]">
+                    <span className="text-ink-muted font-mono text-[13.5px]">
                       {d.id}
                     </span>
                   </li>
@@ -140,6 +137,6 @@ export function ComponentPanel({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

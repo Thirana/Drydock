@@ -1,25 +1,16 @@
 import { anchor, boundsOf, fitAspect } from "@/lib/architecture/geometry";
-import {
-  edgeKey,
-  failingHopCount,
-  visibleHops,
-} from "@/lib/architecture/journeys";
-import { boxIndex, closedDefects, SEVERITIES } from "@/lib/architecture/state";
+import { edgeKey } from "@/lib/architecture/journeys";
+import { boxIndex, SEVERITIES } from "@/lib/architecture/state";
 import type {
-  AddressRange,
   ArchGroup,
   ArchNode,
   ArchitectureModel,
   Defect,
-  Fact,
-  Journey,
-  LoadBalancerDetail,
   MapCallout,
   MapModel,
   Rect,
   Severity,
   Side,
-  Tone,
 } from "@/lib/architecture/types";
 import { allTracks, trackHref, viewHref } from "./registry";
 import { trackStats, type TrackStats } from "./stats";
@@ -68,6 +59,8 @@ export interface FeaturedTrack {
     closes: number;
     closedSoFar: number;
   }[];
+  /** Every defect, as the phase rail hangs it. */
+  trims: Pick<Defect, "id" | "title" | "severity" | "phase" | "blockedBy">[];
   /** Everything needed to draw the map at any phase, without the prose. */
   map: MapModel;
   /** Defects pinned on the hero map. */
@@ -76,10 +69,6 @@ export interface FeaturedTrack {
   focus: Rect;
   /** Box id → the phase it first appears at on the hero map. */
   revealAt: Record<string, number>;
-  /** Most severe defects first. */
-  spotlight: FeaturedDefect[];
-  /** How many defects the register holds at each severity. */
-  severityCounts: { severity: Severity; count: number }[];
   /**
    * The defect the landing page follows from finding it to fixing it: the
    * bypass defect when there is one, else the most severe.
@@ -105,47 +94,6 @@ export interface FeaturedTrack {
   blocked?: { defect: FeaturedDefect; blockers: FeaturedDefect[] };
   /** The first phase where the wrong order causes an outage. */
   riskiest?: { number: number; name: string; verify: string };
-  /** A journey that fails as found and passes once the sequence is done. */
-  journey?: { journey: Journey; failing: number; fixedAt: number };
-  /** The compute components cropped from the map, each with its full sheet. */
-  componentMap?: {
-    crop: Rect;
-    /** Selected first: the component carrying the most severe open defect. */
-    initial: string;
-    items: {
-      id: string;
-      label: string;
-      sub?: string;
-      section: string;
-      purpose: string;
-      facts: Fact[];
-      defects: { id: string; severity: Severity; title: string }[];
-    }[];
-  };
-  /** The load balancer chains, link by link, each link with its detail sheet. */
-  chain: {
-    label: string;
-    tone: Tone;
-    links: {
-      id: string;
-      label: string;
-      sub: string;
-      defects: string[];
-      detail?: LoadBalancerDetail;
-    }[];
-  }[];
-  /** Top-level ranges of the IP plan. */
-  addressPlan: AddressRange[];
-  /** The subnets on the map, cropped, with each subnet's range pinned to its box. */
-  addressMap?: {
-    crop: Rect;
-    /** Pinned to the box's bottom-right corner, in map viewBox units. */
-    pins: { id: string; cidr: string; tone: Tone; x: number; y: number }[];
-    /** The top-level range that holds every pinned subnet. */
-    parent?: AddressRange;
-    /** The other top-level ranges. */
-    others: AddressRange[];
-  };
   views: {
     slug: string;
     href: string;
@@ -240,6 +188,13 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
     defectsHref: hrefFor("defects"),
     totals,
     phases,
+    trims: model.defects.map((d) => ({
+      id: d.id,
+      title: d.title,
+      severity: d.severity,
+      phase: d.phase,
+      blockedBy: d.blockedBy,
+    })),
     map: {
       name: model.name,
       viewBox: model.viewBox,
@@ -259,12 +214,6 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
         r.boxes.map((id) => [id, r.phase]),
       ),
     ),
-    // Seven, so a preview can show five and let two more fade out below.
-    spotlight: bySeverity.slice(0, 7).map(toFeatured),
-    severityCounts: SEVERITIES.map((severity) => ({
-      severity,
-      count: model.defects.filter((d) => d.severity === severity).length,
-    })),
     followed: {
       defect: {
         ...toFeatured(followedSource),
@@ -300,21 +249,6 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
       name: riskiest.name,
       verify: riskiest.verify,
     },
-    journey: findJourney(model),
-    componentMap: findComponentMap(model),
-    chain: model.loadBalancer.lanes.map((lane) => ({
-      label: lane.label,
-      tone: lane.tone,
-      links: lane.links.map((link) => ({
-        id: link.id,
-        label: link.label,
-        sub: link.sub,
-        defects: link.defects ?? [],
-        detail: model.loadBalancer.details[link.id],
-      })),
-    })),
-    addressPlan: model.addressPlan ?? [],
-    addressMap: findAddressMap(model),
     views: ctx.track.views.slice(1).map((v) => ({
       slug: v.slug,
       href: viewHref(ctx, v.slug),
@@ -346,139 +280,4 @@ function findBypass(model: ArchitectureModel, candidates: Defect[]) {
     };
   }
   return undefined;
-}
-
-/** The journey with the most failing hops that the full sequence repairs. */
-function findJourney(model: ArchitectureModel): FeaturedTrack["journey"] {
-  const last = Math.max(...model.phases.map((p) => p.number));
-  const asFound = closedDefects(model, 0);
-  const done = closedDefects(model, last);
-  const phaseOf = new Map(model.defects.map((d) => [d.id, d.phase]));
-
-  let best: FeaturedTrack["journey"];
-  for (const journey of model.journeys) {
-    const failing = visibleHops(journey, asFound).filter((h) => h.fails);
-    if (!failing.length || failingHopCount(journey, done)) continue;
-    if (best && best.failing >= failing.length) continue;
-    const fixedAt = Math.max(
-      ...failing.map((h) =>
-        h.fixedBy ? (phaseOf.get(h.fixedBy) ?? last) : last,
-      ),
-    );
-    const clean = failingHopCount(journey, closedDefects(model, fixedAt)) === 0;
-    best = {
-      journey,
-      failing: failing.length,
-      fixedAt: clean ? fixedAt : last,
-    };
-  }
-  return best;
-}
-
-/**
- * Crop the map to its compute components, framed by the subnets that hold them
- * so their labels stay readable. Each keeps its full sheet and open defects.
- */
-function findComponentMap(
-  model: ArchitectureModel,
-): FeaturedTrack["componentMap"] {
-  type Rectish = { x: number; y: number; w: number; h: number };
-  const holds = (outer: Rectish, inner: Rectish) =>
-    outer.x <= inner.x &&
-    outer.y <= inner.y &&
-    outer.x + outer.w >= inner.x + inner.w &&
-    outer.y + outer.h >= inner.y + inner.h;
-  const sheets = model.componentSheets;
-  const compute = model.nodes.filter(
-    (n) => sheets[n.id]?.section === "Compute",
-  );
-  if (!compute.length) return undefined;
-
-  const frame = [
-    ...new Set(
-      compute.map(
-        (node) =>
-          model.groups
-            .filter((g) => holds(g, node))
-            .sort((a, b) => a.w * a.h - b.w * b.h)[0] ?? node,
-      ),
-    ),
-  ];
-  const crop = fitAspect(boundsOf(frame, 8), 1.6, model.viewBox);
-  const view = { x: crop.x, y: crop.y, w: crop.width, h: crop.height };
-  const defectById = new Map(model.defects.map((d) => [d.id, d]));
-
-  const items = model.nodes
-    .filter((n) => sheets[n.id] && holds(view, n))
-    .map((n) => ({
-      id: n.id,
-      label: n.label,
-      sub: n.sub,
-      section: sheets[n.id].section,
-      purpose: sheets[n.id].purpose,
-      facts: sheets[n.id].facts,
-      defects: (n.defects ?? []).flatMap((id) => {
-        const d = defectById.get(id);
-        return d ? [{ id, severity: d.severity, title: d.title }] : [];
-      }),
-    }));
-  if (!items.length) return undefined;
-  const rank = (item: (typeof items)[number]) =>
-    Math.min(
-      SEVERITIES.length,
-      ...item.defects.map((d) => SEVERITIES.indexOf(d.severity)),
-    );
-  const initial = [...items].sort((a, b) => rank(a) - rank(b))[0];
-  return { crop, initial: initial.id, items };
-}
-
-const CIDR = /\b\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2}\b/;
-
-function ipValue(ip: string) {
-  return ip.split(".").reduce((n, octet) => n * 256 + Number(octet), 0);
-}
-
-/** Whether range `inner` sits inside range `outer`. */
-function within(inner: string, outer: string) {
-  const [innerIp, innerBits] = inner.split("/");
-  const [outerIp, outerBits] = outer.split("/");
-  if (Number(innerBits) < Number(outerBits)) return false;
-  const start = ipValue(outerIp);
-  const ip = ipValue(innerIp);
-  return ip >= start && ip < start + 2 ** (32 - Number(outerBits));
-}
-
-/** Groups whose sub-label carries a range are subnets; crop the map around them. */
-function findAddressMap(model: ArchitectureModel): FeaturedTrack["addressMap"] {
-  const subnets = model.groups.flatMap((group) => {
-    const cidr = group.sub?.match(CIDR)?.[0];
-    return cidr ? [{ group, cidr }] : [];
-  });
-  if (!subnets.length) return undefined;
-
-  const pins = subnets.map(({ group, cidr }) => ({
-    id: group.id,
-    cidr,
-    tone: group.tone,
-    x: group.x + group.w,
-    y: group.y + group.h,
-  }));
-  const plan = model.addressPlan ?? [];
-  const parent = plan.find((range) =>
-    pins.every((pin) => within(pin.cidr, range.cidr)),
-  );
-  return {
-    // 1.35:1 frames the subnets without slicing the nodes beside the VPC.
-    crop: fitAspect(
-      boundsOf(
-        subnets.map((s) => s.group),
-        16,
-      ),
-      1.35,
-      model.viewBox,
-    ),
-    pins,
-    parent,
-    others: plan.filter((range) => range !== parent),
-  };
 }
