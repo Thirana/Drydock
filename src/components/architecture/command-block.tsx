@@ -3,14 +3,18 @@ import { cn } from "@/lib/utils";
 /**
  * A command, set plainly. Long lines wrap inside the block with a hanging
  * indent, so nothing runs into the edge; the text itself is unchanged, so
- * copying yields the original lines. Comment lines are dimmed so the commands stand out.
+ * copying yields the original lines. Comment lines are dimmed so the commands
+ * stand out, and `marks` highlights the few flags that actually do the fixing.
  */
 export function CommandBlock({
   children,
   label,
+  marks = [],
 }: {
   children: string;
   label?: string;
+  /** Exact tokens to highlight, e.g. from `keyFlags`. */
+  marks?: string[];
 }) {
   const lines = children.split("\n");
   return (
@@ -38,6 +42,7 @@ export function CommandBlock({
                         className={cn(
                           part.length <= 34 && "whitespace-nowrap",
                           "lg:whitespace-nowrap",
+                          marks.includes(part) && "dd-mark font-semibold",
                         )}
                       >
                         {part}

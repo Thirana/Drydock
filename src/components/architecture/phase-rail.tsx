@@ -65,7 +65,7 @@ export function PhaseRail({
           <p className="text-ink text-[16px] font-bold">{label}</p>
           {controls ?? (
             <span className="text-ink-muted hidden text-[14px] sm:inline">
-              Use ← → to step through
+              Pick a move, or use ← →
             </span>
           )}
         </div>
@@ -124,7 +124,7 @@ export function PhaseRail({
                 aria-pressed={current}
                 tabIndex={current ? 0 : -1}
                 onClick={() => onChange(p.number)}
-                className="group flex w-full items-baseline gap-2 text-left sm:flex-col sm:gap-0.5 sm:pt-3"
+                className="group -mx-2 flex w-[calc(100%+1rem)] cursor-pointer items-baseline gap-2 rounded-[2px] px-2 py-1 text-left transition-colors hover:bg-sunk sm:mt-2 sm:flex-col sm:gap-0.5 sm:py-1.5"
               >
                 <span
                   className={cn(

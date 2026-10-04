@@ -11,9 +11,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -26,9 +26,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -41,9 +41,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -56,9 +56,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -67,13 +67,13 @@
       "ink": {
         "role": "neutral",
         "displayName": "Ink",
-        "canonical": "#181817",
+        "canonical": "#121211",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -82,13 +82,13 @@
       "ink-body": {
         "role": "neutral",
         "displayName": "Body Ink",
-        "canonical": "#2c2c2a",
+        "canonical": "#3b3b38",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -97,13 +97,13 @@
       "ink-muted": {
         "role": "neutral",
         "displayName": "Muted Ink",
-        "canonical": "#5c5c58",
+        "canonical": "#62625d",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -112,13 +112,13 @@
       "ink-faint": {
         "role": "neutral",
         "displayName": "Faint Ink",
-        "canonical": "#74746f",
+        "canonical": "#757570",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -221,9 +221,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -236,9 +236,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -251,9 +251,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -262,13 +262,13 @@
       "rule-dark": {
         "role": "neutral",
         "displayName": "Hairline (dark)",
-        "canonical": "#2c2c2a",
+        "canonical": "#3b3b38",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -281,9 +281,9 @@
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -292,13 +292,13 @@
       "ink-dark": {
         "role": "neutral",
         "displayName": "Ink (dark)",
-        "canonical": "#eeeeea",
+        "canonical": "#f4f4f0",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -307,13 +307,13 @@
       "ink-body-dark": {
         "role": "neutral",
         "displayName": "Body Ink (dark)",
-        "canonical": "#d6d6d1",
+        "canonical": "#b4b4ae",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -322,13 +322,13 @@
       "ink-muted-dark": {
         "role": "neutral",
         "displayName": "Muted Ink (dark)",
-        "canonical": "#a4a49e",
+        "canonical": "#8e8e88",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"
@@ -337,13 +337,13 @@
       "ink-faint-dark": {
         "role": "neutral",
         "displayName": "Faint Ink (dark)",
-        "canonical": "#8a8a84",
+        "canonical": "#7b7b75",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
-          "#2c2c2a",
+          "#3b3b38",
           "#4a4a47",
-          "#74746f",
+          "#757570",
           "#b9b9b4",
           "#e0e0dc",
           "#fbfbfa"

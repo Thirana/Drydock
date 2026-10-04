@@ -17,7 +17,7 @@ export const glButtonVariants = cva(
         primary: "bg-ink text-ground hover:bg-accent hover:text-accent-ink",
         secondary: "border border-rule-strong text-ink hover:border-ink",
         ghost:
-          "text-accent underline decoration-transparent underline-offset-4 hover:decoration-current",
+          "text-accent underline decoration-[1.5px] decoration-accent/55 underline-offset-4 hover:decoration-current",
       },
       size: {
         sm: "min-h-9 gap-1.5 px-3 text-[14px]",

@@ -47,7 +47,7 @@ export function ViewGuideItem({
           {frame !== undefined ? `${frame}.` : ""}
         </span>
         <span className="min-w-0">
-          <span className="text-ink group-hover:text-accent block text-[19px] font-bold transition-colors">
+          <span className="text-accent decoration-accent/40 block text-[19px] font-bold underline decoration-[1.5px] underline-offset-4 transition-colors group-hover:decoration-current">
             {title}
           </span>
           <span className="text-ink-body mt-1 block text-[16px] leading-[1.55] text-pretty">

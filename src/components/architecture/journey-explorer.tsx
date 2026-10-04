@@ -50,7 +50,7 @@ export function JourneyExplorer({
         <div
           role="group"
           aria-label="Journey"
-          className="flex flex-wrap items-center gap-x-5"
+          className="flex flex-wrap items-center gap-2"
         >
           <span className="dd-label mr-1 w-full sm:w-auto">Journey</span>
           {model.journeys.map((j, i) => {

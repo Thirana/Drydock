@@ -54,7 +54,7 @@ export function MapExplorer({
         <div
           role="group"
           aria-label="Overlay"
-          className="flex flex-wrap items-center gap-x-5"
+          className="flex flex-wrap items-center gap-2"
         >
           <span className="dd-label mr-1 w-full sm:w-auto">Overlay</span>
           {model.overlays.map((overlay) => (

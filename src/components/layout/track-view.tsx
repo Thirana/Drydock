@@ -138,7 +138,7 @@ function Pager({
             rel="next"
             className="group flex flex-col gap-1.5 sm:items-end sm:text-right"
           >
-            <span className="dd-head text-ink group-hover:text-accent inline-flex items-center gap-3 text-[28px] transition-colors">
+            <span className="dd-head text-accent inline-flex items-center gap-3 text-[28px]">
               <span className="text-ink-faint font-mono text-[22px]">
                 {next.n}.
               </span>

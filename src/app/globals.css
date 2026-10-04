@@ -20,10 +20,10 @@
   --dd-sunk: #f1f1ef;
   --dd-rule: #e0e0dc;
   --dd-rule-strong: #b9b9b4;
-  --dd-ink: #181817;
-  --dd-ink-body: #2c2c2a;
-  --dd-ink-muted: #5c5c58;
-  --dd-ink-faint: #74746f;
+  --dd-ink: #121211;
+  --dd-ink-body: #3b3b38;
+  --dd-ink-muted: #62625d;
+  --dd-ink-faint: #757570;
 
   --dd-accent: #1f55e6;
   --dd-accent-hover: #1543c2;
@@ -34,6 +34,9 @@
   --dd-fault-soft: rgba(200, 38, 28, 0.07);
 
   --dd-code: #f1f1ef;
+  /* Highlighter: the one thing in a block worth noticing. Never a link. */
+  --dd-mark: #fbe98a;
+  --dd-mark-ink: #121211;
   color-scheme: light;
 }
 
@@ -43,10 +46,10 @@
   --dd-sunk: #1b1b1a;
   --dd-rule: #2c2c2a;
   --dd-rule-strong: #4a4a47;
-  --dd-ink: #eeeeea;
-  --dd-ink-body: #d6d6d1;
-  --dd-ink-muted: #a4a49e;
-  --dd-ink-faint: #8a8a84;
+  --dd-ink: #f4f4f0;
+  --dd-ink-body: #b4b4ae;
+  --dd-ink-muted: #8e8e88;
+  --dd-ink-faint: #7b7b75;
 
   --dd-accent: #7ea2ff;
   --dd-accent-hover: #a5bfff;
@@ -57,6 +60,8 @@
   --dd-fault-soft: rgba(255, 111, 97, 0.1);
 
   --dd-code: #1b1b1a;
+  --dd-mark: rgba(250, 219, 95, 0.2);
+  --dd-mark-ink: #fff3c4;
   color-scheme: dark;
 }
 
@@ -159,6 +164,8 @@
   --color-fault: var(--dd-fault);
   --color-fault-soft: var(--dd-fault-soft);
   --color-code: var(--dd-code);
+  --color-mark: var(--dd-mark);
+  --color-mark-ink: var(--dd-mark-ink);
 
   --shadow-gl: none;
   --shadow-gl-lg: none;
@@ -254,19 +261,34 @@
     color: var(--dd-ink-muted);
   }
   /* A link that reads as text until you reach for it. */
+  /* A link: blue and always underlined, so it never passes for text. */
   .dd-link {
     color: var(--dd-accent);
+    font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: color-mix(
-      in srgb,
-      var(--dd-accent) 35%,
-      transparent
-    );
+    text-decoration-color: color-mix(in srgb, var(--dd-accent) 55%, transparent);
+    text-decoration-thickness: 1.5px;
     text-underline-offset: 0.22em;
     transition: text-decoration-color 150ms;
   }
   .dd-link:hover {
     text-decoration-color: currentColor;
+  }
+
+  /* Highlighter: one per block, on the fact or value to notice first. */
+  .dd-mark {
+    color: var(--dd-mark-ink);
+    background: linear-gradient(
+      transparent 6%,
+      var(--dd-mark) 6%,
+      var(--dd-mark) 94%,
+      transparent 94%
+    );
+    padding-inline: 0.18em;
+    margin-inline: -0.18em;
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
 }
 
@@ -306,12 +328,10 @@
   }
   .gl-prose :where(a):not(:where(.not-prose, .not-prose *)) {
     color: var(--dd-accent);
+    font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: color-mix(
-      in srgb,
-      var(--dd-accent) 35%,
-      transparent
-    );
+    text-decoration-color: color-mix(in srgb, var(--dd-accent) 55%, transparent);
+    text-decoration-thickness: 1.5px;
   }
   .gl-prose :where(a:hover):not(:where(.not-prose, .not-prose *)) {
     text-decoration-color: currentColor;
