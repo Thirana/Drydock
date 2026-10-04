@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CommandBlock } from "@/components/architecture/command-block";
+import { keyFlags } from "@/lib/architecture/key-flags";
 import { SeverityBadge } from "@/components/architecture/severity-badge";
 import { SegmentedControl } from "@/components/ui/controls";
 import type { FollowedDefect } from "@/lib/content/featured";
@@ -61,7 +62,12 @@ export function RegisterEntry({ defect }: { defect: FollowedDefect }) {
           <p className="dd-label text-ink-muted mb-2">
             The change that closes it
           </p>
-          <CommandBlock label="fix">{defect.remediation}</CommandBlock>
+          <CommandBlock
+            label="fix"
+            marks={keyFlags(defect.remediation, defect.after, defect.before)}
+          >
+            {defect.remediation}
+          </CommandBlock>
         </div>
       </div>
     </article>

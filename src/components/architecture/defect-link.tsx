@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 /** A defect reference, set like a move in the score: mono, red, underlined on hover. */
 export const DEFECT_CHIP =
-  "not-prose inline-flex items-center whitespace-nowrap font-mono text-[14px] font-bold text-fault underline decoration-transparent underline-offset-4 transition-colors hover:decoration-current";
+  "not-prose inline-flex items-center whitespace-nowrap font-mono text-[14px] font-bold text-fault underline decoration-dotted decoration-[1.5px] underline-offset-4 transition-colors hover:decoration-solid";
 
 export function DefectLink({
   id,

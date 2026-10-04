@@ -274,7 +274,7 @@ function Find({ featured }: { featured: FeaturedTrack }) {
           </h3>
           <div className="xl:pl-[56px]">
             <p className="text-ink mt-4 text-[18px] leading-[1.5] font-medium text-pretty">
-              {d.symptom}
+              <span className="dd-mark">{d.symptom}</span>
             </p>
             <p className="text-ink-body mt-3 text-[16.5px] leading-[1.6] text-pretty">
               {d.explanation}
@@ -377,7 +377,7 @@ function Order({ featured }: { featured: FeaturedTrack }) {
                       </span>
                     )}
                     {here && (
-                      <span className="text-ink-muted text-[14px]">
+                      <span className="dd-mark text-[14px] font-semibold">
                         {d.id} closes here
                       </span>
                     )}

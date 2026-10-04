@@ -6,10 +6,10 @@ colors:
   sunk: "#f1f1ef"
   rule: "#e0e0dc"
   rule-strong: "#b9b9b4"
-  ink: "#181817"
-  ink-body: "#2c2c2a"
-  ink-muted: "#5c5c58"
-  ink-faint: "#74746f"
+  ink: "#121211"
+  ink-body: "#3b3b38"
+  ink-muted: "#62625d"
+  ink-faint: "#757570"
   accent: "#1f55e6"
   accent-hover: "#1543c2"
   accent-soft: "rgba(31, 85, 230, 0.08)"
@@ -21,14 +21,18 @@ colors:
   sunk-dark: "#1b1b1a"
   rule-dark: "#2c2c2a"
   rule-strong-dark: "#4a4a47"
-  ink-dark: "#eeeeea"
-  ink-body-dark: "#d6d6d1"
-  ink-muted-dark: "#a4a49e"
-  ink-faint-dark: "#8a8a84"
+  ink-dark: "#f4f4f0"
+  ink-body-dark: "#b4b4ae"
+  ink-muted-dark: "#8e8e88"
+  ink-faint-dark: "#7b7b75"
   accent-dark: "#7ea2ff"
   accent-hover-dark: "#a5bfff"
   accent-soft-dark: "rgba(126, 162, 255, 0.12)"
   accent-ink-dark: "#0b1433"
+  mark: "#fbe98a"
+  mark-ink: "#121211"
+  mark-dark: "rgba(250, 219, 95, 0.2)"
+  mark-ink-dark: "#fff3c4"
   fault-dark: "#ff6f61"
   fault-soft-dark: "rgba(255, 111, 97, 0.1)"
 typography:
@@ -289,6 +293,22 @@ Text never crosses a box edge (`src/lib/architecture/text-fit.ts`). A box's sub-
 
 ### Commands
 Commands wrap inside their block instead of scrolling: long lines take a hanging indent of 2ch, flags (`--region=…`) stay whole and move to the next line together, and only a flag too long for the line breaks mid-token. The text is unchanged, so copying yields the original command.
+
+## Read, Notice, Act
+
+A minimal page still has to answer three questions at a glance: what do I read, what should I notice, and what can I press. Each has exactly one visual answer.
+
+**Read - a wide ink scale.** Headings are full ink; body text sits a clear step lower (`ink-body`, #3b3b38 light / #b4b4ae dark); labels and meta a step lower again. A title stands out by contrast before weight is even counted. Never set body copy in heading ink.
+
+**Notice - one highlighter mark per block.** `.dd-mark` lays a soft yellow wash (`mark`) behind the single thing to notice first: a defect's symptom sentence, "D6 closes here", and inside fix commands the flag that actually closes the defect (found by `keyFlags` in `src/lib/architecture/key-flags.ts`: a flag whose value appears in the fixed state and not the found state; at most three). Yellow never means clickable and never means broken. More than one mark in a block is a mistake.
+
+**Act - one vocabulary for everything clickable.**
+- Links: blue, semibold, always underlined (`.dd-link`, prose links, ghost buttons, page lists such as the view guide and the pager).
+- Defect IDs: red with a dotted underline; solid on hover.
+- Switches (Now / Fixed, register filters): one outlined track, the chosen segment filled in ink (`SegmentedControl`).
+- Standalone choices (map overlays, journeys): square outlined buttons, filled in ink when chosen (`ToggleChip`). Never pills.
+- Moves on the score and register rows: a hover surface (`sunk`) and pointer; rows that expand carry a chevron.
+- The main action: the solid ink button.
 
 ## Do's and Don'ts
 

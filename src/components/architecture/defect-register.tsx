@@ -20,6 +20,7 @@ import type {
   Severity,
 } from "@/lib/architecture/types";
 import { cn } from "@/lib/utils";
+import { keyFlags } from "@/lib/architecture/key-flags";
 import { CommandBlock } from "./command-block";
 import { DEFECT_CHIP } from "./defect-link";
 import { SeverityBadge } from "./severity-badge";
@@ -261,7 +262,7 @@ function Entry({
         <div className="space-y-6 lg:col-span-5">
           <div>
             <p className="text-ink text-[18px] leading-[1.5] font-medium">
-              {d.symptom}
+              <span className="dd-mark">{d.symptom}</span>
             </p>
             <p className="text-ink-body mt-3 text-[16px] leading-[1.62]">
               {d.explanation}
@@ -322,7 +323,12 @@ function Entry({
 
           <div>
             <p className={cn(LABEL, "mb-2")}>The change that closes it</p>
-            <CommandBlock label="fix">{d.remediation}</CommandBlock>
+            <CommandBlock
+              label="fix"
+              marks={keyFlags(d.remediation, d.after, d.before)}
+            >
+              {d.remediation}
+            </CommandBlock>
           </div>
         </div>
       </div>

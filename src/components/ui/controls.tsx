@@ -1,7 +1,10 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-/** A choice set as text: the chosen one is ink and underlined in blue. */
+/**
+ * A choice you can press: outlined like a key, filled in ink once chosen.
+ * Square, never a pill, so it reads as a control and not as a tag.
+ */
 export function ToggleChip({
   active,
   className,
@@ -12,10 +15,10 @@ export function ToggleChip({
       type="button"
       aria-pressed={active}
       className={cn(
-        "inline-flex min-h-10 items-center gap-1.5 text-[15px] whitespace-nowrap underline decoration-2 underline-offset-[7px] transition-colors duration-150",
+        "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[2px] border px-3 text-[15px] whitespace-nowrap transition-colors duration-150",
         active
-          ? "text-ink decoration-accent font-semibold"
-          : "text-ink-muted hover:text-ink decoration-transparent",
+          ? "border-ink bg-ink text-ground font-semibold"
+          : "border-rule-strong text-ink hover:border-ink hover:bg-sunk",
         className,
       )}
       {...props}
@@ -31,7 +34,7 @@ interface SegmentedControlProps<T extends string> {
   className?: string;
 }
 
-/** The same text choice, in a row. */
+/** A switch: one outlined track, the chosen segment filled in ink. */
 export function SegmentedControl<T extends string>({
   label,
   options,
@@ -44,19 +47,29 @@ export function SegmentedControl<T extends string>({
       role="group"
       aria-label={label}
       className={cn(
-        "no-scrollbar flex max-w-full items-center gap-x-5 overflow-x-auto",
+        "border-rule-strong no-scrollbar inline-flex max-w-full items-stretch gap-[3px] overflow-x-auto rounded-[3px] border p-[3px]",
         className,
       )}
     >
-      {options.map((option) => (
-        <ToggleChip
-          key={option.value}
-          active={option.value === value}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </ToggleChip>
-      ))}
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "min-h-8 cursor-pointer rounded-[2px] px-3 text-[15px] whitespace-nowrap transition-colors duration-150",
+              active
+                ? "bg-ink text-ground font-semibold"
+                : "text-ink-body hover:bg-sunk hover:text-ink",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
