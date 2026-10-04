@@ -10,33 +10,19 @@ export function FactList({
 }) {
   if (!facts.length) return null;
   return (
-    <dl className="divide-gl-border divide-y">
+    <dl className="divide-rule divide-y">
       {facts.map((fact, i) => (
         <div
           key={i}
           className={cn(
-            "grid gap-1 py-2.5",
+            "grid gap-0.5 py-2.5",
             compact
-              ? "sm:grid-cols-[140px_1fr] sm:gap-3"
-              : "sm:grid-cols-[180px_1fr] sm:gap-4",
+              ? "sm:grid-cols-[140px_1fr] sm:gap-4"
+              : "sm:grid-cols-[180px_1fr] sm:gap-5",
           )}
         >
-          <dt
-            className={cn(
-              "text-gl-text-muted font-medium",
-              compact ? "text-[12px]" : "text-[12.5px]",
-            )}
-          >
-            {fact.label}
-          </dt>
-          <dd
-            className={cn(
-              "text-gl-text leading-[1.55]",
-              compact ? "text-[13px]" : "text-[13.5px]",
-            )}
-          >
-            {fact.value}
-          </dd>
+          <dt className="text-ink-muted text-[15px]">{fact.label}</dt>
+          <dd className="text-ink text-[15.5px] leading-[1.5]">{fact.value}</dd>
         </div>
       ))}
     </dl>

@@ -1,13 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useSharedPhase } from "@/hooks/use-shared-phase";
 import { ToggleChip } from "@/components/ui/controls";
-import {
-  IconArrowRight,
-  IconCheck,
-  IconRoute,
-  IconX,
-} from "@/components/ui/icons";
+import { IconCheck, IconRoute, IconX } from "@/components/ui/icons";
 import {
   EMPTY_HIGHLIGHT,
   failingHopCount,
@@ -24,9 +20,6 @@ import { DefectLink } from "./defect-link";
 import { DiagramFrame } from "./diagram-frame";
 import { PhaseRail } from "./phase-rail";
 
-const EYEBROW =
-  "text-gl-text-faint text-[10px] font-bold tracking-[0.12em] uppercase";
-
 export function JourneyExplorer({
   model,
   defectsHref,
@@ -34,7 +27,10 @@ export function JourneyExplorer({
   model: ArchitectureModel;
   defectsHref: string;
 }) {
-  const [phase, setPhase] = useState(0);
+  const [phase, setPhase] = useSharedPhase(
+    model.name,
+    model.phases.at(-1)?.number ?? 0,
+  );
   const [selected, setSelected] = useState<number | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
 
@@ -47,58 +43,57 @@ export function JourneyExplorer({
   const switched = journey ? hasSwitched(journey, closed) : false;
 
   return (
-    <div className="not-prose space-y-4">
+    <div className="not-prose space-y-10">
       <PhaseRail model={model} phase={phase} onChange={setPhase} />
 
-      <div
-        role="group"
-        aria-label="Journey"
-        className="flex flex-wrap items-center gap-2 pt-2"
-      >
-        <span className={cn(EYEBROW, "mr-1")}>Journey</span>
-        {model.journeys.map((j, i) => {
-          const failures = failingHopCount(j, closed);
-          return (
-            <ToggleChip
-              key={j.title}
-              active={selected === i}
-              onClick={() => {
-                setSelected(selected === i ? null : i);
-                setHoverId(null);
-              }}
-            >
-              {j.shortTitle}
-              <span
-                aria-label={
-                  failures ? `${failures} failing hops` : "all hops succeed"
-                }
-                className={cn(
-                  "ml-0.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[10.5px] leading-none font-semibold",
-                  failures
-                    ? "bg-gl-danger-soft text-gl-danger"
-                    : "bg-gl-success-soft text-gl-success",
-                )}
+      <div className="space-y-4">
+        <div
+          role="group"
+          aria-label="Journey"
+          className="flex flex-wrap items-center gap-x-5"
+        >
+          <span className="dd-label mr-1 w-full sm:w-auto">Journey</span>
+          {model.journeys.map((j, i) => {
+            const failures = failingHopCount(j, closed);
+            return (
+              <ToggleChip
+                key={j.title}
+                active={selected === i}
+                onClick={() => {
+                  setSelected(selected === i ? null : i);
+                  setHoverId(null);
+                }}
               >
-                {failures ? (
-                  <>
-                    {failures}
-                    <IconX size={8} />
-                  </>
-                ) : (
-                  <IconCheck size={9} />
-                )}
-              </span>
-            </ToggleChip>
-          );
-        })}
-      </div>
+                {j.shortTitle}
+                <span
+                  aria-label={
+                    failures ? `${failures} failing hops` : "all hops succeed"
+                  }
+                  className={cn(
+                    "inline-flex items-center gap-0.5 font-mono text-[13.5px] font-bold",
+                    failures ? "text-fault" : "text-ink-faint",
+                  )}
+                >
+                  {failures ? (
+                    <>
+                      {failures}
+                      <IconX size={8} />
+                    </>
+                  ) : (
+                    <IconCheck size={10} />
+                  )}
+                </span>
+              </ToggleChip>
+            );
+          })}
+        </div>
 
-      <p className="text-gl-text-muted flex items-start gap-2 text-[13.5px] leading-[1.55]">
-        <IconArrowRight size={12} className="text-gl-primary mt-[5px]" />
-        {journey
-          ? "Numbers follow the hops below. Hover a hop to pick out its box."
-          : "Pick a phase above, then a journey to trace it on the map at that point."}
-      </p>
+        <p className="text-ink-muted text-[16px] leading-[1.55]">
+          {journey
+            ? "Numbers follow the hops below. Hover a hop to pick out its box."
+            : "Pick a phase above, then a journey to trace it on the map at that point."}
+        </p>
+      </div>
 
       <DiagramFrame
         title="Packet journey"
@@ -118,26 +113,33 @@ export function JourneyExplorer({
 
       {journey ? (
         <section
+          key={`${selected}-${phase}`}
           aria-live="polite"
-          className="border-gl-border bg-gl-surface shadow-gl overflow-hidden rounded-xl border"
+          className="animate-fade-in border-rule border-t"
         >
-          <div className="border-gl-border border-b px-5 py-4 sm:px-6">
-            <p className={EYEBROW}>Journey · Phase {phase}</p>
-            <h3 className="text-gl-text mt-1 text-[18px] leading-snug font-bold tracking-[-0.018em]">
-              {journey.title}
-            </h3>
-            <p className="text-gl-text-muted mt-1 font-mono text-[12px]">
+          <div className="pt-4 pb-5">
+            <h3 className="dd-head text-ink text-[26px]">{journey.title}</h3>
+            <p className="text-ink-muted mt-1.5 text-[15.5px]">
+              After move {phase}:{" "}
               {switched && journey.summaryAfter
                 ? journey.summaryAfter
                 : journey.summary}
             </p>
             {switched && journey.noteAfter && (
-              <p className="border-gl-primary text-gl-text-muted mt-3 border-l-2 pl-3 text-[13px] leading-[1.6]">
-                {journey.noteAfter}
-              </p>
+              <div className="mt-4 grid max-w-[68ch] grid-cols-[28px_minmax(0,1fr)] gap-x-2">
+                <span
+                  aria-hidden="true"
+                  className="text-accent pt-[2px] font-mono text-[15px] font-bold"
+                >
+                  !?
+                </span>
+                <p className="text-ink-body text-[16px] leading-[1.6]">
+                  {journey.noteAfter}
+                </p>
+              </div>
             )}
           </div>
-          <ol>
+          <ol className="border-rule border-t">
             {visibleHops(journey, closed).map((hop, i) => {
               const number = hop.at ? order.get(hop.at) : undefined;
               return (
@@ -146,45 +148,44 @@ export function JourneyExplorer({
                   onMouseEnter={hop.at ? () => setHoverId(hop.at!) : undefined}
                   onMouseLeave={hop.at ? () => setHoverId(null) : undefined}
                   className={cn(
-                    "border-gl-border grid gap-2 border-b px-5 py-3.5 transition-colors last:border-b-0 sm:grid-cols-[220px_1fr] sm:gap-5 sm:px-6",
-                    hop.at && "hover:bg-gl-surface-2",
-                    hop.fails && "bg-gl-danger-soft/40",
+                    "border-rule grid gap-2 border-b py-4 transition-colors sm:grid-cols-[260px_minmax(0,1fr)] sm:gap-6",
+                    hop.at && "hover:bg-sunk",
                   )}
                 >
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex items-start gap-3">
                     <span
                       className={cn(
-                        "inline-flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] font-semibold",
+                        "w-7 shrink-0 font-mono text-[16px] font-bold",
                         number === undefined
-                          ? "border-gl-border text-gl-text-faint"
+                          ? "text-ink-faint"
                           : hop.fails
-                            ? "border-gl-danger/50 text-gl-danger"
-                            : "border-gl-primary/40 text-gl-primary",
+                            ? "text-fault"
+                            : "text-ink",
                       )}
                     >
-                      {number ?? "·"}
+                      {number !== undefined ? `${number}.` : "·"}
                     </span>
                     <span
                       className={cn(
-                        "pt-[3px] font-mono text-[12px] font-medium",
-                        hop.fails ? "text-gl-danger" : "text-gl-text",
+                        "pt-[2px] font-mono text-[14.5px] font-semibold",
+                        hop.fails ? "text-fault" : "text-ink",
                       )}
                     >
                       {hop.where}
                     </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-gl-text text-[14px] leading-[1.55]">
+                  <div className="min-w-0 sm:pt-[2px]">
+                    <p className="text-ink text-[17px] leading-[1.5]">
                       {hop.what}
                     </p>
-                    <p className="text-gl-text-muted mt-1 text-[13px] leading-[1.55]">
+                    <p className="text-ink-body mt-1 text-[16px] leading-[1.55]">
                       {hop.why}
                     </p>
                     {(hop.fails || hop.fixedBy) && (
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
                         {hop.fails && (
-                          <span className="bg-gl-danger-soft text-gl-danger rounded-full pl-2 pr-[calc(0.5rem-0.08em)] py-0.5 text-[10.5px] font-bold tracking-[0.08em] uppercase">
-                            Fails here
+                          <span className="text-fault inline-flex items-center gap-1.5 text-[15px] font-bold">
+                            <IconX size={9} /> Fails here
                           </span>
                         )}
                         {hop.fixedBy && (
@@ -205,14 +206,14 @@ export function JourneyExplorer({
           </ol>
         </section>
       ) : (
-        <div className="border-gl-border bg-gl-surface shadow-gl flex flex-col items-center gap-2 rounded-xl border px-6 py-12 text-center">
-          <IconRoute size={32} className="text-gl-text-faint" />
-          <p className="text-gl-text mt-1 text-[17px] font-bold tracking-[-0.015em]">
+        <div className="border-rule flex flex-col gap-2 border-t py-10">
+          <IconRoute size={28} className="text-ink-muted" />
+          <p className="dd-head text-ink mt-2 text-[22px]">
             No journey selected
           </p>
-          <p className="text-gl-text-muted max-w-[360px] text-[14px] leading-relaxed">
+          <p className="text-ink-body max-w-[48ch] text-[16px] leading-relaxed">
             Pick a journey above to trace it hop by hop on the map, at the phase
-            you’ve selected.
+            you have selected.
           </p>
         </div>
       )}

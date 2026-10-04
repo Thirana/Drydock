@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { toneColor } from "@/lib/architecture/tone";
 import type { Tone } from "@/lib/architecture/types";
+import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 /**
@@ -8,51 +8,53 @@ import { cn } from "@/lib/utils";
  * Wrappers render <div>, not <p>: MDX turns multi-line children into paragraphs.
  */
 
+/** The opening of a long-form view: a large first paragraph, then plain prose. */
 export function Hero({ children }: { children: ReactNode }) {
   return (
-    <div className="border-gl-border bg-gl-surface shadow-gl-lg relative overflow-hidden rounded-2xl border p-6 sm:p-8">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-40 -right-40 size-[520px] rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(46,184,160,0.09) 0%, transparent 65%)",
-        }}
-      />
-      <div className="[&>p:first-of-type]:text-gl-text relative z-10 [&>p:first-of-type]:text-[16.5px] sm:[&>p:first-of-type]:text-[17px]">
-        {children}
-      </div>
+    <div className="[&>p:first-of-type]:text-ink mb-4 [&>p:first-of-type]:mb-6 [&>p:first-of-type]:max-w-[34em] [&>p:first-of-type]:text-[21px] [&>p:first-of-type]:leading-[1.5]">
+      {children}
     </div>
   );
 }
 
 export function Lede({ children }: { children: ReactNode }) {
   return (
-    <div className="not-prose text-gl-text-muted mb-8 max-w-[680px] text-[16px] leading-[1.6] text-pretty sm:text-[17px] [&>p+p]:mt-3">
+    <div className="not-prose text-ink-body mb-8 max-w-[62ch] text-[19px] leading-[1.55] text-pretty [&>p+p]:mt-3">
       {children}
     </div>
   );
 }
 
+/** An annotator's aside: set small, marked, and indented from the text. */
 export function Note({ children }: { children: ReactNode }) {
   return (
-    <div className="not-prose border-gl-primary text-gl-text-muted [&_code]:text-gl-text my-6 max-w-[80ch] border-l-2 pl-4 text-[14px] leading-[1.7] [&_code]:font-mono [&_code]:text-[0.9em]">
-      {children}
-    </div>
+    <aside className="not-prose my-8 grid max-w-[68ch] grid-cols-[28px_minmax(0,1fr)] gap-x-2">
+      <span
+        aria-hidden="true"
+        className="text-ink pt-[3px] font-mono text-[15px] font-bold"
+      >
+        !?
+      </span>
+      <div className="text-ink-body [&_code]:bg-code [&_code]:text-ink text-[16.5px] leading-[1.6] [&_code]:rounded-[2px] [&_code]:px-1 [&_code]:font-mono [&_code]:text-[0.88em]">
+        <span className="sr-only">Note: </span>
+        {children}
+      </div>
+    </aside>
   );
 }
 
 export function Caption({ children }: { children: ReactNode }) {
   return (
-    <div className="not-prose text-gl-text-muted mt-4 max-w-[80ch] text-[12.5px] leading-relaxed">
+    <div className="not-prose text-ink-muted mt-3 max-w-[80ch] text-[15px] leading-relaxed">
       {children}
     </div>
   );
 }
 
+/** Short topics in a ruled grid: no boxes, a hairline over each. */
 export function Columns({ children }: { children: ReactNode }) {
   return (
-    <div className="not-prose my-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="not-prose my-8 grid grid-cols-1 gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
       {children}
     </div>
   );
@@ -66,16 +68,42 @@ export function Column({
   children: ReactNode;
 }) {
   return (
-    <div className="border-gl-border bg-gl-surface shadow-gl rounded-xl border p-5">
-      <h3 className="text-gl-text flex items-center gap-2 text-[15px] font-bold tracking-[-0.015em]">
-        <span
-          aria-hidden="true"
-          className="bg-gl-primary h-3.5 w-[3px] rounded-full"
-        />
-        {title}
-      </h3>
-      <div className="text-gl-text-muted mt-2 text-[13.5px] leading-[1.6] text-pretty">
+    <div className="border-rule border-t pt-4 pb-7">
+      <h3 className="text-ink text-[18px] font-bold">{title}</h3>
+      <div className="text-ink-body mt-1.5 text-[16px] leading-[1.6] text-pretty">
         {children}
+      </div>
+    </div>
+  );
+}
+
+/** Positions argued at length: the claim, then the reasoning, marked as the author's. */
+export function Arguments({ children }: { children: ReactNode }) {
+  return <dl className="not-prose my-8 max-w-[860px]">{children}</dl>;
+}
+
+export function Argument({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="border-rule grid grid-cols-[28px_minmax(0,1fr)] gap-x-2 border-t py-6">
+      <span
+        aria-hidden="true"
+        className="text-ink pt-[2px] font-mono text-[16px] font-bold"
+      >
+        !?
+      </span>
+      <div>
+        <dt className="text-ink text-[20px] leading-[1.3] font-bold text-balance">
+          {title}
+        </dt>
+        <dd className="text-ink-body mt-2 max-w-[66ch] text-[17px] leading-[1.62] text-pretty">
+          {children}
+        </dd>
       </div>
     </div>
   );
@@ -83,7 +111,7 @@ export function Column({
 
 export function AddressBlocks({ children }: { children: ReactNode }) {
   return (
-    <ul className="not-prose my-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+    <ul className="not-prose my-8 grid grid-cols-1 gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
       {children}
     </ul>
   );
@@ -99,18 +127,16 @@ export function AddressBlock({
   children: ReactNode;
 }) {
   return (
-    <li className="border-gl-border bg-gl-surface shadow-gl rounded-xl border p-5">
-      <div className="flex items-center gap-2.5">
-        <span
-          aria-hidden="true"
-          className="size-2.5 shrink-0 rounded-full"
-          style={{ background: toneColor(tone) }}
-        />
-        <span className="text-gl-text font-mono text-[20px] leading-none font-bold tracking-[-0.02em]">
-          {cidr}
-        </span>
-      </div>
-      <div className="text-gl-text-muted mt-2.5 text-[13px] leading-snug">
+    <li className="border-rule border-t pt-4 pb-7">
+      <span
+        className={cn(
+          "block font-mono text-[22px] leading-none font-bold",
+          tone === "danger" ? "text-fault" : "text-ink",
+        )}
+      >
+        {cidr}
+      </span>
+      <div className="text-ink-body mt-2 text-[16px] leading-[1.55]">
         {children}
       </div>
     </li>
@@ -127,12 +153,11 @@ export function Status({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-1 text-[11px] leading-none font-semibold",
-        tone === "good"
-          ? "bg-gl-success-soft text-gl-success"
-          : "bg-gl-danger-soft text-gl-danger",
+        "inline-flex items-center gap-1.5 text-[15px] font-semibold whitespace-nowrap",
+        tone === "good" ? "text-ink" : "text-fault",
       )}
     >
+      {tone === "good" ? <IconCheck size={11} /> : <IconX size={10} />}
       {children}
     </span>
   );
@@ -140,7 +165,7 @@ export function Status({
 
 export function PhaseTag({ children }: { children: ReactNode }) {
   return (
-    <span className="border-gl-border bg-gl-surface-2 text-gl-text-muted inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[11px] leading-none font-medium whitespace-nowrap">
+    <span className="text-ink font-mono text-[15px] font-semibold whitespace-nowrap">
       {children}
     </span>
   );

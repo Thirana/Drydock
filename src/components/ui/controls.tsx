@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-/** Pill toggle for overlays and pickers. */
+/** A choice set as text: the chosen one is ink and underlined in blue. */
 export function ToggleChip({
   active,
   className,
@@ -12,11 +12,10 @@ export function ToggleChip({
       type="button"
       aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] whitespace-nowrap transition-all duration-150",
-        "focus-visible:ring-gl-primary/30 focus-visible:ring-2 focus-visible:outline-none",
+        "inline-flex min-h-10 items-center gap-1.5 text-[15px] whitespace-nowrap underline decoration-2 underline-offset-[7px] transition-colors duration-150",
         active
-          ? "border-gl-primary/30 bg-gl-primary-soft text-gl-primary font-semibold"
-          : "border-gl-border bg-gl-surface text-gl-text-muted hover:border-gl-border-input hover:bg-gl-surface-2 hover:text-gl-text font-medium",
+          ? "text-ink decoration-accent font-semibold"
+          : "text-ink-muted hover:text-ink decoration-transparent",
         className,
       )}
       {...props}
@@ -32,6 +31,7 @@ interface SegmentedControlProps<T extends string> {
   className?: string;
 }
 
+/** The same text choice, in a row. */
 export function SegmentedControl<T extends string>({
   label,
   options,
@@ -44,29 +44,19 @@ export function SegmentedControl<T extends string>({
       role="group"
       aria-label={label}
       className={cn(
-        "border-gl-border bg-gl-bg-subtle no-scrollbar inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-[9px] border p-1",
+        "no-scrollbar flex max-w-full items-center gap-x-5 overflow-x-auto",
         className,
       )}
     >
-      {options.map((option) => {
-        const active = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "rounded-[7px] px-3 py-[7px] text-[12.5px] whitespace-nowrap transition-colors duration-[120ms]",
-              active
-                ? "bg-gl-primary text-gl-primary-ink font-semibold"
-                : "text-gl-text-muted hover:text-gl-text font-medium",
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
+      {options.map((option) => (
+        <ToggleChip
+          key={option.value}
+          active={option.value === value}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </ToggleChip>
+      ))}
     </div>
   );
 }

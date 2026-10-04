@@ -1,7 +1,8 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   Global stylesheet - from design-system/theme.css
-   Dark-only palette. Forest-charcoal surfaces, cool off-white ink,
-   teal-green accent, matte secondary accents.
+   Drydock - the annotated score.
+   A white page, one reading column, near-black ink. Blue marks the current
+   move and anything you can follow; red is reserved for faults. Everything
+   else is type, space and hairlines.
    ───────────────────────────────────────────────────────────────────────────── */
 
 @import "tailwindcss";
@@ -10,168 +11,130 @@
 /* The design-system docs contain class recipes; don't generate CSS for them. */
 @source not "../../design-system";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ── Light: the printed page ───────────────────────────────────────────────── */
+:root,
+:root[data-theme="light"] {
+  --dd-ground: #fbfbfa;
+  --dd-sunk: #f1f1ef;
+  --dd-rule: #e0e0dc;
+  --dd-rule-strong: #b9b9b4;
+  --dd-ink: #181817;
+  --dd-ink-body: #2c2c2a;
+  --dd-ink-muted: #5c5c58;
+  --dd-ink-faint: #74746f;
+
+  --dd-accent: #1f55e6;
+  --dd-accent-hover: #1543c2;
+  --dd-accent-soft: rgba(31, 85, 230, 0.08);
+  --dd-accent-ink: #ffffff;
+
+  --dd-fault: #c8261c;
+  --dd-fault-soft: rgba(200, 38, 28, 0.07);
+
+  --dd-code: #f1f1ef;
+  color-scheme: light;
+}
+
+/* ── Dark: the same page, lamp off ─────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --dd-ground: #131312;
+  --dd-sunk: #1b1b1a;
+  --dd-rule: #2c2c2a;
+  --dd-rule-strong: #4a4a47;
+  --dd-ink: #eeeeea;
+  --dd-ink-body: #d6d6d1;
+  --dd-ink-muted: #a4a49e;
+  --dd-ink-faint: #8a8a84;
+
+  --dd-accent: #7ea2ff;
+  --dd-accent-hover: #a5bfff;
+  --dd-accent-soft: rgba(126, 162, 255, 0.12);
+  --dd-accent-ink: #0b1433;
+
+  --dd-fault: #ff6f61;
+  --dd-fault-soft: rgba(255, 111, 97, 0.1);
+
+  --dd-code: #1b1b1a;
+  color-scheme: dark;
+}
 
 :root {
-  /* Surfaces - forest-charcoal (not purple-navy) */
-  --gl-bg: #161918;
-  --gl-bg-subtle: #101210;
-  --gl-surface: #1d201e;
-  --gl-surface-2: #252924;
+  /* Legacy names some components still use, resolved onto the page. */
+  --gl-bg: var(--dd-ground);
+  --gl-bg-subtle: var(--dd-sunk);
+  --gl-surface: var(--dd-ground);
+  --gl-surface-2: var(--dd-sunk);
+  --gl-border: var(--dd-rule);
+  --gl-border-strong: var(--dd-ink);
+  --gl-border-input: var(--dd-rule-strong);
+  --gl-text: var(--dd-ink);
+  --gl-text-muted: var(--dd-ink-muted);
+  --gl-text-faint: var(--dd-ink-faint);
+  --gl-primary: var(--dd-accent);
+  --gl-primary-hover: var(--dd-accent-hover);
+  --gl-primary-soft: var(--dd-accent-soft);
+  --gl-primary-ink: var(--dd-accent-ink);
+  --gl-success: var(--dd-ink);
+  --gl-success-soft: var(--dd-sunk);
+  --gl-warning: var(--dd-ink);
+  --gl-warning-soft: var(--dd-sunk);
+  --gl-warning-ink: var(--dd-ground);
+  --gl-danger: var(--dd-fault);
+  --gl-danger-soft: var(--dd-fault-soft);
+  --gl-danger-ink: #ffffff;
 
-  /* Borders */
-  --gl-border: #2c312d;
-  --gl-border-strong: #d8ddd6;
-  --gl-border-input: #383d39;
+  /* Diagram tones: a monochrome drawing; only a fault takes colour. */
+  --tone-edge: var(--dd-ink);
+  --tone-compute: var(--dd-ink-muted);
+  --tone-data: var(--dd-ink-muted);
+  --tone-private: var(--dd-ink);
+  --tone-danger: var(--dd-fault);
+  --tone-external: var(--dd-ink-faint);
+  --tone-line: var(--dd-rule);
+  --tone-lineStrong: var(--dd-ink-faint);
+  --diagram-group-wash: color-mix(in srgb, var(--dd-ink) 1.5%, transparent);
+  --diagram-selection-wash: var(--dd-accent-soft);
+  --dd-sel: var(--dd-accent);
 
-  /* Text - cool off-white with slight sage tone */
-  --gl-text: #eef0ec;
-  --gl-text-muted: #8a9189;
-  --gl-text-faint: #606963;
-
-  /* Accent - deep teal-green */
-  --gl-primary: #2eb8a0;
-  --gl-primary-hover: #3ecdb5;
-  --gl-primary-soft: #0d2420;
-  --gl-primary-ink: #051a16;
-
-  /* Type pair - warm ochre (type A) and periwinkle (type B) */
-  --gl-work-bg: #28200c;
-  --gl-work-fg: #c4a05e;
-  --gl-work-ink: #1a1200;
-  --gl-learn-bg: #161628;
-  --gl-learn-fg: #8285ba;
-  --gl-learn-ink: #0d0c1e;
-
-  /* Semantic states - matte */
-  --gl-success: #69b598;
-  --gl-success-soft: #0d2419;
-  --gl-warning: #c4a05e;
-  --gl-warning-soft: #231a07;
-  --gl-warning-ink: #1a1200;
-  --gl-danger: #b87060;
-  --gl-danger-soft: #261009;
-  --gl-danger-ink: #1c0907;
-
-  /* Categorical swatches - matte 6-hue palette */
-  --gl-swatch-1: #69b598;
-  --gl-swatch-2: #8285ba;
-  --gl-swatch-3: #b87da2;
-  --gl-swatch-4: #c4a05e;
-  --gl-swatch-5: #b87060;
-  --gl-swatch-6: #62aebf;
-
-  /* Shadows */
-  --gl-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -10px rgba(0, 0, 0, 0.55);
-  --gl-shadow-lg:
-    0 2px 4px rgba(0, 0, 0, 0.55), 0 28px 48px -20px rgba(0, 0, 0, 0.7);
-  --gl-shadow-hard: 4px 4px 0 #d8ddd6;
-
-  /* ── Architecture diagram tones → GL palette ────────────────────────────────
-     Content names semantic roles (edge, compute, …); these map them onto the
-     matte palette. Teal stays reserved for selection and active states. */
-  --tone-edge: var(--gl-warning);
-  --tone-compute: var(--gl-learn-fg);
-  --tone-data: var(--gl-swatch-3);
-  --tone-private: var(--gl-success);
-  --tone-danger: var(--gl-danger);
-  --tone-external: var(--gl-text-muted);
-  --tone-line: var(--gl-border);
-  --tone-lineStrong: var(--gl-text-faint);
-  --diagram-group-wash: rgba(255, 255, 255, 0.015);
-  --diagram-selection-wash: color-mix(
-    in srgb,
-    var(--gl-primary) 7%,
-    transparent
-  );
-
-  /* ── shadcn semantic tokens → GL values ──────────────────────────────────── */
-  --background: #161918;
-  --foreground: #eef0ec;
-  --card: #1d201e;
-  --card-foreground: #eef0ec;
-  --popover: #1d201e;
-  --popover-foreground: #eef0ec;
-  --primary: #2eb8a0;
-  --primary-foreground: #051a16;
-  --secondary: #252924;
-  --secondary-foreground: #eef0ec;
-  --muted: #252924;
-  --muted-foreground: #8a9189;
-  --accent: #0d2420;
-  --accent-foreground: #2eb8a0;
-  --destructive: #b87060;
-  --border: #2c312d;
-  --input: #383d39;
-  --ring: #2eb8a0;
-  --radius: 0.75rem;
+  --background: var(--dd-ground);
+  --foreground: var(--dd-ink);
+  --border: var(--dd-rule);
+  --ring: var(--dd-accent);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Tailwind v4 theme - exposes tokens as utilities
-   bg-gl-bg, text-gl-text, border-gl-border, shadow-gl, rounded-pill, etc.
+   Tailwind theme
    ───────────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
-  /* Fonts - --font-inter / --font-geist-mono are injected by next/font */
   --font-sans:
-    var(--font-inter), "Inter", "Inter Tight", ui-sans-serif, system-ui,
-    -apple-system, sans-serif;
+    var(--font-atkinson), "Atkinson Hyperlegible Next", ui-sans-serif,
+    system-ui, sans-serif;
   --font-mono:
-    var(--font-geist-mono), "Geist Mono", "JetBrains Mono", ui-monospace,
+    var(--font-atkinson-mono), "Atkinson Hyperlegible Mono", ui-monospace,
     SFMono-Regular, Menlo, monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
   --color-border: var(--border);
-  --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Surfaces */
   --color-gl-bg: var(--gl-bg);
   --color-gl-bg-subtle: var(--gl-bg-subtle);
   --color-gl-surface: var(--gl-surface);
   --color-gl-surface-2: var(--gl-surface-2);
-
-  /* Borders */
   --color-gl-border: var(--gl-border);
   --color-gl-border-strong: var(--gl-border-strong);
   --color-gl-border-input: var(--gl-border-input);
-
-  /* Text */
   --color-gl-text: var(--gl-text);
   --color-gl-text-muted: var(--gl-text-muted);
   --color-gl-text-faint: var(--gl-text-faint);
-
-  /* Accent */
   --color-gl-primary: var(--gl-primary);
   --color-gl-primary-hover: var(--gl-primary-hover);
   --color-gl-primary-soft: var(--gl-primary-soft);
   --color-gl-primary-ink: var(--gl-primary-ink);
-
-  /* Type pair */
-  --color-gl-work: var(--gl-work-fg);
-  --color-gl-work-bg: var(--gl-work-bg);
-  --color-gl-work-ink: var(--gl-work-ink);
-  --color-gl-learn: var(--gl-learn-fg);
-  --color-gl-learn-bg: var(--gl-learn-bg);
-  --color-gl-learn-ink: var(--gl-learn-ink);
-
-  /* States */
   --color-gl-success: var(--gl-success);
   --color-gl-success-soft: var(--gl-success-soft);
   --color-gl-warning: var(--gl-warning);
@@ -181,136 +144,184 @@
   --color-gl-danger-soft: var(--gl-danger-soft);
   --color-gl-danger-ink: var(--gl-danger-ink);
 
-  /* Swatches */
-  --color-gl-swatch-1: var(--gl-swatch-1);
-  --color-gl-swatch-2: var(--gl-swatch-2);
-  --color-gl-swatch-3: var(--gl-swatch-3);
-  --color-gl-swatch-4: var(--gl-swatch-4);
-  --color-gl-swatch-5: var(--gl-swatch-5);
-  --color-gl-swatch-6: var(--gl-swatch-6);
+  --color-ink: var(--dd-ink);
+  --color-ink-body: var(--dd-ink-body);
+  --color-ink-muted: var(--dd-ink-muted);
+  --color-ink-faint: var(--dd-ink-faint);
+  --color-ground: var(--dd-ground);
+  --color-sunk: var(--dd-sunk);
+  --color-rule: var(--dd-rule);
+  --color-rule-strong: var(--dd-rule-strong);
+  --color-accent: var(--dd-accent);
+  --color-accent-hover: var(--dd-accent-hover);
+  --color-accent-soft: var(--dd-accent-soft);
+  --color-accent-ink: var(--dd-accent-ink);
+  --color-fault: var(--dd-fault);
+  --color-fault-soft: var(--dd-fault-soft);
+  --color-code: var(--dd-code);
 
-  /* Shadows - shadow-gl, shadow-gl-lg, shadow-gl-hard */
-  --shadow-gl: var(--gl-shadow);
-  --shadow-gl-lg: var(--gl-shadow-lg);
-  --shadow-gl-hard: var(--gl-shadow-hard);
+  --shadow-gl: none;
+  --shadow-gl-lg: none;
+  --shadow-gl-hard: none;
 
-  /* Radius - these REPLACE Tailwind's defaults for the same names.
-     rounded-sm = 8px, rounded-md = 12px, rounded-lg = 16px, rounded-xl = 24px.
-     rounded-2xl (16px) and rounded-3xl (24px) keep Tailwind defaults. */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-pill: 999px;
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+  --radius-pill: 2px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Base styles
+   Base
    ───────────────────────────────────────────────────────────────────────────── */
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
     @apply font-sans;
-    /* Inter character variants: open digits, single-storey a, straight-sided l */
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     scroll-behavior: smooth;
-    color-scheme: dark;
+    background: var(--dd-ground);
+    scrollbar-color: var(--dd-rule-strong) var(--dd-ground);
   }
 
   body {
-    @apply bg-background text-foreground;
+    background: var(--dd-ground);
+    color: var(--dd-ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   ::selection {
-    background-color: rgba(46, 184, 160, 0.22);
-    color: var(--gl-text);
+    background-color: color-mix(in srgb, var(--dd-accent) 22%, transparent);
+    color: var(--dd-ink);
   }
 
-  /* Thin, on-brand scrollbars */
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--gl-bg-subtle);
+    background: var(--dd-ground);
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--gl-border);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--gl-text-faint);
+    background: var(--dd-rule-strong);
+    border: 2px solid var(--dd-ground);
+    border-radius: 4px;
   }
 
-  /* Tabular numbers on anything data-y */
   [data-tabular-nums],
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
 
   :focus-visible {
-    outline: 2px solid var(--gl-primary);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: 2px solid var(--dd-accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  a {
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 1px;
   }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Long-form MDX content. Scoped with :where() so utilities always win, and
-   skipped inside `.not-prose` so interactive components style themselves.
+   Type roles
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Headings: plain, heavy enough to lead, never shouting. */
+  .dd-head {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  /* Small labels for groups of data: never above a heading. */
+  .dd-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    color: var(--dd-ink-muted);
+  }
+  /* A link that reads as text until you reach for it. */
+  .dd-link {
+    color: var(--dd-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--dd-accent) 35%,
+      transparent
+    );
+    text-underline-offset: 0.22em;
+    transition: text-decoration-color 150ms;
+  }
+  .dd-link:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Long-form MDX content
    ───────────────────────────────────────────────────────────────────────────── */
 
 @layer components {
   .gl-prose :where(p):not(:where(.not-prose, .not-prose *)) {
-    margin-block: 0.85em;
-    max-width: 78ch;
-    color: var(--gl-text-muted);
-    font-size: 15px;
+    margin-block: 1em;
+    max-width: 68ch;
+    color: var(--dd-ink-body);
+    font-size: 18px;
     line-height: 1.65;
     text-wrap: pretty;
   }
   .gl-prose :where(h3):not(:where(.not-prose, .not-prose *)) {
     margin-top: 2.5rem;
-    margin-bottom: 0.75rem;
-    color: var(--gl-text);
-    font-size: 17px;
+    margin-bottom: 0.5rem;
+    color: var(--dd-ink);
+    font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.015em;
-    line-height: 1.3;
+    line-height: 1.25;
     text-wrap: balance;
   }
   .gl-prose :where(h4):not(:where(.not-prose, .not-prose *)) {
-    margin-top: 1.25rem;
-    margin-bottom: 0.35rem;
-    color: var(--gl-text);
-    font-size: 14px;
-    font-weight: 600;
+    margin-top: 1.75rem;
+    margin-bottom: 0.25rem;
+    color: var(--dd-ink);
+    font-size: 18px;
+    font-weight: 700;
   }
   .gl-prose :where(strong):not(:where(.not-prose, .not-prose *)) {
-    color: var(--gl-text);
-    font-weight: 600;
+    color: var(--dd-ink);
+    font-weight: 700;
   }
   .gl-prose :where(a):not(:where(.not-prose, .not-prose *)) {
-    color: var(--gl-primary);
-    font-weight: 500;
-    text-underline-offset: 2px;
+    color: var(--dd-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--dd-accent) 35%,
+      transparent
+    );
   }
   .gl-prose :where(a:hover):not(:where(.not-prose, .not-prose *)) {
-    color: var(--gl-primary-hover);
-    text-decoration: underline;
+    text-decoration-color: currentColor;
   }
   .gl-prose :where(ul, ol):not(:where(.not-prose, .not-prose *)) {
-    margin-block: 0.85em;
-    padding-left: 1.25rem;
-    color: var(--gl-text-muted);
-    font-size: 15px;
+    margin-block: 1em;
+    max-width: 68ch;
+    padding-left: 1.4rem;
+    color: var(--dd-ink-body);
+    font-size: 18px;
     line-height: 1.65;
   }
   .gl-prose :where(ul):not(:where(.not-prose, .not-prose *)) {
@@ -320,64 +331,55 @@
     list-style: decimal;
   }
   .gl-prose :where(li + li):not(:where(.not-prose, .not-prose *)) {
-    margin-top: 0.35em;
+    margin-top: 0.4em;
   }
   .gl-prose :where(li)::marker {
-    color: var(--gl-text-faint);
+    color: var(--dd-ink-faint);
   }
   .gl-prose :where(code):not(:where(.not-prose, .not-prose *)) {
-    border: 1px solid var(--gl-border);
-    border-radius: 5px;
-    background: var(--gl-surface-2);
-    padding: 0.1em 0.4em;
-    font-family: var(--font-geist-mono), ui-monospace, monospace;
-    font-size: 0.85em;
-    color: var(--gl-text);
+    background: var(--dd-code);
+    border-radius: 2px;
+    padding: 0.08em 0.35em;
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    color: var(--dd-ink);
     white-space: nowrap;
   }
   .gl-prose :where(hr):not(:where(.not-prose, .not-prose *)) {
-    margin-block: 2.5rem;
-    border-color: var(--gl-border);
+    margin-block: 3rem;
+    border-color: var(--dd-rule);
   }
   .gl-prose :where(th):not(:where(.not-prose, .not-prose *)) {
-    border-bottom: 1px solid var(--gl-border);
-    background: var(--gl-bg-subtle);
-    padding: 0.75rem 1rem;
-    color: var(--gl-text-muted);
-    font-size: 11px;
+    border-bottom: 1px solid var(--dd-ink);
+    padding: 0.6rem 1.25rem 0.6rem 0;
+    color: var(--dd-ink);
+    font-size: 14px;
     font-weight: 700;
-    letter-spacing: 0.12em;
     text-align: left;
-    text-transform: uppercase;
     white-space: nowrap;
   }
   .gl-prose :where(td):not(:where(.not-prose, .not-prose *)) {
-    border-bottom: 1px solid var(--gl-border);
-    padding: 0.75rem 1rem;
-    color: var(--gl-text-muted);
-    line-height: 1.6;
+    border-bottom: 1px solid var(--dd-rule);
+    padding: 0.85rem 1.25rem 0.85rem 0;
+    color: var(--dd-ink-body);
+    font-size: 16px;
+    line-height: 1.55;
     vertical-align: top;
   }
-  .gl-prose
-    :where(tbody tr:last-child td):not(:where(.not-prose, .not-prose *)) {
-    border-bottom: 0;
-  }
-  .gl-prose :where(tbody tr):not(:where(.not-prose, .not-prose *)) {
-    transition: background-color 150ms;
-  }
-  .gl-prose :where(tbody tr:hover):not(:where(.not-prose, .not-prose *)) {
-    background: color-mix(in srgb, var(--gl-surface-2) 50%, transparent);
+  .gl-prose :where(td:first-child):not(:where(.not-prose, .not-prose *)) {
+    color: var(--dd-ink);
+    white-space: nowrap;
   }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Keyframes
+   Motion: short, and only where something changed.
    ───────────────────────────────────────────────────────────────────────────── */
 
-@keyframes gl-fade-up-lg {
+@keyframes dd-rise {
   from {
     opacity: 0;
-    transform: translateY(22px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -385,7 +387,7 @@
   }
 }
 
-@keyframes gl-fade-in {
+@keyframes dd-fade {
   from {
     opacity: 0;
   }
@@ -394,38 +396,7 @@
   }
 }
 
-@keyframes gl-scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.78);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes gl-phase-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes gl-phase-flash {
-  from {
-    background-color: color-mix(in srgb, var(--gl-primary) 22%, transparent);
-  }
-  to {
-    background-color: transparent;
-  }
-}
-
-@keyframes gl-phase-progress {
+@keyframes dd-strike {
   from {
     transform: scaleX(0);
   }
@@ -435,29 +406,12 @@
 }
 
 @layer utilities {
-  /* A phase change in the hero caption: the new label rises in on a teal wash that fades. */
-  .animate-phase-swap {
-    animation:
-      gl-phase-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both,
-      gl-phase-flash 1400ms ease-out both;
-  }
-
-  /* Duration is set inline to match the step it is timing. */
-  .animate-phase-progress {
-    animation: gl-phase-progress 1s linear both;
-    transform-origin: left;
-  }
-
-  .animate-fade-up-lg {
-    animation: gl-fade-up-lg 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  .animate-rise {
+    animation: dd-rise 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .animate-fade-in {
-    animation: gl-fade-in 0.25s ease both;
+    animation: dd-fade 0.25s ease both;
   }
-  .animate-scale-in {
-    animation: gl-scale-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  }
-
   .animation-delay-100 {
     animation-delay: 100ms;
   }
@@ -467,11 +421,21 @@
   .animation-delay-300 {
     animation-delay: 300ms;
   }
-  .animation-delay-500 {
-    animation-delay: 500ms;
+
+  /* A struck defect: the line draws across as its move is played. */
+  .dd-struck {
+    position: relative;
   }
-  .animation-delay-800 {
-    animation-delay: 800ms;
+  .dd-struck::after {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 54%;
+    height: 1.5px;
+    background: currentColor;
+    transform-origin: left;
+    animation: dd-strike 380ms cubic-bezier(0.5, 0, 0.2, 1) both;
   }
 
   .no-scrollbar::-webkit-scrollbar {
@@ -481,7 +445,6 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-
   .text-balance {
     text-wrap: balance;
   }
@@ -490,7 +453,6 @@
   }
 }
 
-/* Respect OS reduced-motion settings: loops stop, entrances resolve instantly. */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -500,6 +462,7 @@
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }
 }

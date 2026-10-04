@@ -12,14 +12,33 @@ I built it as a learning lab while working through GCP networking end to end. Th
 
 ## How to read it
 
-| Tab                 | What it answers                                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Map**             | How the platform hangs together. Overlays isolate one concern at a time; the phase rail walks the architecture through the remediation sequence; and every box opens a panel explaining what it is for. |
-| **IP plan**         | Every range, why it is that size, and the ranges you do not own but must allow anyway.                                                                                                                  |
-| **Components**      | The lookup table. External IP, ingress, egress, tags and service account per component - what you check before writing any rule.                                                                        |
-| **Load balancing**  | The five-link proxy chain, drawn at its own scale. Click any link to see what actually lives on it.                                                                                                     |
-| **Packet journeys** | Six flows traced hop by hop at any phase of the sequence, with failing hops marked and linked to the defect that closes them.                                                                           |
-| **Defects**         | The register, ordered by phase. Each entry carries how you would detect it, what it teaches, what blocks it, and the change that closes it.                                                             |
+<ViewGuide>
+  <ViewGuideItem view="map">
+    How the platform hangs together. Overlays isolate one concern at a time; the
+    phase rail walks the architecture through the remediation sequence; and
+    every box opens a panel explaining what it is for.
+  </ViewGuideItem>
+  <ViewGuideItem view="ip-plan">
+    Every range, why it is that size, and the ranges you do not own but must
+    allow anyway.
+  </ViewGuideItem>
+  <ViewGuideItem view="components">
+    The lookup table. External IP, ingress, egress, tags and service account per
+    component - what you check before writing any rule.
+  </ViewGuideItem>
+  <ViewGuideItem view="load-balancing">
+    The five-link proxy chain, drawn at its own scale. Click any link to see
+    what actually lives on it.
+  </ViewGuideItem>
+  <ViewGuideItem view="journeys">
+    Six flows traced hop by hop at any phase of the sequence, with failing hops
+    marked and linked to the defect that closes them.
+  </ViewGuideItem>
+  <ViewGuideItem view="defects">
+    The register, ordered by phase. Each entry carries how you would detect it,
+    what it teaches, what blocks it, and the change that closes it.
+  </ViewGuideItem>
+</ViewGuide>
 
 ## What it covers
 
@@ -57,14 +76,41 @@ I built it as a learning lab while working through GCP networking end to end. Th
   places in Harbour where the standard advice deserves an argument.
 </Lede>
 
-| The situation                              | The tension                                                                                                                                                                                                                                                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Session affinity on the legacy backend** | Affinity works against even balancing and breaks when the sticky backend goes away. The clean fix is stateless backends with shared session state - but that is an application change, not a network one. Naming which layer a fix belongs to matters more than naming the fix.                         |
-| **PSA rather than PSC for the database**   | PSC would have been the better original choice, because it sidesteps the non-transitivity that causes D11. But the PSA peering already exists, so PSA is the shorter path to a private database. Taking the shorter path knowingly is a different thing from not knowing.                               |
-| **Network tags for firewall targeting**    | Anyone who can edit a VM can add a tag and pull in every rule that targets it. Service accounts are a real identity and much harder to attach casually. Harbour uses tags everywhere, like most projects - that is convenience over strength, and worth stating as a choice rather than leaving unsaid. |
-| **Two CDNs in the path**                   | Cloudflare and Cloud CDN can both cache. Running both without deciding which one actually does is the common mistake, and it makes cache invalidation ambiguous. The decision matters more than either answer.                                                                                          |
-| **DNSSEC**                                 | Supported, free, and still skipped by most domains. Whether it is worth enabling depends on the threat model, not on whether it is available. Not every available hardening step earns its place.                                                                                                       |
-| **Global load balancing by default**       | Global is the GCP instinct and the geographic routing is free. Regional is right when data residency or cost dominate - and choosing it deliberately is a better signal than reaching for global because it is the default.                                                                             |
+<Arguments>
+  <Argument title="Session affinity on the legacy backend">
+    Affinity works against even balancing and breaks when the sticky backend
+    goes away. The clean fix is stateless backends with shared session state -
+    but that is an application change, not a network one. Naming which layer a
+    fix belongs to matters more than naming the fix.
+  </Argument>
+  <Argument title="PSA rather than PSC for the database">
+    PSC would have been the better original choice, because it sidesteps the
+    non-transitivity that causes D11. But the PSA peering already exists, so PSA
+    is the shorter path to a private database. Taking the shorter path knowingly
+    is a different thing from not knowing.
+  </Argument>
+  <Argument title="Network tags for firewall targeting">
+    Anyone who can edit a VM can add a tag and pull in every rule that targets
+    it. Service accounts are a real identity and much harder to attach casually.
+    Harbour uses tags everywhere, like most projects - that is convenience over
+    strength, and worth stating as a choice rather than leaving unsaid.
+  </Argument>
+  <Argument title="Two CDNs in the path">
+    Cloudflare and Cloud CDN can both cache. Running both without deciding which
+    one actually does is the common mistake, and it makes cache invalidation
+    ambiguous. The decision matters more than either answer.
+  </Argument>
+  <Argument title="DNSSEC">
+    Supported, free, and still skipped by most domains. Whether it is worth
+    enabling depends on the threat model, not on whether it is available. Not
+    every available hardening step earns its place.
+  </Argument>
+  <Argument title="Global load balancing by default">
+    Global is the GCP instinct and the geographic routing is free. Regional is
+    right when data residency or cost dominate - and choosing it deliberately is
+    a better signal than reaching for global because it is the default.
+  </Argument>
+</Arguments>
 
 ## The remediation sequence
 

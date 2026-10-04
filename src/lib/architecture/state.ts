@@ -74,7 +74,10 @@ export const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 const SEVERITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 } as const;
 
 /** Register order: by remediation phase, then by severity. */
-export function byPhaseThenSeverity(a: Defect, b: Defect) {
+export function byPhaseThenSeverity(
+  a: Pick<Defect, "phase" | "severity">,
+  b: Pick<Defect, "phase" | "severity">,
+) {
   return (
     a.phase - b.phase || SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]
   );

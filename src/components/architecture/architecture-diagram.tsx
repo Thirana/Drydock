@@ -1,10 +1,5 @@
 import { useId, type SVGProps } from "react";
-import {
-  anchor,
-  labelPosition,
-  orthogonalRoute,
-  pathData,
-} from "@/lib/architecture/geometry";
+import { anchor, orthogonalRoute, pathData } from "@/lib/architecture/geometry";
 import { edgeKey, type JourneyHighlight } from "@/lib/architecture/journeys";
 import {
   boxIndex,
@@ -14,8 +9,15 @@ import {
   resolveEdge,
   type ResolvedBox,
 } from "@/lib/architecture/state";
+import {
+  labelSpot,
+  splitInTwo,
+  textWidth,
+  wrapText,
+} from "@/lib/architecture/text-fit";
 import { KIND_TONE, toneColor } from "@/lib/architecture/tone";
 import type {
+  ArchEdge,
   ArchGroup,
   ArchNode,
   MapModel,
@@ -52,7 +54,7 @@ interface ArchitectureDiagramProps {
   onSelect?: (id: string) => void;
 }
 
-const SELECTED = "var(--gl-primary)";
+const SELECTED = "var(--dd-sel)";
 
 /** The architecture map at a given phase, filtered by an overlay or a journey. */
 export function ArchitectureDiagram({
@@ -106,6 +108,24 @@ export function ArchitectureDiagram({
     return box.layers?.includes(layer) ? 1 : 0.16;
   };
 
+  // Every box an edge label must stay clear of, and the labels collected
+  // while edges draw, so they can be painted above the boxes.
+  const nodeRects = model.nodes.map((n) => ({
+    x: n.x,
+    y: n.y,
+    width: n.w,
+    height: n.h,
+  }));
+  const edgeLabels: {
+    key: string;
+    ids: string[];
+    opacity: number;
+    at: { x: number; y: number };
+    width: number;
+    lines: string[];
+    tone: ArchEdge["tone"];
+  }[] = [];
+
   return (
     <svg
       className={cn("block h-auto w-full min-w-[1240px]", className)}
@@ -132,7 +152,7 @@ export function ArchitectureDiagram({
               y={g.y}
               width={g.w}
               height={g.h}
-              rx={12}
+              rx={0}
               opacity={0.85}
               strokeWidth={selected ? 2 : 1}
               strokeDasharray={g.dashed ? "6 5" : undefined}
@@ -211,8 +231,26 @@ export function ArchitectureDiagram({
         const points = e.via
           ? [p1, ...e.via, p2]
           : orthogonalRoute(p1, p2, e.fromSide, e.toSide);
-        const labelAt = e.label ? labelPosition(points) : null;
-        const labelWidth = (e.label?.length ?? 0) * 5.6 + 12;
+        const oneLine = e.label ? textWidth(e.label, 11, "mono") + 12 : 0;
+        const spot = e.label ? labelSpot(points, oneLine, nodeRects) : null;
+        if (e.label && spot) {
+          // The stretch's margins may be spent; a box edge may not.
+          const room = spot.room + 16;
+          const halves = oneLine > room ? splitInTwo(e.label) : null;
+          const twoLine = halves
+            ? Math.max(...halves.map((h) => textWidth(h, 10, "mono"))) + 8
+            : Infinity;
+          if (oneLine <= room || twoLine <= room)
+            edgeLabels.push({
+              key: `${e.from}-${e.to}-${i}`,
+              ids: [e.from, e.to],
+              opacity,
+              at: spot.at,
+              width: oneLine <= room ? oneLine : twoLine,
+              lines: oneLine <= room ? [e.label] : halves!,
+              tone: e.tone,
+            });
+        }
 
         return (
           <g
@@ -228,28 +266,6 @@ export function ArchitectureDiagram({
               markerEnd={`url(#${markerId})`}
               style={{ stroke: toneColor(e.tone) }}
             />
-            {labelAt && (
-              <>
-                <rect
-                  x={labelAt.x - labelWidth / 2}
-                  y={labelAt.y - 9}
-                  width={labelWidth}
-                  height={17}
-                  rx={4}
-                  className="fill-gl-bg"
-                />
-                <text
-                  x={labelAt.x}
-                  y={labelAt.y + 3.5}
-                  fontSize={11}
-                  textAnchor="middle"
-                  className="font-mono"
-                  style={{ fill: toneColor(e.tone) }}
-                >
-                  {e.label}
-                </text>
-              </>
-            )}
           </g>
         );
       })}
@@ -273,7 +289,7 @@ export function ArchitectureDiagram({
               y={n.y}
               width={n.w}
               height={n.h}
-              rx={8}
+              rx={0}
               strokeWidth={selected ? 2.4 : inDefectOverlay ? 1.6 : 1}
               strokeDasharray={inDefectOverlay && !selected ? "5 4" : undefined}
               className={cn(
@@ -285,41 +301,54 @@ export function ArchitectureDiagram({
               )}
               style={{ stroke: selected ? SELECTED : toneColor(tone) }}
             />
-            <rect
-              x={n.x}
-              y={n.y}
-              width={3}
-              height={n.h}
-              rx={1.5}
-              opacity={inDefectOverlay ? 1 : 0.9}
-              style={{ fill: toneColor(tone) }}
-            />
-            <text
-              x={n.x + 15}
-              y={n.y + (n.sub ? 24 : n.h / 2 + 4.5)}
-              fontSize={13.5}
-              fontWeight={600}
-              letterSpacing={-0.1}
-              className="fill-gl-text"
-            >
-              {n.label}
-            </text>
-            {n.sub && (
-              <text
-                x={n.x + 15}
-                y={n.y + 41}
-                fontSize={11.5}
-                className="fill-gl-text-muted font-mono"
-              >
-                {n.sub}
-              </text>
-            )}
+            {(() => {
+              const sub = n.sub ? wrapText(n.sub, n.w - 24, 11, "mono") : null;
+              const twoLines = (sub?.lines.length ?? 0) > 1;
+              const labelY = !sub
+                ? n.y + n.h / 2 + 4.5
+                : twoLines
+                  ? n.y + 19
+                  : n.y + 24;
+              return (
+                <>
+                  <text
+                    x={n.x + 13}
+                    y={labelY}
+                    fontSize={13.5}
+                    fontWeight={600}
+                    letterSpacing={-0.1}
+                    className="fill-gl-text"
+                  >
+                    {n.label}
+                  </text>
+                  {sub?.lines.map((line, i) => (
+                    <text
+                      key={i}
+                      x={n.x + 13}
+                      y={twoLines ? n.y + 34 + i * 13 : n.y + 41}
+                      fontSize={11}
+                      className="fill-gl-text-muted font-mono"
+                      // Only squeezes when even two lines cannot hold it.
+                      {...(!sub.fits && textWidth(line, 11, "mono") > n.w - 24
+                        ? {
+                            textLength: n.w - 24,
+                            lengthAdjust: "spacingAndGlyphs",
+                          }
+                        : {})}
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </>
+              );
+            })()}
             {!highlight && n.openDefects.length > 0 && (
               <DefectMarks
-                x={n.x + n.w - 10}
-                y={n.y + 18}
+                x={n.x + n.w - 8}
+                y={n.y}
                 ids={n.openDefects}
                 emphasised={layer === "defects"}
+                tag
               />
             )}
             {hop !== undefined && (
@@ -330,6 +359,34 @@ export function ArchitectureDiagram({
                 failing={failing}
               />
             )}
+          </g>
+        );
+      })}
+
+      {edgeLabels.map((label) => {
+        const two = label.lines.length > 1;
+        return (
+          <g key={label.key} {...visibility(label.ids, label.opacity, false)}>
+            <rect
+              x={label.at.x - label.width / 2}
+              y={label.at.y - (two ? 14 : 9)}
+              width={label.width}
+              height={two ? 27 : 17}
+              className="fill-gl-bg"
+            />
+            {label.lines.map((line, i) => (
+              <text
+                key={i}
+                x={label.at.x}
+                y={label.at.y + (two ? -2.5 + i * 11 : 3.5)}
+                fontSize={two ? 10 : 11}
+                textAnchor="middle"
+                className="font-mono"
+                style={{ fill: toneColor(label.tone) }}
+              >
+                {line}
+              </text>
+            ))}
           </g>
         );
       })}

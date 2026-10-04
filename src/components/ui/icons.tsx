@@ -25,8 +25,8 @@ function makeIcon(
         fill="none"
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
         aria-hidden="true"
         className={cn("shrink-0", className)}
       >
@@ -185,6 +185,26 @@ export const IconList = makeIcon(
 );
 
 /** Icons addressable by name from content. */
+/** Lamp on: the light-box theme. */
+export const IconLamp = makeIcon(
+  "IconLamp",
+  16,
+  1.6,
+  16,
+  <>
+    <circle cx="8" cy="8" r="3" />
+    <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />
+  </>,
+);
+/** Lamp off: the bench in the dark. */
+export const IconDark = makeIcon(
+  "IconDark",
+  16,
+  1.6,
+  16,
+  <path d="M13 9.6A5.5 5.5 0 1 1 6.4 3a4.4 4.4 0 0 0 6.6 6.6z" />,
+);
+
 export const ICONS: Record<IconName, ComponentType<IconProps>> = {
   book: IconBook,
   map: IconMap,

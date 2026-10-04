@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { Logo } from "@/components/ui/logo";
 
-/** Showcase panel: hard-shadow frame with a chrome bar. One per page. */
+/** A figure: its caption above, the drawing below, nothing around it but a hairline. */
 export function DiagramFrame({
   title,
   meta,
@@ -12,23 +11,19 @@ export function DiagramFrame({
   children: ReactNode;
 }) {
   return (
-    <figure className="border-gl-border-strong bg-gl-surface shadow-gl-hard overflow-hidden rounded-2xl border">
-      <figcaption className="border-gl-border bg-gl-bg-subtle flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b px-5 py-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Logo size={16} />
-          <span className="text-gl-text text-[13px] font-bold">{title}</span>
-          {meta && (
-            <span className="text-gl-text-faint truncate font-mono text-[11px]">
-              · {meta}
-            </span>
-          )}
-        </div>
+    <figure>
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 pb-3">
+        <span className="flex min-w-0 flex-wrap items-baseline gap-x-3">
+          <span className="text-ink text-[16px] font-bold">{title}</span>
+          {meta && <span className="text-ink-muted text-[15px]">{meta}</span>}
+        </span>
         <DiagramLegend />
       </figcaption>
-      <div className="bg-gl-bg overflow-x-auto">{children}</div>
-      <p className="border-gl-border text-gl-text-muted border-t px-5 py-2.5 text-[12px] lg:hidden">
-        This diagram is wide by design - scroll it sideways, or open it on a
-        larger screen.
+      <div className="border-rule bg-ground overflow-x-auto rounded-[2px] border lg:mx-[calc(50%-min(50vw,720px)+24px)]">
+        {children}
+      </div>
+      <p className="text-ink-muted mt-2 text-[14px] lg:hidden">
+        Wide by design - scroll it sideways, or open it on a larger screen.
       </p>
     </figure>
   );
@@ -44,17 +39,17 @@ function LineSample({
   danger?: boolean;
 }) {
   return (
-    <svg width="20" height="6" aria-hidden="true" className="shrink-0">
+    <svg width="22" height="6" aria-hidden="true" className="shrink-0">
       <line
         x1="0"
         y1="3"
-        x2="20"
+        x2="22"
         y2="3"
         strokeWidth="1.6"
         strokeDasharray={dashed ? "4 3" : undefined}
-        opacity={dim ? 0.45 : 1}
+        opacity={dim ? 0.5 : 1}
         style={{
-          stroke: danger ? "var(--tone-danger)" : "var(--gl-text-muted)",
+          stroke: danger ? "var(--tone-danger)" : "var(--dd-ink-muted)",
         }}
       />
     </svg>
@@ -63,7 +58,7 @@ function LineSample({
 
 export function DiagramLegend() {
   return (
-    <ul className="text-gl-text-muted flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px]">
+    <ul className="text-ink-muted flex flex-wrap items-center gap-x-5 gap-y-1 text-[14px]">
       <li className="inline-flex items-center gap-2">
         <LineSample /> traffic path
       </li>

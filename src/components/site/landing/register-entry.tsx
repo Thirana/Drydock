@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { CommandBlock } from "@/components/architecture/command-block";
-import { DEFECT_CHIP } from "@/components/architecture/defect-link";
 import { SeverityBadge } from "@/components/architecture/severity-badge";
 import { SegmentedControl } from "@/components/ui/controls";
 import type { FollowedDefect } from "@/lib/content/featured";
@@ -10,58 +9,58 @@ import { cn } from "@/lib/utils";
 
 type State = "now" | "fixed";
 
-const SUBLABEL =
-  "text-gl-text-muted text-[11px] font-bold tracking-[0.12em] uppercase";
-
 /** One register entry, open, with the configuration before and after one click apart. */
 export function RegisterEntry({ defect }: { defect: FollowedDefect }) {
   const [state, setState] = useState<State>("now");
   const fixed = state === "fixed";
 
   return (
-    <article className="border-gl-border bg-gl-surface shadow-gl-lg overflow-hidden rounded-2xl border">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-4 sm:px-6">
-        <span className={DEFECT_CHIP}>{defect.id}</span>
-        <SeverityBadge severity={defect.severity} />
-        <h3 className="text-gl-text min-w-0 flex-1 basis-[220px] text-[17px] font-semibold tracking-[-0.01em]">
-          {defect.title}
-        </h3>
-        <span className="border-gl-border bg-gl-surface-2 text-gl-text-muted rounded-full border px-2.5 py-1 font-mono text-[11px] leading-none">
-          phase {defect.phase} · {defect.phaseName}
+    <article className="border-rule border-t">
+      <header className="grid grid-cols-[56px_minmax(0,1fr)] items-baseline gap-x-3 py-4">
+        <span className="text-fault font-mono text-[16px] font-bold">
+          {defect.id}
         </span>
-      </header>
-
-      <div className="border-gl-border space-y-5 border-t px-5 py-5 sm:px-6">
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SegmentedControl<State>
-              label="Show the configuration"
-              value={state}
-              onChange={setState}
-              options={[
-                { value: "now", label: "Now" },
-                { value: "fixed", label: "Fixed" },
-              ]}
-            />
-            <span
-              className={cn(
-                "font-mono text-[11px] font-bold tracking-[0.12em] uppercase",
-                fixed ? "text-gl-success" : "text-gl-danger",
-              )}
-            >
-              {fixed ? `closed in phase ${defect.phase}` : "open, as found"}
+        <div className="min-w-0">
+          <h3 className="text-ink text-[19px] leading-[1.35] font-semibold">
+            {defect.title}
+          </h3>
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <SeverityBadge severity={defect.severity} />
+            <span className="text-ink-muted text-[14px]">
+              closes in move {defect.phase}, {defect.phaseName}
             </span>
-          </div>
-          <p
-            aria-live="polite"
-            className="border-gl-border bg-gl-bg text-gl-text mt-3 rounded-[10px] border px-4 py-3.5 font-mono text-[13px] leading-[1.6]"
-          >
-            {fixed ? defect.after : defect.before}
           </p>
         </div>
+      </header>
 
-        <div>
-          <p className={cn(SUBLABEL, "mb-2")}>The change that closes it</p>
+      <div className="border-rule grid gap-x-10 gap-y-6 border-t py-6 lg:grid-cols-12">
+        <div className="lg:col-span-5">
+          <SegmentedControl<State>
+            label="Show the configuration"
+            value={state}
+            onChange={setState}
+            options={[
+              { value: "now", label: "Now" },
+              { value: "fixed", label: "Fixed" },
+            ]}
+          />
+          <div aria-live="polite" className="relative mt-4">
+            <p className={cn("dd-label", fixed ? "text-ink" : "text-fault")}>
+              {fixed ? `Closed in phase ${defect.phase}` : "Open, as found"}
+            </p>
+            <p
+              key={state}
+              className="animate-fade-in text-ink mt-2 font-mono text-[14px] leading-[1.65]"
+            >
+              {fixed ? defect.after : defect.before}
+            </p>
+          </div>
+        </div>
+
+        <div className="min-w-0 lg:col-span-7">
+          <p className="dd-label text-ink-muted mb-2">
+            The change that closes it
+          </p>
           <CommandBlock label="fix">{defect.remediation}</CommandBlock>
         </div>
       </div>

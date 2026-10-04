@@ -1,6 +1,7 @@
 import type { TrackStats } from "@/lib/content/stats";
 import { cn } from "@/lib/utils";
 
+/** A lab's counts as one ruled line of figures, not a row of badges. */
 export function StatPills({
   stats,
   size = "sm",
@@ -18,24 +19,26 @@ export function StatPills({
   ] as const;
 
   return (
-    <ul className={cn("flex flex-wrap gap-2", className)}>
+    <ul
+      className={cn(
+        "divide-rule flex flex-wrap items-baseline gap-y-2 divide-x",
+        className,
+      )}
+    >
       {items.map(([value, label]) => (
         <li
           key={label}
-          className={cn(
-            "border-gl-border bg-gl-surface-2 inline-flex items-center gap-2 rounded-full border",
-            size === "lg" ? "px-4 py-1.5" : "px-3 py-1",
-          )}
+          className="inline-flex items-baseline gap-2 px-4 first:pl-0 last:pr-0"
         >
           <span
             className={cn(
-              "text-gl-primary font-mono font-bold tabular-nums",
-              size === "lg" ? "text-[15px]" : "text-[13px]",
+              "text-ink font-mono font-bold tabular-nums",
+              size === "lg" ? "text-[22px]" : "text-[17px]",
             )}
           >
             {value}
           </span>
-          <span className="text-gl-text-muted text-[12px]">{label}</span>
+          <span className="text-ink-muted text-[14px]">{label}</span>
         </li>
       ))}
     </ul>

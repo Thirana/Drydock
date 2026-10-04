@@ -22,25 +22,40 @@ export function DefectMarks({
   y,
   ids,
   emphasised = true,
+  tag = false,
 }: {
   x: number;
   y: number;
   ids: string[];
   emphasised?: boolean;
+  /** Sit on the box's top edge as a small tag, clear of the box's own text. */
+  tag?: boolean;
 }) {
+  const text = ids.join(" ");
+  const width = text.length * 10.5 * 0.62 + 10;
   return (
-    <text
-      x={x}
-      y={y}
-      fontSize={10.5}
-      fontWeight={600}
-      textAnchor="end"
-      opacity={emphasised ? 1 : 0.8}
-      className="font-mono"
-      style={{ fill: "var(--tone-danger)" }}
-    >
-      {ids.join(" ")}
-    </text>
+    <g opacity={emphasised ? 1 : 0.85}>
+      {tag && (
+        <rect
+          x={x - width + 5}
+          y={y - 7}
+          width={width}
+          height={14}
+          className="fill-gl-bg"
+        />
+      )}
+      <text
+        x={x}
+        y={tag ? y + 4 : y}
+        fontSize={10.5}
+        fontWeight={600}
+        textAnchor="end"
+        className="font-mono"
+        style={{ fill: "var(--tone-danger)" }}
+      >
+        {text}
+      </text>
+    </g>
   );
 }
 
@@ -55,16 +70,19 @@ export function HopBadge({
   number: number;
   failing: boolean;
 }) {
-  const color = failing ? "var(--tone-danger)" : "var(--gl-primary)";
+  const color = failing ? "var(--dd-fault)" : "var(--dd-sel)";
   return (
     <g>
-      <circle
-        cx={x}
-        cy={y}
-        r={11}
-        strokeWidth={1.5}
-        className="fill-gl-bg"
-        style={{ stroke: color }}
+      <rect
+        x={x - 11}
+        y={y - 11}
+        width={22}
+        height={22}
+        strokeWidth={1.8}
+        style={{
+          fill: "var(--dd-ground)",
+          stroke: color,
+        }}
       />
       <text
         x={x}

@@ -33,28 +33,26 @@ export function SiteFooter() {
   ];
 
   return (
-    <footer className="border-gl-border border-t py-12 pb-10">
-      <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+    <footer className="border-rule mt-auto border-t">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-x-8 gap-y-10 px-5 pt-12 pb-14 sm:grid-cols-4 sm:px-8">
         <div className="col-span-2 sm:col-span-1">
-          <LogoLockup size={20} textClassName="text-[16px]" />
-          <p className="text-gl-text-muted mt-3 max-w-[280px] text-[13px] leading-[1.55]">
+          <LogoLockup />
+          <p className="text-ink-muted mt-3 max-w-[280px] text-[15px] leading-[1.55]">
             {site.description}
           </p>
-          <p className="text-gl-text-faint mt-6 font-mono text-[12px]">
+          <p className="text-ink-faint mt-5 text-[14px]">
             © {new Date().getFullYear()} {site.name}
           </p>
         </div>
         {columns.map((column) => (
           <div key={column.title}>
-            <p className="text-gl-text-faint mb-4 text-[11px] font-bold tracking-[0.12em] uppercase">
-              {column.title}
-            </p>
-            <ul className="flex flex-col gap-2.5">
+            <p className="dd-label mb-3">{column.title}</p>
+            <ul className="flex flex-col gap-2">
               {column.links.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-gl-text-muted hover:text-gl-text text-[13.5px] font-medium transition-colors"
+                    className="text-ink hover:text-accent text-[15px] transition-colors"
                   >
                     {link.label}
                   </Link>
