@@ -1,1 +1,4 @@
 design-system
+doc
+# Course chapters: Prettier's MDX parser wraps table cells in paragraphs.
+content/learn/**/*.mdx

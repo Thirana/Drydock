@@ -35,6 +35,14 @@ colors:
   mark-ink-dark: "#fff3c4"
   fault-dark: "#ff6f61"
   fault-soft-dark: "rgba(255, 111, 97, 0.1)"
+  plum: "#8e3394"
+  teal: "#268899"
+  green: "#21763c"
+  amber: "#c97c16"
+  plum-dark: "#cd85d8"
+  teal-dark: "#71cfd9"
+  green-dark: "#4eb068"
+  amber-dark: "#f6c16b"
 typography:
   display:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
@@ -93,6 +101,22 @@ typography:
     fontWeight: 400
     lineHeight: 1.7
     fontFeature: "\"tnum\" 1"
+  figure-title:
+    fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13.5px"
+    fontWeight: 600
+    lineHeight: 1.2
+  figure-sub:
+    fontFamily: "Atkinson Hyperlegible Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+    fontSize: "11.5px"
+    fontWeight: 400
+    lineHeight: 1.2
+    fontFeature: "\"tnum\" 1"
+  figure-label:
+    fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 600
+    lineHeight: 1.2
 rounded:
   sm: "2px"
 spacing:
@@ -161,6 +185,7 @@ The system refuses cards, chips, pill badges, drop shadows, icon sidebars and ma
 **Key Characteristics:**
 - Off-white page, near-black ink, hairline rules instead of containers.
 - One blue for "current" and "followable"; one red for "broken".
+- Inside course drawings and widgets only, four drawing hues - plum, teal, green, amber - say who is who; each course's legend names what they mean.
 - Atkinson Hyperlegible Next for everything read; Atkinson Hyperlegible Mono for move numbers, defect IDs, ranges and commands.
 - Numbered moves ("1.", "2.") as the recurring structural device - the score, the view strip, the view guide, the register.
 - Flat: no shadows anywhere, corners 2px at most.
@@ -168,7 +193,7 @@ The system refuses cards, chips, pill badges, drop shadows, icon sidebars and ma
 
 ## Colors
 
-A near-neutral paper-and-ink palette with exactly two signal hues, each with a single job.
+A near-neutral paper-and-ink palette with exactly two signal hues, each with a single job. Course drawings and widgets add four drawing hues that never leave the drawing.
 
 ### Primary
 - **Current-Move Blue** (accent): the sliding marker on the score, the current view in the view strip, the chosen move's numeral and name, links (`dd-link`, prose links, header call to action), the hover state of the primary button, focus outlines, text selection, and diagram selection. Hover deepens to **Pressed Blue** (accent-hover). **Blue Wash** (accent-soft) tints a selected diagram region only. **Blue Ink** (accent-ink) is the text colour on a solid blue fill.
@@ -186,6 +211,18 @@ A near-neutral paper-and-ink palette with exactly two signal hues, each with a s
 - **Muted Ink** (ink-muted): meta text, labels, unselected choices, command comments.
 - **Faint Ink** (ink-faint): static move numerals, list markers, struck (closed) defects.
 
+### Drawing hues (course drawings and widgets only)
+Four hues for the parts of a network drawing. They came from the course notes' own convention, re-tuned for this page. The hues are shared; what each one means is set by the course's **legend** (`Course.legend` in code), and every figure's key prints it in that course's words.
+
+- **Plum** (plum), **Teal** (teal), **Green** (green), **Amber** (amber).
+- **Fundamentals legend - who does what:** plum the sender (laptop, browser, client); teal whatever sits in between and forwards (router, gateway, switch, proxy, NAT, load balancer, and the network bits of an address); green the server and the replies coming back; amber the request on its way out.
+- **GCP legend - where it lives:** teal your VPC (subnets, VMs, routes, NAT); plum run by Google, outside your VPC (load balancer front ends, Cloud Run, Cloud SQL, IAP); amber firewall and access rules; green allowed traffic and replies. Networks outside GCP (shoppers, home, office, Cloudflare) are drawn in ink.
+- A figure that means something else by a hue (packet layers, for instance) passes its own `labels` to the key instead of the course legend.
+- Each hue has a soft fill, `color-mix(in oklab, <hue> 10%, ground)`, used only inside a box of that hue.
+- Host bits and "notice this" inside a widget use the existing **Highlighter** (mark). A dropped packet, refused connection, failing check or a problem uses **Fault Red**. There is no "info" or "success" hue.
+
+Values were chosen together, not one by one: in both themes every hue's stroke clears 3:1 on the ground, and every pair of hues, blue and red stays apart under deuteranopia, protanopia and tritanopia simulation (minimum OKLab distance about 6). Re-run that check before changing any one of them.
+
 Dark values (the `-dark` tokens) replace each role one for one when `[data-theme="dark"]` is on `<html>`. The attribute is set before paint from the stored `dd-theme` preference, falling back to `prefers-color-scheme`.
 
 ### Named Rules
@@ -193,7 +230,11 @@ Dark values (the `-dark` tokens) replace each role one for one when `[data-theme
 
 **The Red Is a Fault Rule.** Red appears only where something is broken: a defect ID, a critical or high mark, a failing hop, a defective path. Medium and low severity stay in ink; fixed things return to ink or faint ink, never green.
 
-**The Monochrome Drawing Rule.** Diagrams are drawn in ink tones through the `--tone-*` tokens (edge and private in ink, compute and data in muted ink, external in faint ink, lines in hairline). Only `--tone-danger` takes colour, and selection is blue.
+**The Drawing Hue Rule.** Course drawings and widgets may colour a box, wire or arrowhead by what it is in that course's legend, and nothing else. Hue lives on strokes, arrowheads, soft fills and a small key swatch; text inside a drawing stays in ink and muted ink. Hues never appear in chrome - header, rails, links, buttons, headings and prose stay ink, blue and red. Any drawing with two or more hues shows its key, and every coloured thing also carries a label, so colour is never the only code.
+
+**The Monochrome Lab Rule.** Lab drawings (the Harbour map, journeys, load balancer chain) stay in ink tones through the `--tone-*` tokens (edge and private in ink, compute and data in muted ink, external in faint ink, lines in hairline). Only `--tone-danger` takes colour, and selection is blue. A lab is about what is broken, so nothing competes with the red.
+
+**The Plain Verdict Rule.** A quiz or check answers in words: "Correct" or "Not quite", with a drawn check or cross icon in ink and the reason. Never a green/red verdict - a wrong answer is not a fault, and green never means "good".
 
 ## Typography
 
@@ -214,6 +255,7 @@ Dark values (the `-dark` tokens) replace each role one for one when `[data-theme
 - **Label** (600, 13px, 0.01em, sentence case, muted ink): names a group of data - "Phase", "Severity", "How you would find it". Never set above a heading.
 - **Move** (mono 700, 13.5-15px): move numerals ("3."), defect IDs, severity marks.
 - **Code** (mono 400, 14px, 13.5px from 1024px, 1.7): command blocks; inline code at 0.86em on code ground.
+- **Figure** (inside drawings only): box titles sans 600 13.5px; sub-lines (addresses, ports, values) mono 11.5px; words on a wire sans 600 12px in muted ink.
 
 ### Named Rules
 **The Plain Label Rule.** Labels are small, sentence-case and literal, and they label data, not headings. No uppercase tracking, no kicker line above a title.
@@ -287,9 +329,21 @@ The author's asides and positions (Note, Argument) sit on a 28px gutter holding 
 "Drydock" in 19px bold ink with a blue mono "?!" set high beside it - the dubious-move mark that names the site.
 
 ### Figures and Diagrams
-Caption above (16px bold title, muted meta, a line legend of traffic / not built yet / defective path), the drawing below inside a hairline 2px frame on ground. Drawn in the monochrome tones; defect marks and defective paths in red; selected regions washed blue.
+Course figures (`.dd-fig`): the same hairline 2px frame on ground. Boxes are 2px-cornered with a 1.25px stroke - ink-faint for a neutral box, a hue with its soft fill for a box the legend names. Titles in sans 13.5px semibold ink, sub-lines (addresses, ports) in mono 11.5px muted. Wires 1.5px with a matching arrowhead (`DiagramDefs`, rendered once by the course layout); dashed means "not built yet" or "optional", exactly as in the lab. The key sits under the drawing as small swatch-and-word pairs, then the caption in muted 15px. On narrow screens a drawing keeps 680px and scrolls sideways, with a plain note saying so. Address-block charts (`blk`: used, plan, goog, res, free) and status dots (ink for fine, red for broken) are part of the same vocabulary.
+
+Lab figures: caption above (16px bold title, muted meta, a line legend of traffic / not built yet / defective path), the drawing below inside a hairline 2px frame on ground. Drawn in the monochrome tones; defect marks and defective paths in red; selected regions washed blue.
 
 Text never crosses a box edge (`src/lib/architecture/text-fit.ts`). A box's sub-line wraps to a second line at its " · " separators before it is ever squeezed; defect IDs sit as a small tag on the box's top-right edge, clear of the title; edge labels take the longest stretch of their line that no box covers, are painted above the boxes, and drop to two smaller lines when the gap is narrow. A label with no room at all is left off rather than drawn under a box.
+
+### Course chapters
+- **Chapter rail:** sticky, text only, 236px on the left from 1024px, 96px from the text column (the section numerals hang in that gap). Course title, parts as plain labels, chapters as numbered rows (mono faint numeral, body-ink title; the current one blue and bold; unpublished ones faint and not linked). Under the current chapter its sections, with a 2px blue marker that slides to the section in view (500ms, the score's curve). Below 1024px it folds into a sticky strip ("4. Subnet masks · section") that opens the same list as a full-height sheet (`<dialog>`).
+- **Chapter header:** the title as the headline, the lead, then one muted meta line under it - part, "chapter 4 of 34", reading time. Nothing sits above the title.
+- **Numbered sections:** every `##` takes a move numeral from a CSS counter - mono, faint, hanging in the gutter from 1024px, inline before it below. Summary, Try it yourself and Commands in this chapter are unnumbered recaps.
+- **Asides on the gutter:** a key idea under "!", a note under "!?", the GCP blocks under their own mark - the problem "?" in red, the fix "!", a read-only gcloud check "$"; console, cost and exam blocks carry no mark. Each starts with a hairline and a bold title; its body is indented by the gutter, which is what shows where it ends.
+- **Builds on:** a muted line under a heading linking the fundamentals chapters a section relies on.
+- **Try it yourself / Commands in this chapter:** one item per command, numbered in the gutter like the sections: a bold title (what it shows), plain bullets (steps when there is more than one command or none, what to look for, where it runs, the section it goes with), then the command in a Command Block. Never a table.
+- **Commands and output:** commands use the Command Block; printed output sits in a hairline frame on the page ground, mono 13px body ink, so the two never look alike.
+- **Widgets:** a hairline frame with 24px inside, inputs 44px tall in mono with a strong-hairline border (red with a plain sentence when the value cannot be used), results in an `aria-live` region, outcomes as one ink sentence. Bit cells: teal-soft for network bits, highlighter for host bits, ink 1s and muted 0s.
 
 ### Commands
 Commands wrap inside their block instead of scrolling: long lines take a hanging indent of 2ch, flags (`--region=…`) stay whole and move to the next line together, and only a flag too long for the line breaks mid-token. The text is unchanged, so copying yields the original command.
@@ -326,6 +380,7 @@ A minimal page still has to answer three questions at a glance: what do I read, 
 - **Don't** add shadows of any kind, or round anything past 2px.
 - **Don't** use red for anything that is not broken, or green for anything that is fixed.
 - **Don't** put a small label or kicker above a heading, or set labels in tracked uppercase.
-- **Don't** colour diagram components by category; draw them in ink tones.
+- **Don't** colour lab drawings, or use drawing hues outside a course drawing or widget; a hue means what the course legend says, never a status or decoration.
+- **Don't** set text in a drawing hue, or give a quiz verdict in green or red.
 - **Don't** set prose or headings in mono.
 - **Don't** use an em dash anywhere in copy.

@@ -56,3 +56,47 @@ export interface Provider {
   summary: string;
   labs: Lab[];
 }
+
+/**
+ * Courses: course → part → chapter → section.
+ *
+ *   /learn                              the learning path
+ *   /learn/fundamentals                 course index
+ *   /learn/fundamentals/subnet-masks    chapter
+ */
+
+export interface Part {
+  id: string;
+  title: string;
+}
+
+export interface Chapter {
+  /** "4", "5.1" - shown as the move numeral. */
+  num: string;
+  slug: string;
+  title: string;
+  /** The paragraph under the title; also the page description. */
+  lead: string;
+  /** Id of the part it belongs to. */
+  part: string;
+  /** Reading time in minutes. */
+  minutes: number;
+  /** Missing until the chapter is migrated: listed, but not linked or routed. */
+  Content?: MDXContent;
+}
+
+/** The four drawing hues (see DESIGN.md, Drawing hues). */
+export type Hue = "plum" | "teal" | "green" | "amber";
+
+export interface Course {
+  slug: string;
+  title: string;
+  /** Short name for navigation, e.g. "Fundamentals". */
+  short: string;
+  summary: string;
+  parts: Part[];
+  /** What each drawing hue means in this course's figures. */
+  legend: Partial<Record<Hue, string>>;
+  /** In reading order. Chapter 0 is the course's Kadé reference. */
+  chapters: Chapter[];
+}

@@ -1,0 +1,84 @@
+import { FigMap } from "@content/learn/fundamentals/figures/00-the-kade-scenario";
+
+## The story
+
+Kadé is a small online grocery shop in Colombo. Customers order from a mobile app and a website. Both call one backend at `api.kade.lk`.
+
+You are Kadé's backend engineer. You work from home on your laptop, on your home WiFi. The backend runs in Google Cloud (GCP): one VM for the API and one VM for the database.
+
+Kadé starts simple on purpose. As the course goes on, we will hit real problems with this setup and fix them, adding the pieces real systems use.
+
+## The map
+
+<Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigMap />}>
+
+Solid boxes exist today. Dashed boxes join the map when a chapter needs them. The map on this page is updated as they arrive.
+
+</Figure>
+
+## Address book
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Place</th><th>Thing</th><th>Address</th><th>First used</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Home</td><td>Home network (LAN)</td><td>`192.168.1.0/24`</td><td><Ch n="3">Ch 3</Ch></td></tr>
+    <tr><td>2</td><td>Home</td><td>Router, LAN side</td><td>`192.168.1.1`<Os>MAC 3c:84:6a:10:ee:01</Os></td><td><Ch n="1">Ch 1</Ch></td></tr>
+    <tr><td>3</td><td>Home</td><td>Router, WAN side (public)</td><td>`203.0.113.45`</td><td><Ch n="3">Ch 3</Ch></td></tr>
+    <tr><td>4</td><td>Home</td><td>Your laptop</td><td>`192.168.1.23`<Os>MAC a4:83:e7:2b:91:0c</Os></td><td><Ch n="1">Ch 1</Ch></td></tr>
+    <tr><td>5</td><td>Home</td><td>Phone, smart TV</td><td>`192.168.1.40`, `192.168.1.52`</td><td><Ch n="1">Ch 1</Ch></td></tr>
+    <tr><td>6</td><td>Home</td><td>Printer (reserved address)</td><td>`192.168.1.60`<Os>MAC 00:1b:a9:44:7c:21</Os></td><td><Ch n="3">Ch 3</Ch></td></tr>
+    <tr><td>7</td><td>Home</td><td>ISP's gateway for the home router</td><td>`203.0.113.1`</td><td><Ch n="5">Ch 5</Ch></td></tr>
+    <tr><td>8</td><td>DNS</td><td>Kadé's API name</td><td>`api.kade.lk → 34.87.120.15`</td><td><Ch n="1">Ch 1</Ch></td></tr>
+    <tr><td>9</td><td>GCP</td><td>kade-vpc</td><td>`10.10.0.0/16`</td><td><Ch n="3">Ch 3</Ch></td></tr>
+    <tr><td>10</td><td>GCP</td><td>Subnet sn-app</td><td>`10.10.1.0/24`<Os>gateway 10.10.1.1</Os></td><td><Ch n="3">Ch 3</Ch></td></tr>
+    <tr><td>11</td><td>GCP</td><td>kade-api VM</td><td>`10.10.1.10` internal<Os>34.87.120.15 external</Os></td><td><Ch n="1">Ch 1</Ch></td></tr>
+    <tr><td>12</td><td>GCP</td><td>Subnet sn-data</td><td>`10.10.2.0/24`</td><td><Ch n="3">Ch 3</Ch></td></tr>
+    <tr><td>13</td><td>GCP</td><td>kade-db VM</td><td>`10.10.2.5`, port 5432</td><td><Ch n="4">Ch 4</Ch></td></tr>
+    <tr><td>14</td><td>Office</td><td>Office router, WAN side</td><td>`198.51.100.20`<Os>ISP gateway 198.51.100.1</Os></td><td><Ch n="6">Ch 6</Ch></td></tr>
+    <tr><td>15</td><td>Office</td><td>Staff network</td><td>`172.16.1.0/24`<Os>router eth1 172.16.1.1</Os></td><td><Ch n="6">Ch 6</Ch></td></tr>
+    <tr><td>16</td><td>Office</td><td>Front desk PC, manager laptop, office printer</td><td>`.10`, `.11`, `.20`</td><td><Ch n="6">Ch 6</Ch></td></tr>
+    <tr><td>17</td><td>Office</td><td>Warehouse network</td><td>`172.16.2.0/24`<Os>router eth2 172.16.2.1</Os></td><td><Ch n="6">Ch 6</Ch></td></tr>
+    <tr><td>18</td><td>Office</td><td>Stock scanner, packing PC, label printer</td><td>`.10`, `.11`, `.20`</td><td><Ch n="6">Ch 6</Ch></td></tr>
+    <tr><td>19</td><td>DNS</td><td>kade.lk zone, hosted in GCP Cloud DNS</td><td>`ns-cloud-a1…a4.googledomains.com`</td><td><Ch n="22">Ch 22</Ch></td></tr>
+    <tr><td>20</td><td>Email</td><td>Staff mail: Google Workspace · bulk mail: an email provider</td><td>`MX 1 smtp.google.com`</td><td><Ch n="23">Ch 23</Ch></td></tr>
+    <tr><td>21</td><td>IPv6 (planned)</td><td>Office prefix from LankaNet · staff /64 · warehouse /64</td><td>`2001:db8:5c00::/48` · `…:1::/64` · `…:2::/64`</td><td><Ch n="30">Ch 30</Ch></td></tr>
+    <tr><td>22</td><td>GCP</td><td>External Application Load Balancer; from <Ch n="33">ch 33</Ch>, api.kade.lk points here</td><td>`34.120.88.10` (anycast)</td><td><Ch n="33">Ch 33</Ch></td></tr>
+    <tr><td>23</td><td>GCP</td><td>kade-api-1, kade-api-2 behind the load balancer (no external IPs)</td><td>`10.10.1.10:8080` · `10.10.1.11:8080`</td><td><Ch n="33">Ch 33</Ch></td></tr>
+  </tbody>
+</Table>
+
+<Caption>All addresses are examples. 203.0.113.x and 198.51.100.x are ranges set aside for documentation, so they never belong to a real home or office. <Ch n="2">Chapter 2</Ch> lists the other special ranges.</Caption>
+
+MAC addresses used from <Ch n="7">chapter 7</Ch> on:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Device</th><th>IP</th><th>MAC</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Your laptop (WiFi)</td><td>`192.168.1.23`</td><td>`a4:83:e7:2b:91:0c`</td></tr>
+    <tr><td>2</td><td>Home router, LAN / WAN side</td><td>`192.168.1.1` / `203.0.113.45`</td><td>`3c:84:6a:10:ee:01` / `:02`</td></tr>
+    <tr><td>3</td><td>Phone (random private MAC)</td><td>`192.168.1.40`</td><td>`5e:1a:0b:c3:77:e2`</td></tr>
+    <tr><td>4</td><td>Front desk PC / manager laptop</td><td>`172.16.1.10` / `.11`</td><td>`3c:7c:3f:10:22:01` / `f0:18:98:6d:2e:44`</td></tr>
+    <tr><td>5</td><td>Office printer</td><td>`172.16.1.20`</td><td>`30:05:5c:8a:12:e0`</td></tr>
+    <tr><td>6</td><td>Packing PC (same maker as front desk PC)</td><td>`172.16.2.11`</td><td>`3c:7c:3f:10:9e:47`</td></tr>
+    <tr><td>7</td><td>Office router eth1</td><td>`172.16.1.1`</td><td>`e4:8d:8c:00:01:01`</td></tr>
+    <tr><td>8</td><td>kade-api (set by GCP)</td><td>`10.10.1.10`</td><td>`42:01:0a:0a:01:0a`</td></tr>
+  </tbody>
+</Table>
+
+## What gets added later
+
+Planned additions, each tied to a real problem. The list will change as the course goes on.
+
+<Table>
+  <tbody>
+    <tr><td>Kadé office (arrived in <Ch n="6">ch 6</Ch>)</td><td>Two private networks behind one router. Staff will later need to reach kade-db without going over the public internet.</td></tr>
+    <tr><td>Load balancer</td><td>kade-api's public IP goes away. A load balancer becomes the front door, handles HTTPS and spreads traffic over more VMs.</td></tr>
+    <tr><td>PayGate + Cloud NAT</td><td>The payment provider only accepts calls from IPs on its allow list, so Kadé needs a fixed outgoing IP (34.87.200.7) for VMs without external IPs (<Ch n="10">chapter 10</Ch>).</td></tr>
+    <tr><td>VPN</td><td>Connects the office LAN to kade-vpc privately.</td></tr>
+    <tr><td>Firewall rules</td><td>Only kade-api may talk to kade-db on port 5432.</td></tr>
+  </tbody>
+</Table>

@@ -438,6 +438,38 @@
           "#ffa79e",
           "#fde9e7"
         ]
+      },
+      "plum": {
+        "role": "tertiary",
+        "displayName": "Plum",
+        "canonical": "#8e3394",
+        "dark": "#cd85d8",
+        "scope": "course drawings and widgets only; meaning set by each course's legend",
+        "soft": "color-mix(in oklab, var(--dd-plum) 10%, var(--dd-ground))"
+      },
+      "teal": {
+        "role": "tertiary",
+        "displayName": "Teal",
+        "canonical": "#268899",
+        "dark": "#71cfd9",
+        "scope": "course drawings and widgets only; meaning set by each course's legend",
+        "soft": "color-mix(in oklab, var(--dd-teal) 10%, var(--dd-ground))"
+      },
+      "green": {
+        "role": "tertiary",
+        "displayName": "Green",
+        "canonical": "#21763c",
+        "dark": "#4eb068",
+        "scope": "course drawings and widgets only; meaning set by each course's legend",
+        "soft": "color-mix(in oklab, var(--dd-green) 10%, var(--dd-ground))"
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Amber",
+        "canonical": "#c97c16",
+        "dark": "#f6c16b",
+        "scope": "course drawings and widgets only; meaning set by each course's legend",
+        "soft": "color-mix(in oklab, var(--dd-amber) 10%, var(--dd-ground))"
       }
     },
     "typographyMeta": {
@@ -560,9 +592,29 @@
       "--tone-lineStrong": "ink-faint",
       "--tone-danger": "fault",
       "--diagram-selection-wash": "accent-soft",
-      "--dd-sel": "accent"
+      "--dd-sel": "accent",
+      "note": "--tone-* stay monochrome for lab drawings; course drawings use the hues --dd-plum/teal/green/amber (+ -soft), named per course by its legend.",
+      "--dd-plum": "plum",
+      "--dd-teal": "teal",
+      "--dd-green": "green",
+      "--dd-amber": "amber"
     },
-    "legacyAliases": "The --gl-* variables are compatibility aliases resolved onto --dd-* tokens; new work uses the --dd-* names."
+    "legacyAliases": "The --gl-* variables are compatibility aliases resolved onto --dd-* tokens; new work uses the --dd-* names.",
+    "courseLegends": {
+      "fundamentals": {
+        "plum": "Sender",
+        "teal": "In between",
+        "green": "Server and replies",
+        "amber": "Request on its way"
+      },
+      "gcp": {
+        "teal": "Your VPC",
+        "plum": "Run by Google",
+        "amber": "Firewall and access rules",
+        "green": "Allowed traffic and replies",
+        "ink": "Networks outside GCP"
+      }
+    }
   },
   "components": [
     {
@@ -648,6 +700,7 @@
     "keyCharacteristics": [
       "Off-white page, near-black ink, hairline rules instead of containers.",
       "One blue for \"current\" and \"followable\"; one red for \"broken\".",
+      "Inside course drawings and widgets only, four drawing hues - plum, teal, green, amber - say who is who; each course's legend names what they mean.",
       "Atkinson Hyperlegible Next for everything read; Atkinson Hyperlegible Mono for move numbers, defect IDs, ranges and commands.",
       "Numbered moves (\"1.\", \"2.\") as the recurring structural device - the score, the view strip, the view guide, the register.",
       "Flat: no shadows anywhere, corners 2px at most.",
@@ -665,9 +718,19 @@
         "section": "colors"
       },
       {
-        "name": "The Monochrome Drawing Rule",
-        "body": "Diagrams are drawn in ink tones through the `--tone-*` tokens (edge and private in ink, compute and data in muted ink, external in faint ink, lines in hairline). Only `--tone-danger` takes colour, and selection is blue.",
-        "section": "colors"
+        "name": "The Drawing Hue Rule",
+        "section": "colors",
+        "body": "Course drawings and widgets may colour a box, wire or arrowhead by what it is in that course's legend, and nothing else. Hue lives on strokes, arrowheads, soft fills and a small key swatch; text inside a drawing stays in ink and muted ink. Hues never appear in chrome. Any drawing with two or more hues shows its key, and every coloured thing also carries a label."
+      },
+      {
+        "name": "The Monochrome Lab Rule",
+        "section": "colors",
+        "body": "Lab drawings stay in ink tones through the `--tone-*` tokens. Only `--tone-danger` takes colour, and selection is blue."
+      },
+      {
+        "name": "The Plain Verdict Rule",
+        "section": "colors",
+        "body": "A quiz or check answers \"Correct\" or \"Not quite\" with a drawn icon in ink and the reason. Never a green/red verdict."
       },
       {
         "name": "The Plain Label Rule",
@@ -709,7 +772,8 @@
       "Don't add shadows of any kind, or round anything past 2px.",
       "Don't use red for anything that is not broken, or green for anything that is fixed.",
       "Don't put a small label or kicker above a heading, or set labels in tracked uppercase.",
-      "Don't colour diagram components by category; draw them in ink tones.",
+      "Don't colour lab drawings, or use drawing hues outside a course drawing or widget; a hue means what the course legend says, never a status or decoration.",
+      "Don't set text in a drawing hue, or give a quiz verdict in green or red.",
       "Don't set prose or headings in mono.",
       "Don't use an em dash anywhere in copy."
     ]
