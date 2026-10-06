@@ -1,0 +1,2127 @@
+{
+ "SEQSETS": {
+  "handshake": [
+   "Laptop :52814",
+   "kade-api :443",
+   [
+    {
+     "d": "note",
+     "t": "kade-api's Node app is waiting",
+     "ss": "LISTEN"
+    },
+    {
+     "d": "r",
+     "t": "SYN · SEQ = x",
+     "cs": "SYN-SENT"
+    },
+    {
+     "d": "l",
+     "t": "SYN-ACK · SEQ = y, ACK = x + 1",
+     "ss": "SYN-RECEIVED"
+    },
+    {
+     "d": "r",
+     "t": "ACK · SEQ = x + 1, ACK = y + 1",
+     "cs": "ESTABLISHED",
+     "ss": "ESTABLISHED"
+    },
+    {
+     "d": "r",
+     "t": "data: GET /profile …",
+     "c": "purple",
+     "s": "the request can finally go"
+    }
+   ]
+  ],
+  "close": [
+   "Laptop",
+   "kade-api",
+   [
+    {
+     "d": "note",
+     "t": "both sides ESTABLISHED; the laptop is done",
+     "cs": "ESTABLISHED",
+     "ss": "ESTABLISHED"
+    },
+    {
+     "d": "r",
+     "t": "FIN · \"I have nothing more to send\"",
+     "cs": "FIN-WAIT-1"
+    },
+    {
+     "d": "l",
+     "t": "ACK",
+     "c": "green",
+     "cs": "FIN-WAIT-2",
+     "ss": "CLOSE-WAIT"
+    },
+    {
+     "d": "l",
+     "t": "data can still flow this way (half-close)",
+     "c": "purple"
+    },
+    {
+     "d": "l",
+     "t": "FIN · \"me too\"",
+     "ss": "LAST-ACK"
+    },
+    {
+     "d": "r",
+     "t": "ACK",
+     "c": "green",
+     "cs": "TIME-WAIT",
+     "ss": "CLOSED"
+    },
+    {
+     "d": "note",
+     "t": "the laptop waits 60 s, then forgets the connection",
+     "cs": "CLOSED"
+    }
+   ]
+  ],
+  "hsnums": [
+   "Laptop",
+   "kade-api",
+   [
+    {
+     "d": "r",
+     "t": "SYN · SEQ=4000"
+    },
+    {
+     "d": "l",
+     "t": "SYN-ACK · SEQ=9000 · ACK=4001"
+    },
+    {
+     "d": "r",
+     "t": "ACK · SEQ=4001 · ACK=9001"
+    },
+    {
+     "d": "r",
+     "t": "data · SEQ=4001 · ACK=9001 · 150 bytes",
+     "c": "purple",
+     "s": "bytes 4001–4150"
+    },
+    {
+     "d": "l",
+     "t": "ACK=4151 (SEQ=9001)",
+     "c": "green",
+     "s": "\"I have up to 4150, send 4151 next\""
+    }
+   ]
+  ],
+  "zerowin": [
+   "Laptop (uploading)",
+   "kade-api (busy app)",
+   [
+    {
+     "d": "r",
+     "t": "data · 16 KB"
+    },
+    {
+     "d": "l",
+     "t": "ACK · win 0",
+     "c": "red",
+     "s": "buffer full: the Node app has not read anything"
+    },
+    {
+     "d": "note",
+     "t": "the laptop stops sending and starts its persist timer"
+    },
+    {
+     "d": "r",
+     "t": "window probe (1 byte)",
+     "c": "blue"
+    },
+    {
+     "d": "l",
+     "t": "ACK · win 0",
+     "c": "red",
+     "s": "still full"
+    },
+    {
+     "d": "note",
+     "t": "the probe gap doubles; meanwhile the app reads 32 KB"
+    },
+    {
+     "d": "l",
+     "t": "window update · ACK · win 32768",
+     "c": "green",
+     "s": "\"room again\""
+    },
+    {
+     "d": "r",
+     "t": "data resumes"
+    }
+   ]
+  ],
+  "nagleon": [
+   "kade-api (client)",
+   "order service",
+   [
+    {
+     "d": "r",
+     "t": "0 ms · write 1: headers (200 bytes)"
+    },
+    {
+     "d": "note",
+     "t": "write 2 (body, 100 bytes) is called at once, but Nagle holds it: write 1 is not ACKed yet"
+    },
+    {
+     "d": "note",
+     "t": "the service waits for more data before ACKing (delayed ACK)"
+    },
+    {
+     "d": "l",
+     "t": "≈ 40 ms · ACK (delayed-ACK timer fired)",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "≈ 40 ms · write 2 finally sent",
+     "c": "orange"
+    },
+    {
+     "d": "l",
+     "t": "response",
+     "c": "purple",
+     "s": "every small two-part request pays ~40 ms"
+    }
+   ]
+  ],
+  "nagleoff": [
+   "kade-api (client)",
+   "order service",
+   [
+    {
+     "d": "r",
+     "t": "0 ms · write 1: headers (200 bytes)"
+    },
+    {
+     "d": "r",
+     "t": "0 ms · write 2: body (100 bytes), sent at once"
+    },
+    {
+     "d": "l",
+     "t": "response (with the ACK piggybacked)",
+     "c": "purple",
+     "s": "no waiting"
+    }
+   ]
+  ],
+  "tls13": [
+   "Laptop",
+   "kade-api :443",
+   [
+    {
+     "d": "note",
+     "t": "after the TCP handshake (chapter 16)"
+    },
+    {
+     "d": "r",
+     "t": "ClientHello · versions, cipher suites, key share, SNI, ALPN",
+     "s": "readable by anyone on the path"
+    },
+    {
+     "d": "l",
+     "t": "ServerHello · chosen suite, key share",
+     "s": "both sides now compute the same secret"
+    },
+    {
+     "d": "l",
+     "t": "encrypted: Certificate · CertificateVerify · Finished",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "encrypted: Finished",
+     "c": "green",
+     "s": "handshake done: 1 round trip"
+    },
+    {
+     "d": "r",
+     "t": "encrypted: GET /orders/1042",
+     "c": "purple"
+    },
+    {
+     "d": "l",
+     "t": "encrypted: 200 OK + JSON",
+     "c": "purple"
+    }
+   ]
+  ],
+  "https": [
+   "Laptop (home)",
+   "kade-api",
+   [
+    {
+     "d": "r",
+     "t": "0 ms · TCP SYN"
+    },
+    {
+     "d": "l",
+     "t": "41 ms · SYN-ACK"
+    },
+    {
+     "d": "r",
+     "t": "41 ms · ACK + ClientHello",
+     "s": "TCP done after 1 round trip"
+    },
+    {
+     "d": "l",
+     "t": "82 ms · ServerHello … Finished",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "82 ms · Finished + GET /orders/1042",
+     "c": "purple",
+     "s": "TLS done after 2 round trips"
+    },
+    {
+     "d": "l",
+     "t": "123 ms · 200 OK",
+     "c": "purple",
+     "s": "the response arrives after 3 round trips"
+    }
+   ]
+  ],
+  "ws": [
+   "Shopper app",
+   "kade-api",
+   [
+    {
+     "d": "note",
+     "t": "TCP and TLS handshakes first (chapters 16 and 25)"
+    },
+    {
+     "d": "r",
+     "t": "GET /track/1042 · Upgrade: websocket",
+     "c": "purple"
+    },
+    {
+     "d": "l",
+     "t": "101 Switching Protocols",
+     "c": "green",
+     "s": "the same TCP connection is now a WebSocket"
+    },
+    {
+     "d": "r",
+     "t": "frame: {\"track\":1042}"
+    },
+    {
+     "d": "l",
+     "t": "frame: {\"status\":\"packing\"}"
+    },
+    {
+     "d": "l",
+     "t": "frame: {\"rider\":[6.912,79.861]}",
+     "s": "no request needed: the server just sends"
+    }
+   ]
+  ],
+  "wsduplex": [
+   "Shopper app",
+   "kade-api",
+   [
+    {
+     "d": "l",
+     "t": "{\"status\":\"out for delivery\"}"
+    },
+    {
+     "d": "l",
+     "t": "{\"rider\":[6.905,79.858]}"
+    },
+    {
+     "d": "r",
+     "t": "{\"chat\":\"please ring the bell\"}",
+     "c": "purple",
+     "s": "the app sends whenever it wants, too"
+    },
+    {
+     "d": "l",
+     "t": "{\"rider\":[6.908,79.860]}"
+    },
+    {
+     "d": "l",
+     "t": "ping",
+     "c": "blue"
+    },
+    {
+     "d": "r",
+     "t": "pong",
+     "c": "blue",
+     "s": "keeps NAT and load balancers from forgetting the connection"
+    },
+    {
+     "d": "l",
+     "t": "{\"status\":\"delivered\"}",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "close (1000, normal)",
+     "c": "red"
+    },
+    {
+     "d": "l",
+     "t": "close (1000)",
+     "c": "red",
+     "s": "then the TCP FIN exchange"
+    }
+   ]
+  ],
+  "corssimple": [
+   "page on kade.lk (browser)",
+   "api.kade.lk",
+   [
+    {
+     "d": "r",
+     "t": "GET /products · Origin: https://kade.lk",
+     "c": "purple"
+    },
+    {
+     "d": "l",
+     "t": "200 OK · Access-Control-Allow-Origin: https://kade.lk",
+     "c": "green"
+    },
+    {
+     "d": "note",
+     "t": "the browser checks the header: origin allowed, so JavaScript may read the body"
+    }
+   ]
+  ],
+  "corspre": [
+   "page on kade.lk (browser)",
+   "api.kade.lk",
+   [
+    {
+     "d": "note",
+     "t": "fetch: PATCH /orders/1042, JSON body, Bearer token → not simple, so ask first"
+    },
+    {
+     "d": "r",
+     "t": "OPTIONS /orders/1042 · Origin · Request-Method: PATCH · Request-Headers: authorization, content-type"
+    },
+    {
+     "d": "l",
+     "t": "204 · Allow-Origin · Allow-Methods · Allow-Headers · Max-Age: 600",
+     "c": "green",
+     "s": "permission granted, and cached for 10 minutes"
+    },
+    {
+     "d": "r",
+     "t": "PATCH /orders/1042 · Authorization · Origin",
+     "c": "purple"
+    },
+    {
+     "d": "l",
+     "t": "200 OK · Access-Control-Allow-Origin: https://kade.lk",
+     "c": "green",
+     "s": "the page reads the result"
+    }
+   ]
+  ],
+  "ssh": [
+   "Laptop",
+   "kade-api :22",
+   [
+    {
+     "d": "note",
+     "t": "after the TCP handshake"
+    },
+    {
+     "d": "r",
+     "t": "SSH-2.0-OpenSSH_9.6"
+    },
+    {
+     "d": "l",
+     "t": "SSH-2.0-OpenSSH_9.6"
+    },
+    {
+     "d": "r",
+     "t": "KEXINIT: the algorithms I support"
+    },
+    {
+     "d": "l",
+     "t": "KEXINIT"
+    },
+    {
+     "d": "r",
+     "t": "ECDH key share",
+     "c": "blue"
+    },
+    {
+     "d": "l",
+     "t": "ECDH key share + host key + signature",
+     "c": "blue",
+     "s": "the client checks the host key against known_hosts"
+    },
+    {
+     "d": "r",
+     "t": "encrypted: user authentication (public key)",
+     "c": "green"
+    },
+    {
+     "d": "l",
+     "t": "encrypted: success",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "encrypted: open a session channel → shell",
+     "c": "purple"
+    }
+   ]
+  ],
+  "sshkey": [
+   "Laptop (holds the private key)",
+   "kade-api (authorized_keys)",
+   [
+    {
+     "d": "r",
+     "t": "\"I can use this public key: ssh-ed25519 AAAAC3Nz…\""
+    },
+    {
+     "d": "l",
+     "t": "\"that key is in authorized_keys: prove you hold it\"",
+     "c": "blue"
+    },
+    {
+     "d": "r",
+     "t": "signature over this session's ID, made with the private key",
+     "c": "green"
+    },
+    {
+     "d": "note",
+     "t": "kade-api checks the signature with the public key"
+    },
+    {
+     "d": "l",
+     "t": "authenticated",
+     "c": "green"
+    }
+   ]
+  ],
+  "slaac": [
+   "Front desk PC",
+   "Office router",
+   [
+    {
+     "d": "note",
+     "t": "the PC joins the staff network and makes its link-local address fe80::…"
+    },
+    {
+     "d": "r",
+     "t": "DAD: \"does anyone already use this address?\" (multicast)",
+     "c": "blue"
+    },
+    {
+     "d": "note",
+     "t": "no answer within about a second: the address is free"
+    },
+    {
+     "d": "r",
+     "t": "Router Solicitation → ff02::2 (all routers)"
+    },
+    {
+     "d": "l",
+     "t": "Router Advertisement: prefix 2001:db8:5c00:1::/64, \"I am your gateway\"",
+     "c": "green"
+    },
+    {
+     "d": "note",
+     "t": "the PC builds 2001:db8:5c00:1:(interface ID) and runs DAD again"
+    },
+    {
+     "d": "note",
+     "t": "done: a global address, and a default route via the router's fe80:: address"
+    }
+   ]
+  ],
+  "pmtud": [
+   "Office PC",
+   "kade-db (over VPN)",
+   [
+    {
+     "d": "r",
+     "t": "1,500-byte packet · DF set",
+     "lost": true,
+     "s": "dropped at the VPN router: the tunnel carries 1,400"
+    },
+    {
+     "d": "l",
+     "t": "ICMP 3/4 from the VPN router · \"too big, next MTU 1,400\"",
+     "c": "blue"
+    },
+    {
+     "d": "note",
+     "t": "the PC lowers its packet size for this destination"
+    },
+    {
+     "d": "r",
+     "t": "1,400-byte packets · DF set",
+     "c": "green"
+    },
+    {
+     "d": "l",
+     "t": "ACK",
+     "c": "green",
+     "s": "everything flows"
+    }
+   ]
+  ]
+ },
+ "LIFE": [
+  {
+   "d": "note",
+   "t": "the Node app starts listening on 443",
+   "cs": "CLOSED",
+   "ss": "LISTEN",
+   "x": "kade-api's Node app opens a socket and listens. The laptop has no connection yet."
+  },
+  {
+   "d": "r",
+   "t": "SYN · SEQ = x",
+   "cs": "SYN-SENT",
+   "x": "The browser asks the OS to connect. The OS sends SYN and waits in SYN-SENT."
+  },
+  {
+   "d": "l",
+   "t": "SYN-ACK · SEQ = y, ACK = x+1",
+   "ss": "SYN-RECEIVED",
+   "x": "kade-api answers and waits for the last handshake message."
+  },
+  {
+   "d": "r",
+   "t": "ACK",
+   "cs": "ESTABLISHED",
+   "ss": "ESTABLISHED",
+   "x": "Both sides are ESTABLISHED. About one round trip (~41 ms) has passed."
+  },
+  {
+   "d": "r",
+   "t": "data · HTTP request",
+   "c": "purple",
+   "x": "The request (after TLS, not shown) goes out as data segments."
+  },
+  {
+   "d": "l",
+   "t": "data + ACK · HTTP response",
+   "c": "purple",
+   "x": "The response segments also carry kade-api's ACK for the request (piggybacking)."
+  },
+  {
+   "d": "r",
+   "t": "ACK",
+   "c": "green",
+   "x": "The laptop confirms the response."
+  },
+  {
+   "d": "r",
+   "t": "FIN",
+   "cs": "FIN-WAIT-1",
+   "x": "The browser is done and closes. The laptop sends FIN."
+  },
+  {
+   "d": "l",
+   "t": "ACK",
+   "c": "green",
+   "cs": "FIN-WAIT-2",
+   "ss": "CLOSE-WAIT",
+   "x": "kade-api confirms. It is now in CLOSE-WAIT until its app calls close(). If the app never does, the connection stays here forever: a leak."
+  },
+  {
+   "d": "l",
+   "t": "FIN",
+   "ss": "LAST-ACK",
+   "x": "kade-api's app closes its side. FIN sent, waiting for the final ACK."
+  },
+  {
+   "d": "r",
+   "t": "ACK",
+   "c": "green",
+   "cs": "TIME-WAIT",
+   "ss": "CLOSED",
+   "x": "kade-api is done. The laptop enters TIME-WAIT, in case this ACK was lost."
+  },
+  {
+   "d": "note",
+   "t": "60 seconds later",
+   "cs": "CLOSED",
+   "x": "The laptop forgets the connection. Its port 52814 can be reused."
+  }
+ ],
+ "SIMS": {
+  "normal": {
+   "n": "Normal (delayed, cumulative ACKs)",
+   "rows": [
+    {
+     "d": "r",
+     "t": "SEQ 4001 · 100 bytes"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4101 · 100 bytes"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4201",
+     "c": "green",
+     "s": "one ACK covers both segments"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4201 · 100 bytes"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4301 · 100 bytes"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4401",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4401 · 100 bytes"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4501 (after a short delay)",
+     "c": "green",
+     "s": "all 500 bytes confirmed"
+    }
+   ],
+   "x": "The receiver ACKs every second segment. Each ACK is cumulative: ACK 4201 confirms bytes 4001–4200 at once. 5 segments, only 3 ACKs."
+  },
+  "mid": {
+   "n": "Lose segment 2",
+   "rows": [
+    {
+     "d": "r",
+     "t": "SEQ 4001 · 100 bytes"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4101",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4101 · 100 bytes",
+     "lost": true,
+     "s": "lost"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4201"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4101 · duplicate 1",
+     "c": "yellow"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4301"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4101 · duplicate 2",
+     "c": "yellow"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4401"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4101 · duplicate 3",
+     "c": "yellow"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4101 · resent (fast retransmit)",
+     "c": "blue"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4501",
+     "c": "green",
+     "s": "jumps straight to the end"
+    }
+   ],
+   "x": "Segments 3–5 arrive but byte 4101 is missing, so every ACK still asks for 4101. After 3 duplicate ACKs, the laptop resends just that segment without waiting for a timer. The receiver had kept 3–5 in its buffer, so one ACK 4501 now confirms everything."
+  },
+  "last": {
+   "n": "Lose the last segment",
+   "rows": [
+    {
+     "d": "r",
+     "t": "SEQ 4001"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4101"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4201",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4201"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4301"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4401",
+     "c": "green"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4401 · 100 bytes",
+     "lost": true,
+     "s": "lost"
+    },
+    {
+     "d": "note",
+     "t": "… no ACK for 4401, and nothing after it to cause duplicates …"
+    },
+    {
+     "d": "note",
+     "t": "retransmission timer runs out (RTO ≥ 200 ms)"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4401 · resent after timeout",
+     "c": "blue"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4501",
+     "c": "green"
+    }
+   ],
+   "x": "Nothing follows the lost segment, so there are no duplicate ACKs. The laptop waits for its retransmission timer, much longer than a round trip, then resends. Tail losses like this are the slowest kind to recover."
+  },
+  "ack": {
+   "n": "Lose an ACK",
+   "rows": [
+    {
+     "d": "r",
+     "t": "SEQ 4001"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4101"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4201",
+     "c": "green",
+     "lost": true,
+     "s": "lost"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4201"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4301"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4401",
+     "c": "green",
+     "s": "covers 4001–4400, including what the lost ACK confirmed"
+    },
+    {
+     "d": "r",
+     "t": "SEQ 4401"
+    },
+    {
+     "d": "l",
+     "t": "ACK 4501",
+     "c": "green"
+    }
+   ],
+   "x": "Because ACKs are cumulative, a lost ACK usually costs nothing: the next ACK confirms everything the lost one would have. Nothing is resent."
+  }
+ },
+ "QZ": [
+  [
+   "HTTP",
+   "app",
+   ""
+  ],
+  [
+   "TCP",
+   "tr",
+   ""
+  ],
+  [
+   "IP",
+   "in",
+   ""
+  ],
+  [
+   "Ethernet",
+   "li",
+   ""
+  ],
+  [
+   "DNS",
+   "app",
+   ""
+  ],
+  [
+   "UDP",
+   "tr",
+   ""
+  ],
+  [
+   "ICMP",
+   "in",
+   "A helper of IP: it rides inside IP packets, with no ports."
+  ],
+  [
+   "ARP",
+   "li",
+   "It uses IP addresses, but only works on one local link, so TCP/IP puts it in Link."
+  ],
+  [
+   "TLS",
+   "app",
+   "Sits between HTTP and TCP. OSI would call it Presentation (6); TCP/IP counts it as Application."
+  ],
+  [
+   "DHCP",
+   "app",
+   "It hands out IP addresses, but it is an app protocol that runs over UDP."
+  ],
+  [
+   "BGP",
+   "app",
+   "A routing protocol, yet it runs over TCP port 179, so it is an application."
+  ],
+  [
+   "WiFi",
+   "li",
+   ""
+  ],
+  [
+   "SSH",
+   "app",
+   ""
+  ],
+  [
+   "NAT",
+   "in",
+   "Rewrites IP addresses (Internet), and in PAT also ports (Transport). Mostly counted as Internet."
+  ]
+ ],
+ "QL": {
+  "app": "Application",
+  "tr": "Transport",
+  "in": "Internet",
+  "li": "Link"
+ },
+ "R3T": [
+  [
+   "10.200.0.0/30",
+   "direct",
+   "ge0",
+   "connected"
+  ],
+  [
+   "198.51.100.0/24",
+   "10.200.0.1",
+   "ge0",
+   "OSPF: customers behind R2"
+  ],
+  [
+   "192.0.2.0/30",
+   "direct",
+   "ge1",
+   "connected: link to Google"
+  ],
+  [
+   "192.0.2.4/30",
+   "direct",
+   "ge2",
+   "connected: link to transit"
+  ],
+  [
+   "34.87.0.0/16",
+   "192.0.2.2",
+   "ge1",
+   "BGP from Google"
+  ],
+  [
+   "34.0.0.0/8",
+   "192.0.2.6",
+   "ge2",
+   "BGP from transit"
+  ],
+  [
+   "0.0.0.0/0",
+   "192.0.2.6",
+   "ge2",
+   "BGP from transit"
+  ]
+ ],
+ "RH": [
+  {
+   "t": "1 · Front desk PC",
+   "tb": [
+    [
+     "172.16.1.0/24",
+     "direct",
+     "en0",
+     "connected"
+    ],
+    [
+     "0.0.0.0/0",
+     "172.16.1.1",
+     "en0",
+     "default gateway"
+    ]
+   ],
+   "w": 1,
+   "dec": "34.87.120.15 is not in 172.16.1.0/24. Only the default route matches, so send to 172.16.1.1. ARP gives R1 eth1's MAC.",
+   "fs": "3c:7c:3f:10:22:01 (PC)",
+   "fd": "e4:8d:8c:00:01:01 (R1 eth1)",
+   "ps": "172.16.1.10:52814",
+   "pd": "34.87.120.15:443",
+   "ttl": "64"
+  },
+  {
+   "t": "2 · R1 office router",
+   "tb": [
+    [
+     "172.16.1.0/24",
+     "direct",
+     "eth1",
+     "connected"
+    ],
+    [
+     "172.16.2.0/24",
+     "direct",
+     "eth2",
+     "connected"
+    ],
+    [
+     "198.51.100.0/24",
+     "direct",
+     "eth0",
+     "connected"
+    ],
+    [
+     "0.0.0.0/0",
+     "198.51.100.1",
+     "eth0",
+     "static"
+    ]
+   ],
+   "w": 3,
+   "dec": "Only 0.0.0.0/0 matches: next hop 198.51.100.1, out eth0. On the way out, NAT swaps the private source for 198.51.100.20:40001 (chapter 10). TTL 64 → 63.",
+   "fs": "e4:8d:8c:00:01:00 (R1 eth0)",
+   "fd": "5c:5e:ab:20:00:01 (R2 ge0)",
+   "ps": "198.51.100.20:40001",
+   "pd": "34.87.120.15:443",
+   "ttl": "63"
+  },
+  {
+   "t": "3 · R2 ISP edge",
+   "tb": [
+    [
+     "198.51.100.0/24",
+     "direct",
+     "ge0",
+     "connected: LankaNet customers"
+    ],
+    [
+     "10.200.0.0/30",
+     "direct",
+     "ge1",
+     "connected"
+    ],
+    [
+     "0.0.0.0/0",
+     "10.200.0.2",
+     "ge1",
+     "OSPF: toward R3"
+    ]
+   ],
+   "w": 2,
+   "dec": "Only the default matches: 10.200.0.2 (R3), out ge1. TTL 63 → 62.",
+   "fs": "5c:5e:ab:20:00:02 (R2 ge1)",
+   "fd": "5c:5e:ab:30:00:01 (R3 ge0)",
+   "ps": "198.51.100.20:40001",
+   "pd": "34.87.120.15:443",
+   "ttl": "62"
+  },
+  {
+   "t": "4 · R3 ISP border",
+   "tb": [
+    [
+     "10.200.0.0/30",
+     "direct",
+     "ge0",
+     "connected"
+    ],
+    [
+     "198.51.100.0/24",
+     "10.200.0.1",
+     "ge0",
+     "OSPF: customers behind R2"
+    ],
+    [
+     "192.0.2.0/30",
+     "direct",
+     "ge1",
+     "connected: link to Google"
+    ],
+    [
+     "192.0.2.4/30",
+     "direct",
+     "ge2",
+     "connected: link to transit"
+    ],
+    [
+     "34.87.0.0/16",
+     "192.0.2.2",
+     "ge1",
+     "BGP from Google"
+    ],
+    [
+     "34.0.0.0/8",
+     "192.0.2.6",
+     "ge2",
+     "BGP from transit"
+    ],
+    [
+     "0.0.0.0/0",
+     "192.0.2.6",
+     "ge2",
+     "BGP from transit"
+    ]
+   ],
+   "w": 4,
+   "dec": "Three rows match (orange). The longest prefix wins: /16 beats /8 and /0 (section 7), so the packet takes the direct link to Google, 192.0.2.2. TTL 62 → 61.",
+   "fs": "5c:5e:ab:30:00:02 (R3 ge1)",
+   "fd": "3c:28:6d:00:00:01 (R4)",
+   "ps": "198.51.100.20:40001",
+   "pd": "34.87.120.15:443",
+   "ttl": "61"
+  },
+  {
+   "t": "5 · R4 Google edge → kade-api",
+   "tb": [
+    [
+     "192.0.2.0/30",
+     "direct",
+     "—",
+     "connected: link to LankaNet"
+    ],
+    [
+     "198.51.100.0/24",
+     "192.0.2.1",
+     "—",
+     "BGP from LankaNet (used by replies)"
+    ],
+    [
+     "34.87.120.15/32",
+     "kade-api",
+     "—",
+     "kade-api's external IP"
+    ]
+   ],
+   "w": 2,
+   "dec": "The /32 for kade-api's external IP matches. Google's network carries the packet to the VM (more hops inside Google, skipped here), and 1:1 NAT changes the destination to 10.10.1.10. kade-api sees its own MAC and IP, and keeps it.",
+   "fs": "42:01:0a:0a:01:01 (sn-app gateway)",
+   "fd": "42:01:0a:0a:01:0a (kade-api)",
+   "ps": "198.51.100.20:40001",
+   "pd": "10.10.1.10:443",
+   "ttl": "60"
+  }
+ ],
+ "TR": [
+  {
+   "c": "R1 office",
+   "ip": "172.16.1.1",
+   "rtt": [
+    "0.9",
+    "0.8",
+    "1.0"
+   ]
+  },
+  {
+   "c": "R2 ISP edge",
+   "ip": "198.51.100.1",
+   "rtt": [
+    "5.8",
+    "6.1",
+    "5.9"
+   ]
+  },
+  {
+   "c": "R3 ISP border",
+   "ip": "10.200.0.2",
+   "rtt": [
+    "7.1",
+    "7.3",
+    "7.0"
+   ]
+  },
+  {
+   "c": "R4 Google edge",
+   "ip": "192.0.2.2",
+   "rtt": [
+    "36.4",
+    "36.2",
+    "36.8"
+   ]
+  },
+  {
+   "c": "Google router",
+   "ip": null
+  },
+  {
+   "c": "kade-api",
+   "ip": "34.87.120.15",
+   "rtt": [
+    "37.2",
+    "37.0",
+    "37.5"
+   ],
+   "dest": true
+  }
+ ],
+ "DNSL": [
+  {
+   "t": "Laptop (stub)",
+   "c": "purple"
+  },
+  {
+   "t": "Resolver (ISP)",
+   "c": "cyan"
+  },
+  {
+   "t": "Root server",
+   "c": "green"
+  },
+  {
+   "t": ".lk TLD server",
+   "c": "orange"
+  },
+  {
+   "t": "Cloud DNS (kade.lk)",
+   "c": "blue"
+  }
+ ],
+ "DNSZ": {
+  "api.kade.lk": {
+   "ans": [
+    [
+     "api.kade.lk A",
+     "34.87.120.15",
+     300
+    ]
+   ],
+   "show": "34.87.120.15"
+  },
+  "www.kade.lk": {
+   "ans": [
+    [
+     "www.kade.lk CNAME",
+     "kade.lk",
+     300
+    ],
+    [
+     "kade.lk A",
+     "34.87.120.15",
+     300
+    ]
+   ],
+   "show": "CNAME kade.lk → 34.87.120.15"
+  },
+  "nope.kade.lk": {
+   "nx": true,
+   "ans": [
+    [
+     "nope.kade.lk NXDOMAIN",
+     "(does not exist)",
+     300
+    ]
+   ],
+   "show": "NXDOMAIN"
+  }
+ },
+ "DORA": [
+  {
+   "n": "1 · Discover",
+   "from": "Laptop",
+   "eth": "a4:83:e7:2b:91:0c → ff:ff:ff:ff:ff:ff (broadcast)",
+   "ip": "0.0.0.0 → 255.255.255.255",
+   "udp": "68 → 67",
+   "f": [
+    [
+     "op",
+     "1 (request)"
+    ],
+    [
+     "xid",
+     "0x3903f326 (random; ties the four messages together)"
+    ],
+    [
+     "ciaddr / yiaddr",
+     "0.0.0.0 / 0.0.0.0"
+    ],
+    [
+     "chaddr",
+     "a4:83:e7:2b:91:0c (the laptop's MAC)"
+    ]
+   ],
+   "o": [
+    [
+     "53 message type",
+     "DISCOVER"
+    ],
+    [
+     "50 requested IP",
+     "192.168.1.23 (what it had last time)"
+    ],
+    [
+     "12 host name",
+     "kade-laptop"
+    ],
+    [
+     "55 parameter list",
+     "1, 3, 6, 15, 51, 119 (what it wants to know)"
+    ]
+   ],
+   "x": "The laptop has no address and does not know where the server is, so it shouts to everyone."
+  },
+  {
+   "n": "2 · Offer",
+   "from": "Home router",
+   "eth": "3c:84:6a:10:ee:01 → a4:83:e7:2b:91:0c",
+   "ip": "192.168.1.1 → 192.168.1.23 (or broadcast, if the client asked for it)",
+   "udp": "67 → 68",
+   "f": [
+    [
+     "op",
+     "2 (reply)"
+    ],
+    [
+     "xid",
+     "0x3903f326 (same)"
+    ],
+    [
+     "yiaddr",
+     "192.168.1.23 (\"your address\")"
+    ],
+    [
+     "chaddr",
+     "a4:83:e7:2b:91:0c"
+    ]
+   ],
+   "o": [
+    [
+     "53 message type",
+     "OFFER"
+    ],
+    [
+     "54 server ID",
+     "192.168.1.1"
+    ],
+    [
+     "51 lease time",
+     "86400 s (24 h)"
+    ],
+    [
+     "1 subnet mask",
+     "255.255.255.0"
+    ],
+    [
+     "3 router",
+     "192.168.1.1"
+    ],
+    [
+     "6 DNS server",
+     "192.168.1.1"
+    ]
+   ],
+   "x": "The server offers an address and all the settings, and holds the address briefly for this client."
+  },
+  {
+   "n": "3 · Request",
+   "from": "Laptop",
+   "eth": "a4:83:e7:2b:91:0c → ff:ff:ff:ff:ff:ff (broadcast)",
+   "ip": "0.0.0.0 → 255.255.255.255",
+   "udp": "68 → 67",
+   "f": [
+    [
+     "op",
+     "1 (request)"
+    ],
+    [
+     "xid",
+     "0x3903f326"
+    ],
+    [
+     "ciaddr",
+     "0.0.0.0 (not yet allowed to use it)"
+    ],
+    [
+     "chaddr",
+     "a4:83:e7:2b:91:0c"
+    ]
+   ],
+   "o": [
+    [
+     "53 message type",
+     "REQUEST"
+    ],
+    [
+     "50 requested IP",
+     "192.168.1.23"
+    ],
+    [
+     "54 server ID",
+     "192.168.1.1 (the offer it accepts)"
+    ]
+   ],
+   "x": "Still a broadcast: every DHCP server hears which offer won. The others release the addresses they held."
+  },
+  {
+   "n": "4 · Ack",
+   "from": "Home router",
+   "eth": "3c:84:6a:10:ee:01 → a4:83:e7:2b:91:0c",
+   "ip": "192.168.1.1 → 192.168.1.23",
+   "udp": "67 → 68",
+   "f": [
+    [
+     "op",
+     "2 (reply)"
+    ],
+    [
+     "xid",
+     "0x3903f326"
+    ],
+    [
+     "yiaddr",
+     "192.168.1.23"
+    ],
+    [
+     "chaddr",
+     "a4:83:e7:2b:91:0c"
+    ]
+   ],
+   "o": [
+    [
+     "53 message type",
+     "ACK"
+    ],
+    [
+     "54 server ID",
+     "192.168.1.1"
+    ],
+    [
+     "51 lease time",
+     "86400 s"
+    ],
+    [
+     "58 / 59 renew / rebind",
+     "43200 s (T1) / 75600 s (T2)"
+    ],
+    [
+     "1, 3, 6",
+     "mask, router, DNS as offered"
+    ]
+   ],
+   "x": "Done. The laptop configures its interface, ARP-checks the address, and the lease clock starts."
+  }
+ ],
+ "JN": {
+  "L": {
+   "x": 74,
+   "y": 170,
+   "t": "Laptop",
+   "s": "192.168.1.23"
+  },
+  "H": {
+   "x": 214,
+   "y": 170,
+   "t": "Home router",
+   "s": "gateway · NAT"
+  },
+  "R": {
+   "x": 330,
+   "y": 52,
+   "t": "LankaNet resolver",
+   "s": "203.0.113.53"
+  },
+  "D": {
+   "x": 560,
+   "y": 52,
+   "t": "Cloud DNS",
+   "s": "kade.lk zone"
+  },
+  "I": {
+   "x": 374,
+   "y": 170,
+   "t": "Internet",
+   "s": "ISP · BGP"
+  },
+  "G": {
+   "x": 548,
+   "y": 170,
+   "t": "Google front end",
+   "s": "34.120.88.10",
+   "w": 150
+  },
+  "A": {
+   "x": 718,
+   "y": 170,
+   "t": "kade-api-2",
+   "s": "10.10.1.11:8080"
+  },
+  "B": {
+   "x": 858,
+   "y": 170,
+   "t": "kade-db",
+   "s": "10.10.2.5",
+   "w": 106
+  }
+ },
+ "JLINKS": [
+  [
+   "L",
+   "H"
+  ],
+  [
+   "H",
+   "I"
+  ],
+  [
+   "I",
+   "G"
+  ],
+  [
+   "G",
+   "A"
+  ],
+  [
+   "A",
+   "B"
+  ],
+  [
+   "H",
+   "R"
+  ],
+  [
+   "R",
+   "D"
+  ]
+ ],
+ "JS": [
+  {
+   "t": "earlier",
+   "c": "blue",
+   "h": "Joining WiFi: DHCP",
+   "ch": "27",
+   "go": [
+    [
+     "L",
+     "H"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "a4:83:e7:2b:91:0c → ff:ff:ff:ff:ff:ff (broadcast)"
+    ],
+    [
+     "IP",
+     "0.0.0.0 → 255.255.255.255"
+    ],
+    [
+     "Transport",
+     "UDP 68 → 67"
+    ],
+    [
+     "Inside",
+     "DHCPREQUEST: \"may I keep 192.168.1.23?\""
+    ]
+   ],
+   "x": "When the laptop rejoined the home WiFi, it asked to keep its old address. The router said yes and sent the mask, the gateway (192.168.1.1), the DNS server (also 192.168.1.1) and a 24-hour lease."
+  },
+  {
+   "t": "earlier",
+   "c": "cyan",
+   "h": "Joining WiFi: ARP for the gateway",
+   "ch": "9",
+   "go": [
+    [
+     "L",
+     "H"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "a4:83:e7:2b:91:0c → ff:ff:ff:ff:ff:ff"
+    ],
+    [
+     "ARP",
+     "who has 192.168.1.1? tell 192.168.1.23"
+    ],
+    [
+     "Reply",
+     "192.168.1.1 is at 3c:84:6a:10:ee:01"
+    ]
+   ],
+   "x": "Everything leaving the home network goes through the gateway, so the laptop needs its MAC. It is now in the ARP cache; no ARP will be needed during the request itself."
+  },
+  {
+   "t": "0 ms",
+   "c": "purple",
+   "h": "You open the order page",
+   "ch": "21, 22, 25",
+   "act": [
+    "L"
+   ],
+   "go": [],
+   "x": "The app asks for <code>https://api.kade.lk/orders/1042</code>. HSTS already says kade.lk is HTTPS-only. There is no open connection to api.kade.lk to reuse, and the name is not in the browser or OS DNS cache. So everything starts from scratch."
+  },
+  {
+   "t": "0 ms",
+   "c": "blue",
+   "h": "DNS query to the home router",
+   "ch": "4, 14, 22",
+   "go": [
+    [
+     "L",
+     "H"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "a4:83:e7:2b:91:0c → 3c:84:6a:10:ee:01"
+    ],
+    [
+     "IP",
+     "192.168.1.23 → 192.168.1.1 · TTL 64"
+    ],
+    [
+     "Transport",
+     "UDP 50514 → 53"
+    ],
+    [
+     "Inside",
+     "A api.kade.lk?"
+    ]
+   ],
+   "x": "The DNS server from DHCP is the home router. One small UDP datagram: no handshake needed (chapter 14)."
+  },
+  {
+   "t": "1 ms",
+   "c": "blue",
+   "h": "The router forwards it to LankaNet",
+   "ch": "10, 22",
+   "go": [
+    [
+     "H",
+     "R"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "<b>203.0.113.45</b> → 203.0.113.53"
+    ],
+    [
+     "Transport",
+     "UDP <b>40002</b> → 53"
+    ],
+    [
+     "Inside",
+     "A api.kade.lk? (please recurse)"
+    ]
+   ],
+   "x": "The home router is only a forwarder. It passes the question to LankaNet's resolver, NATing it like any other traffic."
+  },
+  {
+   "t": "4 ms",
+   "c": "blue",
+   "h": "The resolver asks Cloud DNS",
+   "ch": "22",
+   "go": [
+    [
+     "R",
+     "D"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "203.0.113.53 → ns-cloud-a1.googledomains.com"
+    ],
+    [
+     "Transport",
+     "UDP → 53"
+    ],
+    [
+     "Inside",
+     "A api.kade.lk?"
+    ]
+   ],
+   "x": "The resolver still has kade.lk's NS records cached (TTL 6 hours), but api.kade.lk's A record expired (TTL 300 s). So it skips the root and .lk servers and asks Cloud DNS directly: one round trip of about 35 ms."
+  },
+  {
+   "t": "39–42 ms",
+   "c": "green",
+   "h": "The answer comes back",
+   "ch": "22, 23, 30",
+   "go": [
+    [
+     "D",
+     "R"
+    ],
+    [
+     "R",
+     "H"
+    ],
+    [
+     "H",
+     "L"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "192.168.1.1 → 192.168.1.23"
+    ],
+    [
+     "Transport",
+     "UDP 53 → 50514"
+    ],
+    [
+     "Inside",
+     "api.kade.lk A <b>34.120.88.10</b> · TTL 300 · authoritative"
+    ]
+   ],
+   "x": "Every cache on the way (resolver, router, laptop) keeps it for 300 s. There is no AAAA record yet, so this will be an IPv4 connection (chapter 30). DNS done at 42 ms."
+  },
+  {
+   "t": "42 ms",
+   "c": "orange",
+   "h": "SYN leaves the laptop",
+   "ch": "4, 16, 17, 18",
+   "go": [
+    [
+     "L",
+     "H"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "a4:83:e7:2b:91:0c → 3c:84:6a:10:ee:01 (the gateway)"
+    ],
+    [
+     "IP",
+     "192.168.1.23 → 34.120.88.10 · TTL 64 · DF"
+    ],
+    [
+     "Transport",
+     "TCP 52814 → 443 · SYN · seq 2591834610"
+    ],
+    [
+     "Options",
+     "MSS 1460 · SACK · window scale · timestamps"
+    ]
+   ],
+   "x": "The mask check says 34.120.88.10 is not local, so the frame goes to the gateway's MAC. The OS picked a random ephemeral source port (chapter 31) and a random starting sequence number (chapter 17)."
+  },
+  {
+   "t": "42 ms",
+   "c": "orange",
+   "h": "Home router: NAT",
+   "ch": "10",
+   "go": [
+    [
+     "H",
+     "I"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "router WAN → ISP gateway"
+    ],
+    [
+     "IP",
+     "<b>203.0.113.45</b> → 34.120.88.10 · TTL <b>63</b>"
+    ],
+    [
+     "Transport",
+     "TCP <b>40001</b> → 443 · SYN"
+    ]
+   ],
+   "x": "New NAT row: 192.168.1.23:52814 ↔ 203.0.113.45:40001. The stateful firewall will let the replies in. IP checksum and TCP checksum recalculated."
+  },
+  {
+   "t": "43–62 ms",
+   "c": "orange",
+   "h": "Across the internet",
+   "ch": "12, 13",
+   "go": [
+    [
+     "I",
+     "G"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "rewritten at every hop"
+    ],
+    [
+     "IP",
+     "203.0.113.45 → 34.120.88.10 · TTL 62, 61 … ~55"
+    ],
+    [
+     "Transport",
+     "unchanged"
+    ]
+   ],
+   "x": "Each router does a longest-prefix match. Google announces the load balancer's address from many locations (anycast), so BGP delivers the SYN to the nearest Google edge. Here that is Singapore, about 20 ms one way."
+  },
+  {
+   "t": "62–83 ms",
+   "c": "green",
+   "h": "SYN-ACK: from Google, not from kade-api",
+   "ch": "16, 33",
+   "go": [
+    [
+     "G",
+     "I"
+    ],
+    [
+     "I",
+     "H"
+    ],
+    [
+     "H",
+     "L"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "34.120.88.10 → 192.168.1.23 (NAT reversed)"
+    ],
+    [
+     "Transport",
+     "TCP 443 → 52814 · SYN-ACK"
+    ]
+   ],
+   "x": "The Google front end completes the handshake itself: it is a proxy. Connection 1 is laptop ⇄ Google; kade-api knows nothing yet. The laptop sends its ACK. Connected at 83 ms, one round trip."
+  },
+  {
+   "t": "83 ms",
+   "c": "green",
+   "h": "TLS ClientHello",
+   "ch": "25",
+   "go": [
+    [
+     "L",
+     "H"
+    ],
+    [
+     "H",
+     "I"
+    ],
+    [
+     "I",
+     "G"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "192.168.1.23 → 34.120.88.10"
+    ],
+    [
+     "Transport",
+     "TCP 52814 → 443 · PSH, ACK"
+    ],
+    [
+     "Inside",
+     "ClientHello · SNI api.kade.lk · ALPN h2, http/1.1 · key share X25519"
+    ]
+   ],
+   "x": "SNI tells the front end which certificate to use; ALPN offers HTTP/2. The key share lets the handshake finish in one round trip (TLS 1.3)."
+  },
+  {
+   "t": "104–126 ms",
+   "c": "green",
+   "h": "ServerHello, certificate, Finished",
+   "ch": "25",
+   "go": [
+    [
+     "G",
+     "I"
+    ],
+    [
+     "I",
+     "H"
+    ],
+    [
+     "H",
+     "L"
+    ]
+   ],
+   "p": [
+    [
+     "Inside",
+     "ServerHello + key share, then encrypted: certificate for api.kade.lk (Google-managed), CertificateVerify, Finished"
+    ],
+    [
+     "ALPN",
+     "h2 chosen"
+    ]
+   ],
+   "x": "The laptop checks the certificate: the name is in the SAN list, the chain leads to a trusted root, the dates are valid, CT proofs are present. About 2 ms of maths later, the keys are ready at 126 ms."
+  },
+  {
+   "t": "126 ms",
+   "c": "purple",
+   "h": "The HTTP request, encrypted",
+   "ch": "17, 20, 24",
+   "go": [
+    [
+     "L",
+     "H"
+    ],
+    [
+     "H",
+     "I"
+    ],
+    [
+     "I",
+     "G"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "192.168.1.23 → 34.120.88.10 · TTL 64"
+    ],
+    [
+     "Transport",
+     "TCP 52814 → 443 · seq and ack continue"
+    ],
+    [
+     "Inside",
+     "TLS: Finished + HTTP/2 HEADERS (stream 1): GET /orders/1042 · :authority api.kade.lk · authorization: Bearer …"
+    ]
+   ],
+   "x": "The client's Finished and the request travel together: no extra wait. About 155 bytes on the wire (section 7)."
+  },
+  {
+   "t": "146.5 ms",
+   "c": "cyan",
+   "h": "Inside the load balancer",
+   "ch": "33",
+   "act": [
+    "G"
+   ],
+   "go": [],
+   "p": [
+    [
+     "Decrypts",
+     "GET /orders/1042"
+    ],
+    [
+     "Checks",
+     "Cloud Armor rules · URL map → backend service kade-api"
+    ],
+    [
+     "Picks",
+     "kade-api-2: healthy, fewest requests in progress"
+    ],
+    [
+     "Adds",
+     "X-Forwarded-For: 203.0.113.45, 34.120.88.10 · X-Forwarded-Proto: https · Via: 1.1 google"
+    ]
+   ],
+   "x": "The front end takes an idle connection from its pool to kade-api-2, so there is no second handshake (chapter 21)."
+  },
+  {
+   "t": "147 ms",
+   "c": "orange",
+   "h": "Connection 2: front end → kade-api-2",
+   "ch": "9, 31, 33",
+   "go": [
+    [
+     "G",
+     "A"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "42:01:0a:0a:01:01 → 42:01:0a:0a:01:0b (VPC gateway → VM)"
+    ],
+    [
+     "IP",
+     "<b>35.191.12.34</b> → <b>10.10.1.11</b> · TTL <b>64</b>"
+    ],
+    [
+     "Transport",
+     "TCP 51277 → <b>8080</b>"
+    ],
+    [
+     "Inside",
+     "plain HTTP/1.1: GET /orders/1042 + the X-Forwarded headers"
+    ]
+   ],
+   "x": "A completely different packet: new IPs, new ports, fresh TTL. The VPC firewall allows 35.191.0.0/16 to port 8080. Node listens on 0.0.0.0:8080 (chapter 31)."
+  },
+  {
+   "t": "148–152 ms",
+   "c": "green",
+   "h": "Node works; connection 3 to kade-db",
+   "ch": "3, 21, 33",
+   "go": [
+    [
+     "A",
+     "B"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "10.10.1.11 → 10.10.2.5 (another subnet, routed by the VPC)"
+    ],
+    [
+     "Transport",
+     "TCP 41822 → 5432 (a pooled connection)"
+    ],
+    [
+     "Inside",
+     "SELECT … FROM orders WHERE id = 1042"
+    ]
+   ],
+   "x": "Express, with trust proxy 2, sets req.ip to 203.0.113.45. The token is checked (~1 ms). The query takes ~3 ms; the database is 0.3 ms away inside the region."
+  },
+  {
+   "t": "153 ms",
+   "c": "purple",
+   "h": "Response: 200 OK",
+   "ch": "21, 24",
+   "go": [
+    [
+     "A",
+     "G"
+    ]
+   ],
+   "p": [
+    [
+     "IP",
+     "10.10.1.11 → 35.191.12.34"
+    ],
+    [
+     "Transport",
+     "TCP 8080 → 51277"
+    ],
+    [
+     "Inside",
+     "HTTP/1.1 200 OK · content-type: application/json · content-encoding: gzip · 2.8 KB"
+    ]
+   ],
+   "x": "The connection stays open for the next request: Node's keepAliveTimeout (620 s) is longer than the load balancer's idle timeout."
+  },
+  {
+   "t": "154–176 ms",
+   "c": "purple",
+   "h": "Back to the laptop",
+   "ch": "10, 20, 24",
+   "go": [
+    [
+     "G",
+     "I"
+    ],
+    [
+     "I",
+     "H"
+    ],
+    [
+     "H",
+     "L"
+    ]
+   ],
+   "p": [
+    [
+     "Frame",
+     "3c:84:6a:10:ee:01 → a4:83:e7:2b:91:0c"
+    ],
+    [
+     "IP",
+     "34.120.88.10 → 192.168.1.23 (router reversed NAT: 203.0.113.45:40001 → 192.168.1.23:52814)"
+    ],
+    [
+     "Transport",
+     "TCP 443 → 52814"
+    ],
+    [
+     "Inside",
+     "TLS: HTTP/2 HEADERS 200 + DATA (2.8 KB) · alt-svc: h3"
+    ]
+   ],
+   "x": "2.8 KB fits in the initial congestion window of 10 segments (chapter 20), so it all arrives in one flight: first byte at 175 ms, last at 176 ms."
+  },
+  {
+   "t": "176 ms",
+   "c": "green",
+   "h": "Done, and the connection stays",
+   "ch": "16, 21",
+   "act": [
+    "L"
+   ],
+   "go": [],
+   "x": "The laptop ACKs, decrypts, and the app shows order 1042. The next request reuses this connection and takes about 49 ms. After about 10 minutes idle, the load balancer closes it with a FIN, and later the home router's NAT row expires."
+  }
+ ],
+ "LBSH": [
+  {
+   "n": "A",
+   "ip": "203.0.113.45",
+   "slow": true
+  },
+  {
+   "n": "B",
+   "ip": "198.51.100.20"
+  },
+  {
+   "n": "C",
+   "ip": "192.0.2.77"
+  },
+  {
+   "n": "D",
+   "ip": "192.0.2.77"
+  }
+ ]
+}

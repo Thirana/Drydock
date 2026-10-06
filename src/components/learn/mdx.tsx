@@ -7,6 +7,24 @@ import {
   type ReactNode,
 } from "react";
 import { CommandBlock } from "@/components/architecture/command-block";
+import {
+  Annotated,
+  Col,
+  Cols,
+  Equation,
+  Field,
+  Fields,
+  Hop,
+  Hops,
+  Line,
+  Part,
+  Range,
+  RangePart,
+  Seg,
+  Segments,
+  Sketch,
+  Tags,
+} from "./blocks";
 import { Caption, Note } from "@/components/mdx/primitives";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { chapterByNum, chapterHref, isPublished } from "@/lib/content/learn";
@@ -69,7 +87,7 @@ function Table({ children }: { children: ReactNode }) {
   );
 }
 
-/** A fenced block: shell commands go through CommandBlock, anything else is printed output. */
+/** A fenced block: shell commands go through CommandBlock, source code sits on code ground, anything else is printed output. */
 function Pre({ children }: { children?: ReactNode }) {
   const code = Children.only(children) as ReactElement<{
     className?: string;
@@ -82,6 +100,12 @@ function Pre({ children }: { children?: ReactNode }) {
       <div className="not-prose my-5 max-w-[860px]">
         <CommandBlock>{text}</CommandBlock>
       </div>
+    );
+  if (lang === "code")
+    return (
+      <pre className="not-prose bg-code text-ink my-5 max-w-[860px] overflow-x-auto rounded-[2px] px-4 py-3.5 font-mono text-[13.5px] leading-[1.65] sm:px-5">
+        {text}
+      </pre>
     );
   return (
     <pre className="not-prose border-rule text-ink-body my-5 max-w-[860px] overflow-x-auto rounded-[2px] border px-4 py-3 font-mono text-[13px] leading-[1.6] sm:px-5">
@@ -378,6 +402,22 @@ export function chapterMdxComponents(course: Course): MDXComponents {
     ),
     Caption,
     Todo,
+    Cols,
+    Col,
+    Tags,
+    Sketch,
+    Equation,
+    Part,
+    Segments,
+    Seg,
+    Hops,
+    Hop,
+    Range,
+    RangePart,
+    Fields,
+    Field,
+    Annotated,
+    Line,
     Ch,
     Recalls,
     Recall,

@@ -1,0 +1,125 @@
+import { SizeCompare } from "@/components/learn/widgets/bytes";
+import { HopExplorer } from "@/components/learn/widgets/local-delivery";
+import { FigRepeat } from "@content/learn/fundamentals/figures/08-mac-vs-ip-why-we-need-both";
+
+## Side by side
+
+<Table>
+  <thead>
+    <tr><th>Property</th><th>IP address</th><th>MAC address</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Size</td><td>32 bits (4 bytes)</td><td>48 bits (6 bytes)</td></tr>
+    <tr><td>Written as</td><td>4 decimal octets, dots</td><td>6 hex bytes, colons or dashes</td></tr>
+    <tr><td>Example</td><td><Mono>192.168.1.23</Mono></td><td><Mono>a4:83:e7:2b:91:0c</Mono></td></tr>
+    <tr><td>Set by</td><td>The network (DHCP, or by hand)</td><td>The hardware maker</td></tr>
+    <tr><td>Changes?</td><td>Yes, with every network you join</td><td>Normally no<Sub>except private MACs and spoofing (<Ch n="7">ch 7</Ch>)</Sub></td></tr>
+    <tr><td>Can repeat?</td><td>Yes, across separate private networks</td><td>No, unique worldwide<Sub>for maker-set MACs</Sub></td></tr>
+    <tr><td>Has structure to route by?</td><td>Yes: network part + host part</td><td>No: maker + serial, says nothing about location</td></tr>
+    <tr><td>Job</td><td>Get across networks to the right one</td><td>Last step: the exact device on the local network</td></tr>
+    <tr><td>Lives in</td><td>The packet (<Ch n="1">chapter 1</Ch>, wrap 2)</td><td>The frame (<Ch n="1">chapter 1</Ch>, wrap 3)</td></tr>
+  </tbody>
+</Table>
+
+## Size and notation
+
+Different lengths, different notation. Here are the laptop's two addresses bit by bit:
+
+<SizeCompare />
+
+## An IP can repeat, a MAC cannot
+
+Say a Kadé staff member works from their own home. Their laptop also got 192.168.1.23 from their home router. That is fine: the two home networks never mix, and on the internet each home shows its own public IP (<Ch n="10">chapter 10</Ch> explains how).
+
+<Figure hues={["plum", "teal", "green"]} drawing={<FigRepeat />} />
+
+A MAC is different. It must be unique within any network it joins, and maker-set MACs are unique worldwide. Even the two network cards in one laptop (WiFi and Ethernet, <Ch n="7">chapter 7</Ch>) have different MACs.
+
+## IP gets you across networks
+
+Follow the laptop's request to kade-api hop by hop. At every router, the destination IP is used to make a routing decision: each router checks its table (<Ch n="5">chapter 5</Ch>) and picks the next step. The MAC pair is thrown away and rebuilt at every hop. Step through it:
+
+<HopExplorer />
+
+<Key title="The point">
+
+An IP has meaning you can compute with: its network part tells every router which direction to send it. That is why it works across the whole internet.
+
+</Key>
+
+## MAC finishes the job locally
+
+A MAC has no such meaning. `42:01:0a:0a:01:0a` says who made the card (or that the platform set it), not where it is. A router could not use it to pick a direction.
+
+But once the packet reaches the right local network, the MAC is exactly what is needed: on that network, the frame is handed to the one interface whose MAC matches. In hop 4 above, kade-api accepts the frame because the destination MAC is its own.
+
+<Key title="Scope">
+
+A MAC only matters inside one local network, for one step of the trip.
+
+</Key>
+
+## Why we need both
+
+<Cols n={2}>
+
+<Col title="IP · across the internet">
+
+Globally meaningful. Gets the data to the right local network, hop by hop.
+
+Cannot pick one device on a shared wire by itself: something must turn it into a hardware address.
+
+</Col>
+
+<Col title="MAC · inside one network">
+
+Picks the exact interface for the current step.
+
+No structure to route by, so it is useless beyond the local network.
+
+</Col>
+
+</Cols>
+
+One question is left. When a device needs to deliver locally, it knows the IP (of the target or the gateway) but needs the MAC. How does it get it? With <Term>ARP</Term>, which takes an IP and returns the matching MAC. That is the next chapter.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Compared</td><td>IP: 32-bit, dotted, changes, repeats, routable. MAC: 48-bit, hex, fixed, unique, local.</td><td></td></tr>
+    <tr><td>3</td><td>Repeating</td><td>Same private IP in separate networks is fine; MACs stay unique</td><td></td></tr>
+    <tr><td>4</td><td>IP's job</td><td>Every router decides the next hop from the destination IP</td><td>hop</td></tr>
+    <tr><td>5</td><td>MAC's job</td><td>Hands the frame to the exact interface, one link at a time</td><td></td></tr>
+    <tr><td>6</td><td>The link</td><td>ARP turns an IP into a MAC (next chapter)</td><td>ARP</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="IPs and MACs side by side">
+
+- **What to look for:** Each line pairs one IP with one MAC, all on your local network.
+- **Runs on:** Linux · macOS / Windows: arp -a
+- **From section:** [1. Side by side](#side-by-side)
+
+```sh
+ip neigh
+```
+
+</TryIt>
+
+<TryIt n={2} title="The routers on the way">
+
+- **What to look for:** Only IPs appear. MACs of far-away routers are never visible to you.
+- **Runs on:** Windows: tracert 1.1.1.1
+- **From section:** [4. IP gets you across networks](#ip-gets-you-across-networks)
+
+```sh
+traceroute 1.1.1.1
+```
+
+</TryIt>

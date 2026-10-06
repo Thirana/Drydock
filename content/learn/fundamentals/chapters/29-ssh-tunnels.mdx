@@ -1,0 +1,291 @@
+import { SeqDiagram } from "@/components/learn/widgets/seq";
+import { TunnelBuilder } from "@/components/learn/widgets/setup-security";
+import { FigGcp } from "@content/learn/fundamentals/figures/29-ssh-tunnels";
+
+## What SSH is
+
+<Term>SSH</Term> (Secure Shell) gives you an encrypted, authenticated connection to another machine over an untrusted network. It replaced telnet and rsh, which sent everything, passwords included, as plain text. It runs over **TCP port 22** and does much more than a shell:
+
+<Table>
+  <tbody>
+    <tr><td>Remote shell</td><td><Mono>ssh thirana@kade-api</Mono></td></tr>
+    <tr><td>Run one command</td><td><Mono>ssh kade-api 'journalctl -u kade-api -n 50'</Mono></td></tr>
+    <tr><td>Copy files</td><td><Mono>scp, sftp, rsync -e ssh</Mono></td></tr>
+    <tr><td>Git</td><td><Mono>git@github.com:kade/kade-api.git</Mono></td></tr>
+    <tr><td>Tunnels</td><td>Carry other TCP connections through the encrypted link (section 8)</td></tr>
+  </tbody>
+</Table>
+
+## Three layers inside SSH
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Layer</th><th>Job</th><th>Compare with</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Transport**</td><td>Key exchange, server authentication (host key), encryption and integrity</td><td>What TLS does for HTTPS (<Ch n="25">chapter 25</Ch>)</td></tr>
+    <tr><td>2</td><td>**User authentication**</td><td>Proves who **you** are: public key, password, or others</td><td>HTTPS usually leaves this to the app (login, tokens)</td></tr>
+    <tr><td>3</td><td>**Connection**</td><td>Many **channels** over one connection: a shell, a file copy, several tunnels at once</td><td>HTTP/2 streams (<Ch n="24">chapter 24</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## Connecting, step by step
+
+<SeqDiagram set="ssh" />
+
+<Table>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>After the TCP handshake, both sides send a version line in plain text, e.g. `SSH-2.0-OpenSSH_9.6`.</td></tr>
+    <tr><td><Mono>2</Mono></td><td>**KEXINIT**: each lists the algorithms it supports (key exchange, host key types, ciphers, MACs); the first match on both lists wins.</td></tr>
+    <tr><td><Mono>3</Mono></td><td>**Key exchange**: an elliptic-curve Diffie-Hellman (usually curve25519), exactly the idea from <Ch n="25">chapter 25</Ch>. Both sides get a shared secret and a **session ID**.</td></tr>
+    <tr><td><Mono>4</Mono></td><td>The server **signs** the exchange with its **host key**. The client checks the signature and whether it knows this host key (section 4). Everything from here on is encrypted.</td></tr>
+    <tr><td><Mono>5</Mono></td><td>**User authentication**: the client proves it holds your private key (section 5).</td></tr>
+    <tr><td><Mono>6</Mono></td><td>The client opens a **session channel** and asks for a shell (or a command, or a tunnel).</td></tr>
+  </tbody>
+</Table>
+
+## Host keys and "trust on first use"
+
+HTTPS proves the server's identity with a certificate signed by a CA (<Ch n="25">chapter 25</Ch>). Plain SSH has no CA. Instead, on the first connection it shows you the server's host key fingerprint and asks:
+
+```text
+The authenticity of host 'kade-api (10.10.1.10)' can't be established.
+ED25519 key fingerprint is SHA256:q3Hk2Y0lK8vJb9nX7yWm1cR4tA5sD6fG8hJ0kL2mN4o.
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
+
+Answer yes, and the key is saved in `~/.ssh/known_hosts`. Every later connection must present the **same** key. This model is called <Term>trust on first use</Term> (TOFU): the first connection is the weak moment, so verify the fingerprint through another channel if it matters.
+
+<Note>
+
+**"WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"** means the server presented a different key than last time. Either someone is in the middle (the attack this check exists for), or the machine was rebuilt. In GCP, deleting and re-creating a VM with the same name gives it a new host key. Confirm which it is before removing the old line (`ssh-keygen -R kade-api`). Large setups use **SSH certificates**, where an internal CA signs host and user keys, so there is nothing to confirm by hand.
+
+</Note>
+
+## Proving who you are: keys
+
+Passwords work but can be guessed and phished, and bots try them on every server with port 22 open. **Public-key authentication** is the standard: you keep a private key, and the server holds your public key in `~/.ssh/authorized_keys`.
+
+<SeqDiagram set="sshkey" />
+
+- **The private key never leaves your laptop.** You prove you hold it by signing this connection's unique session ID. A recorded signature is useless for any other connection.
+- **Key type:** use `ed25519`: short, fast and safe. RSA needs at least 3072 bits.
+- **Protect the private key** with a passphrase, and let `ssh-agent` hold it unlocked for the day. Hardware keys (YubiKey, with `ed25519-sk`) keep it on a device that cannot be copied.
+- **Agent forwarding** (`ssh -A`) lets a remote machine use your agent. Anyone with root there can use your keys while you are connected. Prefer ProxyJump (section 9).
+
+## Managing keys and config
+
+```sh
+ssh-keygen -t ed25519 -C "thirana@kade.lk"   # creates ~/.ssh/id_ed25519 (private) and .pub (public)
+chmod 600 ~/.ssh/id_ed25519                   # SSH refuses private keys others can read
+```
+
+A `~/.ssh/config` file saves typing and keeps settings in one place:
+
+```text
+Host kade-api
+    HostName 34.87.120.15
+    User thirana
+    IdentityFile ~/.ssh/id_ed25519
+    ServerAliveInterval 30        # keepalive: survive NAT and firewall idle timeouts (chapter 21)
+
+Host kade-db
+    HostName 10.10.2.5            # private IP: reachable only through kade-api
+    User thirana
+    ProxyJump kade-api            # section 9
+```
+
+One key per person, never shared; remove a person's public key when they leave. The `ControlMaster` option can reuse one connection for many ssh commands (like HTTP keep-alive), which makes repeated commands instant.
+
+## Channels: many things over one connection
+
+After login, everything runs as a **channel** inside the one encrypted TCP connection: your shell is one channel, a file copy another, and each tunnel connection another. This is how one SSH login can carry a shell and three tunnels at once.
+
+## Tunnels: port forwarding
+
+A tunnel takes a TCP connection on one side and carries it, inside SSH, to the other side. There are three kinds:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>Flag</th><th>Direction</th><th>Kadé example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Local**</td><td>`-L`</td><td>A port on **your laptop** leads to something the **server** can reach</td><td>Open kade-db's PostgreSQL (private, 10.10.2.5:5432) as localhost:5433 on your laptop</td></tr>
+    <tr><td>2</td><td>**Remote**</td><td>`-R`</td><td>A port on the **server** leads back to something **your laptop** can reach</td><td>Show a teammate the Node app running on your laptop's port 3000 (the reverse tunnel from <Ch n="10">chapter 10</Ch>)</td></tr>
+    <tr><td>3</td><td>**Dynamic**</td><td>`-D`</td><td>A **SOCKS proxy** on your laptop; each app connection goes out from the server</td><td>Browse the office's internal admin pages from home, as if you were in the office</td></tr>
+  </tbody>
+</Table>
+
+Pick a kind and fill in the ports. The builder writes the command and shows the path:
+
+<TunnelBuilder />
+
+<Note>
+
+**Read -L like this:** `-L 5433:10.10.2.5:5432` = "on my side, listen on **5433**; send those connections to **10.10.2.5:5432**, as seen **from the server**". The middle address is resolved by the server, not your laptop, which is exactly how you reach private IPs. By default, forwarded ports listen on localhost only; keep it that way.
+
+</Note>
+
+## Jump hosts and bastions
+
+A <Term>bastion</Term> (jump host) is one hardened machine you SSH into first, to reach others that have no public access. `ProxyJump` (`ssh -J`) does it cleanly: your laptop opens an SSH connection **through** the bastion to the target, so the end-to-end encryption and your private key stay on your laptop:
+
+```sh
+ssh -J thirana@kade-api thirana@10.10.2.5     # or just: ssh kade-db, with the config above
+```
+
+The bastion only sees an encrypted stream. This is why ProxyJump is safer than logging in to the bastion and running ssh again from there.
+
+## SSH in GCP: OS Login and IAP
+
+Opening port 22 to 0.0.0.0/0 invites constant login attempts from bots. GCP offers a better way in:
+
+<Figure hues={["plum", "teal", "green"]} drawing={<FigGcp />} />
+
+<Table>
+  <tbody>
+    <tr><td>**IAP TCP forwarding**</td><td>Your SSH travels inside HTTPS to Google's Identity-Aware Proxy, which checks who you are and whether IAM allows you, then connects to the VM's **internal** IP. The VM needs no external IP, and port 22 is open only to IAP's address range.</td></tr>
+    <tr><td>**OS Login**</td><td>Linux accounts and SSH access come from IAM instead of keys scattered in VM metadata. Remove someone from the IAM role and their access ends everywhere. It can require 2-step verification.</td></tr>
+    <tr><td>**Tunnels too**</td><td>The same IAP path can forward any TCP port, e.g. kade-db's PostgreSQL to your laptop, with no SSH involved at all (commands below).</td></tr>
+  </tbody>
+</Table>
+
+```sh
+gcloud compute ssh kade-db --zone=asia-southeast1-b --tunnel-through-iap
+gcloud compute start-iap-tunnel kade-db 5432 --local-host-port=localhost:5433 --zone=asia-southeast1-b
+psql -h localhost -p 5433 -U kade    # in another terminal
+```
+
+## Hardening SSH
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting or habit</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`PasswordAuthentication no`</td><td>Keys only: nothing for bots to guess</td></tr>
+    <tr><td>2</td><td>`PermitRootLogin no`</td><td>Log in as yourself, then use sudo: every action is tied to a person</td></tr>
+    <tr><td>3</td><td>No public port 22 (use IAP or a VPN)</td><td>The best attack surface is none</td></tr>
+    <tr><td>4</td><td>If 22 must be public: allow only known source IPs</td><td>e.g. only the office's 198.51.100.20/32 (a /32, <Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>5</td><td>Passphrase-protected or hardware keys; OS Login with 2-step verification</td><td>A stolen laptop file is not enough</td></tr>
+    <tr><td>6</td><td>Keep OpenSSH updated; review who has access regularly</td><td>Old keys of people who left are a common hole</td></tr>
+  </tbody>
+</Table>
+
+## Troubleshooting
+
+`ssh -v kade-api` prints every step of section 3; `-vvv` prints even more. Common errors:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Error</th><th>Meaning</th><th>Check</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`Connection timed out`</td><td>SYNs dropped (<Ch n="16">chapter 16</Ch>)</td><td>Firewall rule for 22; for IAP, the 35.235.240.0/20 rule</td></tr>
+    <tr><td>2</td><td>`Connection refused`</td><td>RST: nothing listening on 22</td><td>Is sshd running?</td></tr>
+    <tr><td>3</td><td>`Permission denied (publickey)`</td><td>The server did not accept any key offered</td><td>Right user? Public key in authorized\_keys? File permissions on the server (`~/.ssh` 700, `authorized_keys` 600)? OS Login role?</td></tr>
+    <tr><td>4</td><td>`Host key verification failed`</td><td>Host key changed (section 4)</td><td>Rebuilt VM, or an attack. Confirm, then `ssh-keygen -R`</td></tr>
+    <tr><td>5</td><td>`Too many authentication failures`</td><td>Your agent offered too many keys before the right one</td><td>`IdentitiesOnly yes` + `IdentityFile` in the config</td></tr>
+    <tr><td>6</td><td>`client_loop: send disconnect: Broken pipe` after idle</td><td>A NAT or firewall forgot the idle connection (<Ch n="21">chapter 21</Ch>)</td><td>`ServerAliveInterval 30`</td></tr>
+  </tbody>
+</Table>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1-2</td><td>SSH</td><td>Encrypted remote access on TCP 22; transport, user auth, connection layers</td><td>SSH, channel</td></tr>
+    <tr><td>3</td><td>Connecting</td><td>Version, KEXINIT, ECDH key exchange, host key signature, user auth, channel</td><td>KEXINIT, session ID</td></tr>
+    <tr><td>4</td><td>Host keys</td><td>Trust on first use; known\_hosts; a changed key means attack or rebuild</td><td>host key, TOFU, known\_hosts</td></tr>
+    <tr><td>5-6</td><td>User keys</td><td>Sign the session ID with your private key; ed25519; agent; config</td><td>authorized\_keys, ssh-agent</td></tr>
+    <tr><td>8</td><td>Tunnels</td><td>-L local, -R remote, -D SOCKS</td><td>port forwarding, SOCKS</td></tr>
+    <tr><td>9</td><td>Jump hosts</td><td>ProxyJump through a bastion, end-to-end encrypted</td><td>bastion, ProxyJump</td></tr>
+    <tr><td>10</td><td>GCP</td><td>IAP TCP forwarding and OS Login: no public 22, IAM-based access</td><td>IAP, OS Login</td></tr>
+    <tr><td>11-12</td><td>Practice</td><td>Keys only, no root, no public port; ssh -v and the common errors</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Every step of a real connection">
+
+- **What to look for:** `kex: algorithm: curve25519-sha256`, `Server host key: ssh-ed25519`, `Authenticated to github.com`.
+- **From section:** [3. Connecting, step by step](#connecting-step-by-step)
+
+```sh
+ssh -v git@github.com
+```
+
+</TryIt>
+
+<TryIt n={2} title="A server's host key fingerprint">
+
+- **What to look for:** Compare it with the one GitHub publishes in its docs.
+- **From section:** [4. Host keys and "trust on first use"](#host-keys-and-trust-on-first-use)
+
+```sh
+ssh-keyscan -t ed25519 github.com | ssh-keygen -lf -
+```
+
+</TryIt>
+
+<TryIt n={3} title="A new key, and the keys in your agent">
+
+- **Steps:** `ssh-keygen -t ed25519`, then `ssh-add -l`
+- **What to look for:** The fingerprint of the key you just made.
+- **From section:** [6. Managing keys and config](#managing-keys-and-config)
+
+```sh
+ssh-keygen -t ed25519
+ssh-add -l
+```
+
+</TryIt>
+
+<TryIt n={4} title="A local tunnel (-N: no shell)">
+
+- **What to look for:** Then `psql -h localhost -p 5433` reaches the private database.
+- **From section:** [8. Tunnels: port forwarding](#tunnels-port-forwarding)
+
+```sh
+ssh -N -L 5433:10.10.2.5:5432 kade-api
+```
+
+</TryIt>
+
+<TryIt n={5} title="A SOCKS proxy">
+
+- **What to look for:** Set the browser's SOCKS proxy to localhost:1080; check your IP at ifconfig.me.
+- **From section:** [8. Tunnels: port forwarding](#tunnels-port-forwarding)
+
+```sh
+ssh -N -D 1080 kade-api
+```
+
+</TryIt>
+
+<TryIt n={6} title="SSH with no external IP">
+
+- **What to look for:** Works with only the 35.235.240.0/20 firewall rule.
+- **From section:** [10. SSH in GCP: OS Login and IAP](#ssh-in-gcp-os-login-and-iap)
+
+```sh
+gcloud compute ssh kade-db --tunnel-through-iap --zone=asia-southeast1-b
+```
+
+</TryIt>
+
+<TryIt n={7} title="The SSH server's effective settings">
+
+- **What to look for:** `passwordauthentication no`, `permitrootlogin no`.
+- **Runs on:** on the server
+- **From section:** [12. Troubleshooting](#troubleshooting)
+
+```sh
+sudo sshd -T | grep -Ei 'passwordauth|permitroot'
+```
+
+</TryIt>

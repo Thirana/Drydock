@@ -1,0 +1,251 @@
+import { SeqDiagram, TcpLife } from "@/components/learn/widgets/seq";
+import { FigGives } from "@content/learn/fundamentals/figures/16-tcp-the-reliable-backbone";
+
+## What TCP is
+
+<Term>TCP</Term> (Transmission Control Protocol) gives **reliable, ordered, error-checked delivery of a stream of bytes** between two applications. If something is lost, TCP resends it. If pieces arrive out of order, TCP puts them back in order. Its unit of data is the <Term>segment</Term>.
+
+<Table>
+  <thead>
+    <tr><th>TCP connection in Kadé</th><th>Server port</th><th>What breaks if bytes go missing</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Laptop / app → kade-api</td><td><Mono>443</Mono></td><td>An order arrives half-written</td></tr>
+    <tr><td>kade-api → kade-db</td><td><Mono>5432</Mono></td><td>A payment is saved without its order lines</td></tr>
+    <tr><td>kade-api → PayGate</td><td><Mono>443</Mono></td><td>A charge amount changes</td></tr>
+    <tr><td>You → kade-api (SSH)</td><td><Mono>22</Mono></td><td>Your command runs wrong</td></tr>
+  </tbody>
+</Table>
+
+## Connection-oriented
+
+Unlike UDP (<Ch n="14">chapter 14</Ch>), TCP is <Term>connection-oriented</Term>: before any data is sent, both sides set up a connection and agree on starting values. Only then does data flow. This setup is what makes tracking and reliability possible.
+
+A "connection" is not a wire or a reserved path. Routers in between know nothing about it (<Ch n="11">chapter 11</Ch>: they never read the TCP header). It is only **state kept on the two ends**:
+
+<Table>
+  <tbody>
+    <tr><td>Who</td><td><Mono>192.168.1.23:52814 ↔ 34.87.120.15:443 <Sub>the four values from <Ch n="1">chapter 1</Ch>, plus the protocol</Sub></Mono></td></tr>
+    <tr><td>Where each side is in the byte count</td><td>sequence and acknowledgement numbers (<Ch n="17">chapter 17</Ch>)</td></tr>
+    <tr><td>Data waiting</td><td>a send buffer (sent but not yet confirmed) and a receive buffer (arrived but not yet read by the app)</td></tr>
+    <tr><td>Timers and estimates</td><td>round-trip time, retransmit timer, congestion window (section 7)</td></tr>
+    <tr><td>State name</td><td>ESTABLISHED, TIME-WAIT … (section 8)</td></tr>
+  </tbody>
+</Table>
+
+## Opening: the three-way handshake
+
+Connections open with a <Term>three-way handshake</Term>. Here, your laptop opens a connection to kade-api:
+
+<SeqDiagram set="handshake" />
+
+<Table>
+  <thead>
+    <tr><th>Message</th><th>Direction</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**SYN**</td><td>laptop → kade-api</td><td>"I want to talk. My starting sequence number is x."</td></tr>
+    <tr><td>**SYN-ACK**</td><td>kade-api → laptop</td><td>"OK. My starting number is y, and I acknowledge x."</td></tr>
+    <tr><td>**ACK**</td><td>laptop → kade-api</td><td>"I acknowledge y." Connection established.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The SYN and SYN-ACK also carry settings for the connection: the largest segment each side accepts (MSS), and options like window scaling and selective ACKs. <Ch n="18">Chapter 18</Ch> opens them.</Caption>
+
+**What it costs:** the handshake takes one full round trip before the first byte of data. From home to kade-api that is about 41 ms (<Ch n="13">chapter 13</Ch>). HTTPS then adds TLS, usually one more round trip. So the first request on a new connection waits about 80 ms before the request itself is even sent. This is why browsers and HTTP clients **reuse** connections (keep-alive) instead of opening a new one for every request.
+
+## Why three messages, not two
+
+Three is the minimum for **both** sides to know that **both** directions work:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>After</th><th>Laptop knows</th><th>kade-api knows</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>SYN arrives</td><td>nothing yet</td><td>laptop → kade-api works</td></tr>
+    <tr><td>2</td><td>SYN-ACK arrives</td><td>both directions work</td><td>still unsure its reply got through</td></tr>
+    <tr><td>3</td><td>ACK arrives</td><td>both directions work</td><td>both directions work</td></tr>
+  </tbody>
+</Table>
+
+<Caption>With only two messages, kade-api would never learn whether its reply arrived. It would also have no way to tell a fresh SYN from an old, delayed one still wandering the network. The third message confirms the laptop really wants _this_ connection, with _these_ numbers.</Caption>
+
+## When the handshake fails: refused vs timed out
+
+The two most common connection errors come from the handshake, and they mean very different things:
+
+<Cols n={2}>
+
+<Col title={"\"Connection refused\""}>
+
+The machine answered the SYN with **RST** (reset): "nobody is listening on that port". It arrives in about one round trip.
+
+Kadé: the Node app on kade-api crashed. The VM is up, but nothing listens on 443.
+
+</Col>
+
+<Col title={"\"Connection timed out\""}>
+
+No answer at all. The SYN was dropped. The client retries with growing gaps (about 1 s, 2 s, 4 s …) and gives up after tens of seconds.
+
+Kadé: no GCP firewall rule allows port 443, or the VM is off.
+
+</Col>
+
+</Cols>
+
+<Key title="Quick rule">
+
+Refused = you reached the machine, the app is not there. Timed out = something between you (usually a firewall) silently dropped the packet. Compare UDP: a closed UDP port answers with ICMP "port unreachable" (<Ch n="15">chapter 15</Ch>), not RST.
+
+</Key>
+
+## Closing: FIN, ACK, FIN, ACK
+
+Closing takes four messages, because each side shuts down **its own direction** separately. One side sends FIN ("I have nothing more to send"), the other ACKs it. Later the other side sends its own FIN, which gets ACKed. In between, data can still flow the other way: this is a <Term>half-close</Term>.
+
+<SeqDiagram set="close" />
+
+- **Often only three packets.** If kade-api has nothing left to send, it combines its ACK and FIN into one segment.
+- **TIME-WAIT.** The side that closed first waits a while (60 seconds on Linux) before forgetting the connection, in case its last ACK was lost and the other side resends its FIN. Also, late packets from this connection cannot be mistaken for a new one on the same ports.
+- **RST is the abrupt close.** No goodbye: "this connection is gone". Apps see it as `connection reset by peer`. <Ch n="10">Chapter 10</Ch>'s NAT timeout is a classic cause: kade-api sends on an idle pooled connection whose NAT row was deleted, and gets a reset.
+
+## What TCP gives
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Promise</th><th>What it means</th><th>How</th><th>Details in</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Reliable</td><td>Lost segments are detected and resent</td><td>ACKs, timers, retransmission</td><td><Ch n="17">Chapter 17</Ch></td></tr>
+    <tr><td>2</td><td>In order</td><td>The app reads bytes in the order they were sent</td><td>Sequence numbers, a reassembly buffer</td><td><Ch n="17">Chapter 17</Ch></td></tr>
+    <tr><td>3</td><td>Error-checked</td><td>Damaged segments are thrown away and resent</td><td>Checksum with pseudo-header, like UDP</td><td><Ch n="18">Chapter 18</Ch></td></tr>
+    <tr><td>4</td><td>Flow control</td><td>Never overwhelms a slow **receiver**</td><td>The receiver's window: "room for N more bytes"</td><td><Ch n="18">Chapter 18</Ch></td></tr>
+    <tr><td>5</td><td>Congestion control</td><td>Backs off when the **network** is busy</td><td>A congestion window that grows and shrinks</td><td>Below</td></tr>
+  </tbody>
+</Table>
+
+Flow control and congestion control sound alike but protect different things. Flow control protects the receiver: kade-db tells kade-api how much buffer it has left. <Term>Congestion control</Term> protects the network in between: the sender does not know how much the path can carry, so it probes. It starts small, roughly doubles its sending amount every round trip (**slow start**), and cuts back sharply when a loss shows the network is full:
+
+<Figure drawing={<FigGives />}>
+
+The sawtooth is TCP sharing the network fairly with everyone else. It is also why a brand-new connection starts slow: another reason to reuse connections.
+
+</Figure>
+
+## TCP states
+
+A TCP connection moves through named <Term>states</Term>. Step through one full connection, from the Node app starting to listen, to the last goodbye:
+
+<TcpLife />
+
+You will see these names in `ss` and `netstat`. What a pile of one state usually means:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>State</th><th>Meaning</th><th>Many of them usually means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`LISTEN`</td><td>A server waiting for connections</td><td>Normal: one per listening port (Node on 443, PostgreSQL on 5432)</td></tr>
+    <tr><td>2</td><td>`SYN-SENT`</td><td>Client sent SYN, waiting</td><td>Stuck here = SYNs being dropped: firewall or wrong IP</td></tr>
+    <tr><td>3</td><td>`SYN-RECEIVED`</td><td>Server got SYN, sent SYN-ACK</td><td>Thousands = a SYN flood attack (section 9)</td></tr>
+    <tr><td>4</td><td>`ESTABLISHED`</td><td>Open, data can flow</td><td>The healthy state. Count = open connections.</td></tr>
+    <tr><td>5</td><td>`CLOSE-WAIT`</td><td>Other side closed; waiting for **our app** to close</td><td>**A bug in our app**: it never closes sockets (a connection leak)</td></tr>
+    <tr><td>6</td><td>`FIN-WAIT-1/2`, `LAST-ACK`</td><td>Closing in progress</td><td>Normally short-lived</td></tr>
+    <tr><td>7</td><td>`TIME-WAIT`</td><td>Closed, waiting before forgetting</td><td>Many short connections. Harmless in small numbers; in huge numbers it uses up ports (<Ch n="10">chapter 10</Ch>). Fix: reuse connections.</td></tr>
+  </tbody>
+</Table>
+
+## SYN floods
+
+Each SYN makes the server set aside memory and wait for the final ACK. An attacker can send huge numbers of SYNs from fake addresses (easy, since no handshake finishes) and never send the ACK. The server's queue fills and real users cannot connect. The standard defence is **SYN cookies**: the server stores nothing and instead encodes what it needs into its own starting sequence number, checking it when (and if) the ACK arrives. Linux turns this on automatically when under pressure. Load balancers in front of kade-api (a later chapter) absorb these floods before they reach the VM.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>TCP</td><td>Reliable, ordered, error-checked byte stream; unit is a segment</td><td>TCP, segment</td></tr>
+    <tr><td>2</td><td>Connection</td><td>State on the two ends only; routers know nothing</td><td>connection-oriented</td></tr>
+    <tr><td>3</td><td>Opening</td><td>SYN, SYN-ACK, ACK: one round trip before data</td><td>three-way handshake, keep-alive</td></tr>
+    <tr><td>4</td><td>Why three</td><td>Both sides confirm both directions</td><td></td></tr>
+    <tr><td>5</td><td>Failures</td><td>RST = refused (no app); silence = timed out (firewall)</td><td>RST</td></tr>
+    <tr><td>6</td><td>Closing</td><td>FIN/ACK per direction; TIME-WAIT; RST is the abrupt way</td><td>half-close, TIME-WAIT</td></tr>
+    <tr><td>7</td><td>Promises</td><td>Reliable, ordered, checked, flow and congestion control</td><td>flow control, congestion control, slow start</td></tr>
+    <tr><td>8</td><td>States</td><td>LISTEN … ESTABLISHED … TIME-WAIT; CLOSE-WAIT piles = app bug</td><td>TCP states</td></tr>
+    <tr><td>9</td><td>Attack</td><td>SYN floods; defended with SYN cookies</td><td>SYN flood, SYN cookies</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="All TCP connections with their state">
+
+- **What to look for:** LISTEN lines for servers, ESTABLISHED for open ones, some TIME-WAIT.
+- **Runs on:** Linux · macOS: netstat -an -p tcp
+- **From section:** [8. TCP states](#tcp-states)
+
+```sh
+ss -tan
+```
+
+</TryIt>
+
+<TryIt n={2} title="Connections our app forgot to close">
+
+- **What to look for:** Should be empty or tiny. A growing number is a leak.
+- **Runs on:** Linux, on kade-api
+- **From section:** [8. TCP states](#tcp-states)
+
+```sh
+ss -tan state close-wait
+```
+
+</TryIt>
+
+<TryIt n={3} title="Just the handshake">
+
+- **What to look for:** "succeeded", "refused" (RST) or a long wait then "timed out".
+- **From section:** [5. When the handshake fails: refused vs timed out](#when-the-handshake-fails-refused-vs-timed-out)
+
+```sh
+nc -vz api.kade.lk 443
+```
+
+</TryIt>
+
+<TryIt n={4} title="How long the handshake took">
+
+- **What to look for:** `tcp` ≈ one round trip; `tls` adds about another.
+- **From section:** [3. Opening: the three-way handshake](#opening-the-three-way-handshake)
+
+```sh
+curl -o /dev/null -s -w 'tcp %{time_connect}s tls %{time_appconnect}s total %{time_total}s\n' https://example.com
+```
+
+</TryIt>
+
+<TryIt n={5} title="Only opens, closes and resets">
+
+- **What to look for:** `[S]` SYN, `[S.]` SYN-ACK, `[F.]` FIN, `[R]` RST.
+- **From section:** [3. Opening: the three-way handshake](#opening-the-three-way-handshake)
+
+```sh
+sudo tcpdump -n -i en0 'tcp[tcpflags] & (tcp-syn|tcp-fin|tcp-rst) != 0'
+```
+
+</TryIt>
+
+<TryIt n={6} title="Which programs listen on which TCP ports">
+
+- **What to look for:** node on 3000 or 443, postgres on 5432.
+- **From section:** [8. TCP states](#tcp-states)
+
+```sh
+lsof -iTCP -sTCP:LISTEN -n -P
+```
+
+</TryIt>

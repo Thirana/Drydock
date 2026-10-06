@@ -1,0 +1,222 @@
+import { UdpBuild, UdpDump, UdpHeader } from "@/components/learn/widgets/headers";
+
+## Two parts: header and data
+
+A UDP datagram is an **8-byte header** followed by your data, the <Term>payload</Term>. The header has four fields of 2 bytes (16 bits) each. Protocol diagrams draw headers in rows 32 bits wide:
+
+<UdpHeader />
+
+## The datagram we will open
+
+When you open api.kade.lk in the browser, the laptop first sends a DNS question to the home router (its DNS server from DHCP, <Ch n="3">chapter 3</Ch>):
+
+<Table>
+  <tbody>
+    <tr><td>From</td><td><Mono>192.168.1.23 : 51000 <Sub>the laptop's DNS client, on a temporary port</Sub></Mono></td></tr>
+    <tr><td>To</td><td><Mono>192.168.1.1 : 53 <Sub>the router's DNS service</Sub></Mono></td></tr>
+    <tr><td>Payload</td><td><Mono>DNS query: "A record for api.kade.lk" <Sub>29 bytes</Sub></Mono></td></tr>
+  </tbody>
+</Table>
+
+Here are all 37 bytes of that datagram, exactly as they leave the laptop, grouped by field:
+
+<UdpDump />
+
+## Field 1 · Source port (2 bytes)
+
+Identifies the sending application, so replies find their way back to the right program. Here: `c7 38` = 0xC738 = **51000**, a temporary port the OS picked for this lookup (<Ch n="1">chapter 1</Ch> called it an ephemeral port).
+
+The source port is **optional** in UDP: it may be 0 when no reply is expected. In practice almost every app fills it in.
+
+## Field 2 · Destination port (2 bytes)
+
+Says which application on the receiving machine should get the datagram. Here: `00 35` = 0x0035 = **53**, the DNS service. Ports are how one IP address can run many services at once: the router answers DNS on 53 and DHCP on 67 at the same time.
+
+2 bytes = 16 bits, so ports go from 0 to 65,535. They are grouped by convention:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Range</th><th>Name</th><th>Used for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`0–1023`</td><td>Well-known</td><td>Standard services. Opening one usually needs admin rights.</td></tr>
+    <tr><td>2</td><td>`1024–49151`</td><td>Registered</td><td>Services registered by apps (e.g. 3478 STUN, 5432 PostgreSQL)</td></tr>
+    <tr><td>3</td><td>`49152–65535`</td><td>Ephemeral (dynamic)</td><td>Temporary client ports. Linux actually uses 32768-60999 by default.</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>UDP port</th><th>Service</th><th>Seen in</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>53</Mono></td><td>DNS</td><td>Every name lookup</td></tr>
+    <tr><td><Mono>67 / 68</Mono></td><td>DHCP server / client</td><td><Ch n="3">Chapter 3</Ch></td></tr>
+    <tr><td><Mono>123</Mono></td><td>NTP (time sync)</td><td>Every VM, including kade-api</td></tr>
+    <tr><td><Mono>443</Mono></td><td>QUIC / HTTP/3</td><td>Browsers talking to Google and Cloudflare</td></tr>
+    <tr><td><Mono>3478</Mono></td><td>STUN</td><td>Hole punching (<Ch n="10">chapter 10</Ch>)</td></tr>
+    <tr><td><Mono>5353</Mono></td><td>mDNS (local device discovery)</td><td>Finding the office printer by name</td></tr>
+    <tr><td><Mono>51820</Mono></td><td>WireGuard VPN</td><td>A possible office VPN</td></tr>
+  </tbody>
+</Table>
+
+<Caption>TCP and UDP have separate port numbers. UDP 53 and TCP 53 are two different doors, which is why firewall rules always say which protocol.</Caption>
+
+## How the port picks the program
+
+When a datagram arrives, the OS looks at its destination IP and port and finds the program that opened a <Term>socket</Term> on that port. This sorting is called <Term>demultiplexing</Term>. On the router:
+
+<Table>
+  <thead>
+    <tr><th>Datagram to port</th><th>Socket open?</th><th>Result</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>53</Mono></td><td>yes: DNS service</td><td>Payload handed to the DNS service</td></tr>
+    <tr><td><Mono>67</Mono></td><td>yes: DHCP server</td><td>Handed to the DHCP server</td></tr>
+    <tr><td><Mono>33434</Mono></td><td>no</td><td>Dropped; the OS sends back ICMP "port unreachable" (type 3, code 3). This is how traceroute's last hop answers (<Ch n="13">chapter 13</Ch>).</td></tr>
+  </tbody>
+</Table>
+
+## Field 3 · Length (2 bytes)
+
+The size of the **whole datagram**, header plus data, in bytes. Here: `00 25` = 0x0025 = **37** = 8 header + 29 data. The minimum is 8 (a header with no data). The maximum is 65,535, though <Ch n="14">chapter 14</Ch> explained why real datagrams stay far smaller.
+
+The IP header also carries a total length, so this field is technically redundant over IPv4. It makes UDP self-describing: its header alone says where its data ends.
+
+## Field 4 · Checksum (2 bytes)
+
+An error-detection code. Here: `ec 99`. The receiver recomputes it and, if it does not match, silently throws the datagram away (UDP never asks for a resend).
+
+The checksum covers three things: the UDP header, the data, and a <Term>pseudo-header</Term>, a few fields borrowed from the IP header that are never sent as part of UDP:
+
+<Table>
+  <thead>
+    <tr><th>Pseudo-header field</th><th>Value</th><th>Bytes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Source IP</td><td><Mono>192.168.1.23</Mono></td><td><Mono>c0 a8 01 17</Mono></td></tr>
+    <tr><td>Destination IP</td><td><Mono>192.168.1.1</Mono></td><td><Mono>c0 a8 01 01</Mono></td></tr>
+    <tr><td>Zero, then protocol</td><td><Mono>0, 17 (UDP)</Mono></td><td><Mono>00 11</Mono></td></tr>
+    <tr><td>UDP length</td><td><Mono>37</Mono></td><td><Mono>00 25</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Why include IP fields? So a datagram that reaches the wrong address, or is mistaken for another protocol, fails the check. It is also why NAT must recompute the UDP checksum when it rewrites an IP or port (<Ch n="10">chapter 10</Ch>).</Caption>
+
+How it is computed, with our real numbers:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>Put the checksum field to 0. Split pseudo-header + header + data into 16-bit chunks (pad with one zero byte if the length is odd).</td><td><Mono>38 bytes + pad</Mono></td></tr>
+    <tr><td><Mono>2</Mono></td><td>Add all the chunks together.</td><td><Mono>0x4\_1362</Mono></td></tr>
+    <tr><td><Mono>3</Mono></td><td>Fold: add the part that overflowed past 16 bits back into the low 16 bits (0x1362 + 0x4).</td><td><Mono>0x1366</Mono></td></tr>
+    <tr><td><Mono>4</Mono></td><td>Flip every bit (ones' complement).</td><td><Mono>0xEC99</Mono></td></tr>
+    <tr><td><Mono>✓</Mono></td><td>The receiver adds everything **including** 0xEC99. A clean datagram always gives 0xFFFF.</td><td><Mono>0xFFFF</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Optional, and weak.** Over IPv4 the checksum is optional: 0 means "not used" (so a real result of 0 is sent as 0xFFFF). Over IPv6 it is mandatory, because IPv6 dropped its own header checksum. It is a simple 16-bit sum, so some errors (like two swapped chunks) slip past it. Links add stronger checks (the frame's FCS), and TLS adds cryptographic ones.
+
+</Note>
+
+## Add it up
+
+<Equation>2 src port + 2 dst port + 2 length + 2 checksum = 8 bytes</Equation>
+
+That tiny, fixed header is exactly why UDP is so light. Here is our DNS question as it goes out on the WiFi, all layers together:
+
+<Segments>
+  <Seg w={1.4} hue="teal">frame header · 14</Seg>
+  <Seg w={2} hue="green">IP header · 20 · protocol 17</Seg>
+  <Seg w={1} hue="amber">UDP · 8</Seg>
+  <Seg w={2.9} hue="plum">DNS query · 29</Seg>
+  <Seg w={.7} hue="teal">FCS · 4</Seg>
+</Segments>
+
+<Caption>75 bytes on the link in total. The useful question is 29 of them; UDP adds only 8.</Caption>
+
+## Build your own datagram
+
+Change the ports, addresses or payload and watch the header and checksum change. The checksum is computed for real, the same way the OS does it:
+
+<UdpBuild />
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Field</th><th>Size</th><th>In our example</th><th>Job</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Source port</td><td>2 bytes</td><td>`c7 38` = 51000</td><td>Where replies go; optional (0)</td></tr>
+    <tr><td>2</td><td>Destination port</td><td>2 bytes</td><td>`00 35` = 53</td><td>Which program receives it</td></tr>
+    <tr><td>3</td><td>Length</td><td>2 bytes</td><td>`00 25` = 37</td><td>Header + data size, 8 to 65,535</td></tr>
+    <tr><td>4</td><td>Checksum</td><td>2 bytes</td><td>`ec 99`</td><td>Detect damage; includes a pseudo-header; optional on IPv4</td></tr>
+    <tr><td>-</td><td>Payload</td><td>0-65,527</td><td>29-byte DNS query</td><td>Your data</td></tr>
+  </tbody>
+</Table>
+
+<Caption>New terms: payload, pseudo-header, socket, demultiplexing, well-known / registered / ephemeral ports.</Caption>
+
+## Try it yourself
+
+<TryIt n={1} title="Real DNS datagrams in hex">
+
+- **Steps:** `sudo tcpdump -n -X -i en0 udp port 53`, then `dig example.com` in another terminal
+- **What to look for:** After the 20-byte IP header: your source port, `0035`, the length, the checksum, then the name as `07 example 03 com`.
+- **From section:** [2. The datagram we will open](#the-datagram-we-will-open)
+
+```sh
+sudo tcpdump -n -X -i en0 udp port 53
+dig example.com
+```
+
+</TryIt>
+
+<TryIt n={2} title="Checksum checks">
+
+- **What to look for:** `[udp sum ok]` on received packets. Sent packets may say "bad" because the network card fills the checksum in after tcpdump sees them (checksum offload).
+- **From section:** [7. Field 4 · Checksum (2 bytes)](#field-4-checksum-2-bytes)
+
+```sh
+sudo tcpdump -n -vv -i en0 udp port 53
+```
+
+</TryIt>
+
+<TryIt n={3} title="A datagram to a closed port">
+
+- **What to look for:** An ICMP "port unreachable" comes back.
+- **Runs on:** with tcpdump -i lo0 icmp running (Linux: -i lo)
+- **From section:** [5. How the port picks the program](#how-the-port-picks-the-program)
+
+```sh
+nc -u 127.0.0.1 9
+```
+
+</TryIt>
+
+<TryIt n={4} title="The OS's list of known ports">
+
+- **What to look for:** `domain 53/udp`.
+- **From section:** [4. Field 2 · Destination port (2 bytes)](#field-2-destination-port-2-bytes)
+
+```sh
+grep -w 53/udp /etc/services
+```
+
+</TryIt>
+
+<TryIt n={5} title="The ephemeral port range">
+
+- **What to look for:** `32768 60999` by default.
+- **Runs on:** Linux
+- **From section:** [4. Field 2 · Destination port (2 bytes)](#field-2-destination-port-2-bytes)
+
+```sh
+sysctl net.ipv4.ip_local_port_range
+```
+
+</TryIt>

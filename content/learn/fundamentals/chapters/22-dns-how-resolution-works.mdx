@@ -1,0 +1,318 @@
+import { DnsSim, DnsWalk } from "@/components/learn/widgets/dns-mail";
+import { FigTree } from "@content/learn/fundamentals/figures/22-dns-how-resolution-works";
+
+## Why DNS exists
+
+Humans remember names (api.kade.lk). Machines route by numbers (34.87.120.15). <Term>DNS</Term> (Domain Name System) is the distributed directory that turns one into the other, for the whole internet.
+
+It also **separates** the name from the address. When kade-api later moves behind a load balancer with a new IP, Kadé only changes one DNS record. The mobile app keeps calling api.kade.lk and never needs an update.
+
+## Reading a name, right to left
+
+<Segments>
+  <Seg w={1.2} hue="plum">api</Seg>
+  <Seg w={.2} muted>.</Seg>
+  <Seg w={1.4} hue="green">kade</Seg>
+  <Seg w={.2} muted>.</Seg>
+  <Seg w={1} hue="amber">lk</Seg>
+  <Seg w={.2} muted>.</Seg>
+  <Seg w={.6}>(root)</Seg>
+</Segments>
+
+<Segments>
+  <Seg w={1.2} hue="plum">a name inside kade.lk</Seg>
+  <Seg w={.2} gap />
+  <Seg w={1.4} hue="green">the domain Kadé registered</Seg>
+  <Seg w={.2} gap />
+  <Seg w={1} hue="amber">TLD</Seg>
+  <Seg w={.2} gap />
+  <Seg w={.6}>top</Seg>
+</Segments>
+
+<Caption>Each part is a **label**. The full name ends with an invisible dot for the root: `api.kade.lk.` is the "fully qualified" form, and you will see that trailing dot in DNS tools and zone files. .lk is Sri Lanka's country-code TLD.</Caption>
+
+## A tree of zones
+
+DNS is organised as a tree, read right to left. No server holds everything. Each level only knows who to ask one level down: this handing-off is called <Term>delegation</Term>, and each part someone manages is a <Term>zone</Term>.
+
+<Figure hues={["green", "amber"]} drawing={<FigTree />} />
+
+<Table>
+  <thead>
+    <tr><th>Level</th><th>Knows</th><th>Run by</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Root</td><td>Where each TLD's servers are</td><td>13 named root server groups (a to m), run by 12 organisations</td></tr>
+    <tr><td>TLD (.lk, .com …)</td><td>Which servers are authoritative for each domain under it</td><td>The registry, e.g. LK Domain Registry for .lk</td></tr>
+    <tr><td>Authoritative</td><td>The real records for kade.lk, and gives the final answer</td><td>Whoever Kadé picks: here, GCP Cloud DNS</td></tr>
+  </tbody>
+</Table>
+
+## Who does the work
+
+Your laptop never walks the tree itself. It runs a tiny <Term>stub resolver</Term> that passes the question on. The hard work is done by a <Term>recursive resolver</Term>, usually run by your ISP or a public one like 8.8.8.8 or 1.1.1.1. Between them sit several caches:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Stop</th><th>What it does</th><th>In the Kadé scenario</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Browser cache</td><td>Remembers recent answers for a short while</td><td>Chrome's internal cache</td></tr>
+    <tr><td>2</td><td>hosts file</td><td>Fixed name → IP entries, checked before DNS</td><td>`/etc/hosts`: handy to point api.kade.lk at a test server</td></tr>
+    <tr><td>3</td><td>OS stub resolver + cache</td><td>Asks the configured DNS server; caches answers</td><td>macOS mDNSResponder, Linux systemd-resolved</td></tr>
+    <tr><td>4</td><td>Home router</td><td>A small forwarder: passes questions on, caches answers</td><td>192.168.1.1, the DNS server from DHCP (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>5</td><td>Recursive resolver</td><td>Walks the tree, caches everything it learns</td><td>LankaNet's resolver, or 8.8.8.8</td></tr>
+    <tr><td>6</td><td>Authoritative servers</td><td>Give the final answer; never cache for others</td><td>Cloud DNS for kade.lk</td></tr>
+  </tbody>
+</Table>
+
+## The full walk
+
+With every cache empty, resolving api.kade.lk looks like this:
+
+<DnsWalk />
+
+<Table>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>The laptop's stub asks the resolver: "A record for api.kade.lk, please do the whole job" (recursion desired).</td></tr>
+    <tr><td><Mono>2-3</Mono></td><td>The resolver asks a root server. The root does not know the answer, but it knows who handles .lk: it sends a **referral** listing .lk's name servers.</td></tr>
+    <tr><td><Mono>4-5</Mono></td><td>The resolver asks a .lk server. Another referral: "kade.lk is served by ns-cloud-a1.googledomains.com and three more."</td></tr>
+    <tr><td><Mono>6-7</Mono></td><td>The resolver asks Cloud DNS. This time a real answer, marked **authoritative**: 34.87.120.15, TTL 300.</td></tr>
+    <tr><td><Mono>8</Mono></td><td>The resolver saves everything it learned (both referrals and the answer) and returns the IP to the laptop.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>How does the resolver know the root servers in the first place? It ships with a small built-in list of their IPs, the **root hints**. And when a referral names a server inside the zone it delegates (e.g. ns1.kade.lk for kade.lk), the parent also sends that server's IP, called a **glue record**, to avoid a chicken-and-egg loop.</Caption>
+
+## Recursive and iterative queries
+
+<Cols n={2}>
+
+<Col title="Recursive query">
+
+"Find the final answer for me." Sent by the laptop to the resolver. The resolver does everything and returns only the final IP (or an error).
+
+</Col>
+
+<Col title="Iterative query">
+
+"Tell me what you know." Sent by the resolver to root, TLD and authoritative servers. Each replies with the answer or a referral to the next server to ask.
+
+</Col>
+
+</Cols>
+
+Root and TLD servers only answer iteratively. If they did recursive work for the whole internet, they would collapse under the load.
+
+## Caching and TTL
+
+Walking the tree every time would be slow, so every record carries a <Term>TTL</Term> (time to live) in seconds. Resolvers keep the record for that long and answer repeats instantly from cache. This is why the first visit to a site is slower than the rest.
+
+<Table>
+  <thead>
+    <tr><th>Record</th><th>Typical TTL</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>.lk name servers (from the root)</Mono></td><td><Mono>2 days</Mono></td><td>Almost never change</td></tr>
+    <tr><td><Mono>kade.lk name servers (from .lk)</Mono></td><td><Mono>1 day</Mono></td><td>Change only when moving DNS providers</td></tr>
+    <tr><td><Mono>api.kade.lk A record</Mono></td><td><Mono>5 minutes</Mono></td><td>Kadé chose this: short enough to move quickly</td></tr>
+  </tbody>
+</Table>
+
+- **Negative caching.** "This name does not exist" (NXDOMAIN) is cached too, for a time set in the zone's SOA record (<Ch n="23">chapter 23</Ch>). A typo'd name that someone later creates may keep failing for a while.
+- **TTL is a trade-off.** Long TTLs: fewer lookups, faster, but changes spread slowly. Short TTLs: quick changes, more queries.
+- **Plan changes ahead.** Before moving api.kade.lk to the load balancer, lower its TTL (say to 60 s) at least one old TTL in advance. Then switch the IP, check, and raise the TTL again.
+
+## Watch the caches work
+
+Play the recursive resolver. Look up names, move the clock forward, and watch what gets cached and what has to be asked again. The time for each step is typical for a laptop in Colombo:
+
+<DnsSim />
+
+## Root servers and anycast
+
+There are only 13 root server **names** (a.root-servers.net to m.root-servers.net), a limit from the days when a DNS answer had to fit in 512 bytes. But each name is served from many places using **anycast** (<Ch n="12">chapter 12</Ch>): the same IP announced from hundreds of locations. Together the 13 names run on well over a thousand machines worldwide, so a resolver in Colombo reaches a nearby copy. Large DNS providers, including Cloud DNS and Cloudflare, use anycast for the same reason.
+
+## On the wire: port 53, UDP and TCP
+
+DNS uses **port 53**. Most lookups go over **UDP**: one small question, one small answer, no handshake (<Ch n="14">chapter 14</Ch>). <Ch n="15">Chapter 15</Ch> showed the exact bytes of the query for api.kade.lk. The DNS header inside it has a few fields worth knowing:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>ID</Mono></td><td>A random 16-bit number; the answer must carry the same one (0x1a2b in <Ch n="15">chapter 15</Ch>)</td></tr>
+    <tr><td><Mono>RD / RA</Mono></td><td>Recursion Desired (set by the stub) / Recursion Available (set by the resolver)</td></tr>
+    <tr><td><Mono>AA</Mono></td><td>Authoritative Answer: set only by the zone's own servers</td></tr>
+    <tr><td><Mono>TC</Mono></td><td>Truncated: "the full answer did not fit, ask again over TCP"</td></tr>
+    <tr><td><Mono>RCODE</Mono></td><td>Result: NOERROR, NXDOMAIN (no such name), SERVFAIL (the resolver could not get an answer), REFUSED</td></tr>
+  </tbody>
+</Table>
+
+DNS switches to **TCP** (also port 53) when an answer is too large for one UDP datagram (above about 1,232 bytes today, <Ch n="14">chapter 14</Ch>), and for **zone transfers** (AXFR), where a secondary server copies a whole zone from the primary.
+
+## Security and privacy
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Problem</th><th>What it means</th><th>Defence</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Cache poisoning</td><td>An attacker races the real answer with a fake one ("api.kade.lk is 203.0.113.66"). If the resolver accepts it, everyone using that resolver is sent to the attacker for the whole TTL.</td><td>Random query IDs **and** random source ports (<Ch n="15">chapter 15</Ch>) make guessing hard; DNSSEC makes fakes detectable</td></tr>
+    <tr><td>2</td><td>Forged answers</td><td>Plain DNS has no proof an answer is genuine</td><td>**DNSSEC**: each zone signs its records, and each parent vouches for the child's key, in a chain up to the root. It proves authenticity, not privacy.</td></tr>
+    <tr><td>3</td><td>Snooping</td><td>Plain DNS is readable by anyone on the path: your ISP or café WiFi sees every name you look up</td><td>**DoT** (DNS over TLS, port 853) and **DoH** (DNS over HTTPS, port 443) encrypt queries to the resolver</td></tr>
+  </tbody>
+</Table>
+
+<Caption>DoH hides DNS inside normal HTTPS traffic, which is good for privacy but means office networks can no longer see or filter lookups. Browsers can turn it on by themselves. Also remember <Ch n="14">chapter 14</Ch>: an open resolver that answers anyone can be used for amplification attacks.</Caption>
+
+## DNS in GCP
+
+<Table>
+  <tbody>
+    <tr><td>**Cloud DNS public zone**</td><td>Hosts kade.lk for the internet. GCP gives four name servers like `ns-cloud-a1.googledomains.com` … `a4`; Kadé enters those at the .lk registry, which creates the delegation from section 3.</td></tr>
+    <tr><td>**Internal DNS**</td><td>Every VM can resolve other VMs by name through the metadata server (169.254.169.254, <Ch n="2">chapter 2</Ch>), e.g. `kade-db.asia-southeast1-b.c.PROJECT.internal`. kade-api can connect to kade-db by name, so its config does not break if kade-db's IP changes.</td></tr>
+    <tr><td>**Private zones**</td><td>A Cloud DNS zone only visible inside chosen VPCs, e.g. `db.kade.internal` → 10.10.2.5. Friendlier names than the built-in ones.</td></tr>
+  </tbody>
+</Table>
+
+## Steering traffic with DNS
+
+An authoritative server does not have to give everyone the same answer. Many DNS providers, Cloud DNS included (its "routing policies"), can choose the answer per query. If Kadé later runs kade-api in two regions, DNS can decide who goes where:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Policy</th><th>How it answers api.kade.lk</th><th>Kadé use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Weighted**</td><td>Returns each address a set share of the time, e.g. 90% old / 10% new</td><td>Moving slowly to the load balancer: send 10% first, watch errors, then more (a "canary")</td></tr>
+    <tr><td>2</td><td>**Geolocation**</td><td>Answers based on where the query comes from</td><td>Sri Lankan shoppers → Singapore; shoppers in Europe → a European region</td></tr>
+    <tr><td>3</td><td>**Latency-based**</td><td>Answers with the region measured to be fastest for that area (some providers)</td><td>Same goal as geolocation, based on measurements</td></tr>
+    <tr><td>4</td><td>**Failover**</td><td>Health-checks the primary; answers with the backup only while the primary is down</td><td>A standby copy of kade-api in a second region</td></tr>
+  </tbody>
+</Table>
+
+<Caption>"Where the query comes from" usually means the **resolver's** location, not the user's. A user in Colombo using a resolver abroad can be sent to the wrong region. Some resolvers pass part of the user's IP along (EDNS Client Subnet) to improve this.</Caption>
+
+The big limit is caching (sections 7 and 8). After kade-api's primary region fails:
+
+<Range>
+  <RangePart kind="special" w="14%" sub="region fails">0 s</RangePart>
+  <RangePart kind="router" w="18%" sub="health checks notice">~30 s</RangePart>
+  <RangePart kind="devices" sub="resolvers and apps still use the cached old answer">up to TTL (300 s) and beyond</RangePart>
+  <RangePart kind="router" w="18%" sub="stay on the dead region until they break">long-lived connections</RangePart>
+</Range>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>DNS steering</th><th>Anycast load balancer (<Ch n="12">chapter 12</Ch>)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Failover speed</td><td>Minutes (TTL and caches)</td><td>Seconds: one IP, routing and health checks inside the provider</td></tr>
+    <tr><td>2</td><td>Control</td><td>Coarse: per resolver, per TTL</td><td>Per request</td></tr>
+    <tr><td>3</td><td>Cost and setup</td><td>Cheap, works with any servers anywhere</td><td>Needs a global load balancer product</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Short TTLs (30-60 s) make DNS steering faster at the cost of more queries, but some resolvers and apps hold answers longer than asked. For fast failover, Kadé's planned global load balancer is the stronger tool; DNS weighting is great for gradual migrations.</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1-2</td><td>Names</td><td>Labels read right to left, ending at the root</td><td>DNS, label, FQDN</td></tr>
+    <tr><td>3</td><td>Tree</td><td>Root → TLD → authoritative, joined by delegation</td><td>zone, delegation, TLD, authoritative</td></tr>
+    <tr><td>4</td><td>Cast</td><td>Browser/OS cache, hosts file, stub, forwarder, recursive resolver</td><td>stub resolver, recursive resolver</td></tr>
+    <tr><td>5</td><td>Walk</td><td>Root and TLD send referrals; the authoritative server answers</td><td>referral, root hints, glue</td></tr>
+    <tr><td>6</td><td>Query styles</td><td>Recursive to the resolver; iterative from it</td><td>recursive, iterative</td></tr>
+    <tr><td>7-8</td><td>Caching</td><td>Every record has a TTL; negative answers are cached too</td><td>TTL, NXDOMAIN, negative caching</td></tr>
+    <tr><td>9</td><td>Root</td><td>13 names, over a thousand anycast machines</td><td></td></tr>
+    <tr><td>10</td><td>Wire</td><td>Port 53; UDP normally, TCP when truncated or for zone transfers</td><td>TC flag, AXFR, SERVFAIL</td></tr>
+    <tr><td>11</td><td>Security</td><td>Poisoning, DNSSEC for authenticity, DoT/DoH for privacy</td><td>DNSSEC, DoT, DoH</td></tr>
+    <tr><td>12</td><td>GCP</td><td>Cloud DNS public and private zones; internal VM names</td><td>Cloud DNS</td></tr>
+    <tr><td>13</td><td>Steering</td><td>Weighted, geo, latency and failover answers; limited by TTL and caching</td><td>routing policy, GeoDNS, EDNS Client Subnet</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="The full walk, done by your laptop itself">
+
+- **What to look for:** Root servers, then the TLD's servers, then the domain's, then the answer.
+- **From section:** [5. The full walk](#the-full-walk)
+
+```sh
+dig +trace example.com
+```
+
+</TryIt>
+
+<TryIt n={2} title="Caching">
+
+- **What to look for:** The TTL in the ANSWER section counts down; "Query time" drops on the second run.
+- **From section:** [7. Caching and TTL](#caching-and-ttl)
+
+```sh
+dig example.com
+```
+
+</TryIt>
+
+<TryIt n={3} title="Asking a specific resolver">
+
+- **Steps:** `dig @8.8.8.8 example.com` and `dig @1.1.1.1 example.com`
+- **What to look for:** Same answer, different query times.
+- **From section:** [4. Who does the work](#who-does-the-work)
+
+```sh
+dig @8.8.8.8 example.com
+dig @1.1.1.1 example.com
+```
+
+</TryIt>
+
+<TryIt n={4} title="DNS header flags">
+
+- **What to look for:** `flags: qr rd ra`; add `@` an authoritative server to see `aa`.
+- **From section:** [10. On the wire: port 53, UDP and TCP](#on-the-wire-port-53-udp-and-tcp)
+
+```sh
+dig example.com
+```
+
+</TryIt>
+
+<TryIt n={5} title="A negative answer">
+
+- **What to look for:** `status: NXDOMAIN` and the SOA record that sets how long it is cached.
+- **From section:** [7. Caching and TTL](#caching-and-ttl)
+
+```sh
+dig nosuchname-123.example.com
+```
+
+</TryIt>
+
+<TryIt n={6} title="Clear your OS cache">
+
+- **What to look for:** The next lookup is slow again.
+- **Runs on:** macOS · Linux: resolvectl flush-caches · Windows: ipconfig /flushdns
+- **From section:** [7. Caching and TTL](#caching-and-ttl)
+
+```sh
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+```
+
+</TryIt>
+
+<TryIt n={7} title="A Cloud DNS zone">
+
+- **What to look for:** The four `nameServers` to give the registry.
+- **From section:** [12. DNS in GCP](#dns-in-gcp)
+
+```sh
+gcloud dns managed-zones describe kade-lk
+```
+
+</TryIt>

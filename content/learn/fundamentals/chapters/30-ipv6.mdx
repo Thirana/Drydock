@@ -1,0 +1,315 @@
+import { EuiTool, V6Header, V6Tool } from "@/components/learn/widgets/ipv6-ports";
+import { SeqDiagram } from "@/components/learn/widgets/seq";
+
+## Why IPv6
+
+IPv4's 4.3 billion addresses ran out years ago: the regional registries, including APNIC for Asia-Pacific, handed out their last normal blocks in the early 2010s. <Term>IPv6</Term> fixes this permanently with 128-bit addresses: about **3.4 × 10<sup>38</sup>**. That is enough to give every device on Earth billions of addresses.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>IPv4 (<Ch n="2">chapter 2</Ch>)</th><th>IPv6</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Size</td><td>32 bits</td><td>128 bits</td></tr>
+    <tr><td>2</td><td>Addresses</td><td>~4.3 × 10<sup>9</sup></td><td>~3.4 × 10<sup>38</sup></td></tr>
+    <tr><td>3</td><td>Written as</td><td>4 decimal numbers with dots</td><td>8 hex groups with colons</td></tr>
+    <tr><td>4</td><td>Sharing addresses</td><td>NAT everywhere (<Ch n="10">chapter 10</Ch>)</td><td>Not needed: every device gets public addresses</td></tr>
+    <tr><td>5</td><td>Getting an address</td><td>DHCP (<Ch n="27">chapter 27</Ch>)</td><td>Usually self-configured (SLAAC, section 7)</td></tr>
+    <tr><td>6</td><td>Finding MACs</td><td>ARP broadcast (<Ch n="9">chapter 9</Ch>)</td><td>NDP with multicast (section 8)</td></tr>
+    <tr><td>7</td><td>Broadcast</td><td>Yes</td><td>None: multicast replaces it</td></tr>
+    <tr><td>8</td><td>Header</td><td>20-60 bytes, with a checksum</td><td>Fixed 40 bytes, no checksum (section 9)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Adoption is well under way: a large share of Google's users now reach it over IPv6 (a bit under half at the time of writing), and many mobile networks run mostly on IPv6.</Caption>
+
+## Writing an address
+
+An IPv6 address is **128 bits**, written as **eight groups of four hex digits** (<Ch n="7">chapter 7</Ch>'s hex), separated by colons. Each group is 16 bits: 8 × 16 = 128.
+
+<Segments>
+  <Seg w={1} hue="green">2001</Seg>
+  <Seg w={1} hue="green">0db8</Seg>
+  <Seg w={1} hue="green">0000</Seg>
+  <Seg w={1} hue="green">0000</Seg>
+  <Seg w={1}>0000</Seg>
+  <Seg w={1}>ff00</Seg>
+  <Seg w={1}>0042</Seg>
+  <Seg w={1}>8329</Seg>
+</Segments>
+
+<Segments>
+  <Seg w={4} hue="green">first 64 bits: the network (prefix)</Seg>
+  <Seg w={4}>last 64 bits: the interface (host part)</Seg>
+</Segments>
+
+<Caption>The same network / host split as <Ch n="3">chapter 3</Ch>, with a fixed boundary: almost every IPv6 network is a **/64**. 2001:db8::/32 is reserved for documentation, like 203.0.113.0/24 in IPv4, so it is used for all examples here.</Caption>
+
+## Shortening addresses
+
+Two rules make addresses much shorter:
+
+<Table>
+  <thead>
+    <tr><th></th><th>Rule</th><th>Result</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>0</Mono></td><td>Full form</td><td><Mono>2001:0db8:0000:0000:0000:ff00:0042:8329</Mono></td></tr>
+    <tr><td><Mono>1</Mono></td><td>Drop leading zeros in each group</td><td><Mono>2001:db8:0:0:0:ff00:42:8329</Mono></td></tr>
+    <tr><td><Mono>2</Mono></td><td>Replace **one** run of all-zero groups with `::`</td><td><Mono>2001:db8::ff00:42:8329</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>`::` may appear only once: with two, you could not tell how many zero groups each one stands for. The standard short form uses the longest zero run, lowercase letters, and never uses :: for a single zero group.</Caption>
+
+Try any address. The tool expands, shortens, and tells you what kind of address it is:
+
+<V6Tool />
+
+## Prefixes: how addresses are handed out
+
+IPv6 uses CIDR just like IPv4 (<Ch n="3">chapter 3</Ch>), but the numbers are huge. An ISP gives each customer a whole block, and the customer cuts it into /64 networks:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Prefix</th><th>Who</th><th>Contains</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`2001:db8:5c00::/48`</td><td>Kadé office, from LankaNet</td><td>65,536 networks of /64</td></tr>
+    <tr><td>2</td><td>`2001:db8:5c00:1::/64`</td><td>Staff network (like 172.16.1.0/24)</td><td>2<sup>64</sup> ≈ 18 billion billion addresses</td></tr>
+    <tr><td>3</td><td>`2001:db8:5c00:2::/64`</td><td>Warehouse network (like 172.16.2.0/24)</td><td>same</td></tr>
+    <tr><td>4</td><td>`2001:db8:4a1:1100::/56`</td><td>Your home, from your ISP</td><td>256 networks of /64</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Nobody counts hosts in IPv6. A /64 per network is standard because self-configuration (section 7) needs a 64-bit host part. The 4th group is a natural "subnet number": 1 = staff, 2 = warehouse.</Caption>
+
+## Address types
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Type</th><th>Starts with</th><th>Meaning</th><th>IPv4 equivalent</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Global unicast**</td><td>`2000::/3` (2… or 3…)</td><td>Public, routable on the internet</td><td>public addresses</td></tr>
+    <tr><td>2</td><td>**Link-local**</td><td>`fe80::/10`</td><td>Valid only on the local link, never routed. Every IPv6 interface creates one automatically.</td><td>169.254.x.x, but always present</td></tr>
+    <tr><td>3</td><td>Unique local (ULA)</td><td>`fc00::/7` (in practice fd…)</td><td>Private addresses for internal use</td><td>10.x, 172.16.x, 192.168.x</td></tr>
+    <tr><td>4</td><td>**Multicast**</td><td>`ff00::/8`</td><td>One sender to a group. `ff02::1` = all devices on the link; `ff02::2` = all routers.</td><td>replaces broadcast</td></tr>
+    <tr><td>5</td><td>Loopback</td><td>`::1`</td><td>This machine</td><td>127.0.0.1</td></tr>
+    <tr><td>6</td><td>Unspecified</td><td>`::`</td><td>"No address yet" / "all interfaces" when listening</td><td>0.0.0.0</td></tr>
+    <tr><td>7</td><td>IPv4-mapped</td><td>`::ffff:0:0/96`</td><td>An IPv4 address inside an IPv6 socket, e.g. `::ffff:192.168.1.23`</td><td>-</td></tr>
+  </tbody>
+</Table>
+
+<Caption>IPv6 has **no broadcast**. Jobs that used broadcast in IPv4 (ARP, DHCP Discover) use multicast groups instead, so only interested devices are disturbed. Anycast (<Ch n="12">chapter 12</Ch>) exists too; it looks like a normal unicast address.</Caption>
+
+## One interface, several addresses
+
+In IPv4 your WiFi interface had one address. In IPv6 it normally has several at once, each with a job:
+
+```text
+$ ifconfig en0 | grep inet6
+inet6 fe80::a683:e7ff:fe2b:910c%en0 prefixlen 64 scopeid 0x6        ← link-local
+inet6 2001:db8:5c00:1:8a2f:31c4:77be:d201 prefixlen 64 autoconf secured  ← stable global
+inet6 2001:db8:5c00:1:e91a:4c03:1f55:9a3b prefixlen 64 autoconf temporary ← temporary global
+```
+
+- **Link-local** for talking to the router and neighbours, including the gateway itself (routers are usually reached by their link-local address).
+- **Stable global** for incoming connections, the same whenever you join this network.
+- **Temporary global**, changed every day or so, used for outgoing connections so websites cannot track the device by its address ("privacy addresses").
+
+## Self-configuration: SLAAC
+
+IPv6 devices usually configure themselves, with no DHCP server. This is <Term>SLAAC</Term> (stateless address autoconfiguration). The front desk PC joining the staff network:
+
+<SeqDiagram set="slaac" />
+
+The **interface ID** (the last 64 bits) can be made two ways:
+
+<Table>
+  <tbody>
+    <tr><td>**From the MAC (EUI-64)**</td><td>Take the 48-bit MAC, insert `ff:fe` in the middle, and flip the "locally set" bit from <Ch n="7">chapter 7</Ch>. The laptop's `a4:83:e7:2b:91:0c` becomes `a683:e7ff:fe2b:910c`. Easy, but the same on every network, so it can be used to track the device. Older systems and many routers still use it.</td></tr>
+    <tr><td>**Random (privacy / stable)**</td><td>What laptops and phones use for global addresses today: random-looking, stable per network or changing daily.</td></tr>
+  </tbody>
+</Table>
+
+<EuiTool />
+
+<Note>
+
+**DHCPv6 still exists.** Router Advertisements carry two flags. **M** ("managed") tells devices to get addresses from a DHCPv6 server; **O** ("other") means "use SLAAC for the address, but ask DHCPv6 for DNS servers and similar". Offices that want a record of who had which address use DHCPv6; homes usually use SLAAC alone. Android does not support stateful DHCPv6, one reason SLAAC dominates.
+
+</Note>
+
+## NDP: ARP's replacement
+
+IPv6 finds MAC addresses with <Term>NDP</Term> (Neighbor Discovery Protocol), which runs over ICMPv6. Instead of broadcasting to everyone like ARP, it sends a **Neighbor Solicitation** to a special multicast group derived from the target's address (the "solicited-node" group, `ff02::1:ff` + the last 24 bits). Only devices whose address ends the same way listen, which in practice is almost always just the target.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>IPv4 (<Ch n="9">chapters 9</Ch>, <Ch n="27">27</Ch>)</th><th>IPv6 with NDP (ICMPv6)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>ARP request, broadcast "who has 172.16.1.20?"</td><td>Neighbor Solicitation, to the target's solicited-node multicast group</td></tr>
+    <tr><td>2</td><td>ARP reply</td><td>Neighbor Advertisement</td></tr>
+    <tr><td>3</td><td>Gateway from DHCP</td><td>Router Advertisement: routers announce themselves and the prefix</td></tr>
+    <tr><td>4</td><td>ARP check for a duplicate address</td><td>Duplicate Address Detection (DAD)</td></tr>
+    <tr><td>5</td><td>ICMP redirect</td><td>ICMPv6 Redirect</td></tr>
+  </tbody>
+</Table>
+
+<Caption>So ICMPv6 is not optional: block it and IPv6 stops working entirely (no neighbours, no routers, no path MTU discovery). Firewalls must allow the ICMPv6 types NDP and PMTUD need. Like ARP, NDP trusts what it hears: fake Router Advertisements are the IPv6 version of a rogue DHCP server (<Ch n="27">chapter 27</Ch>), and managed switches offer "RA Guard" against them.</Caption>
+
+## A simpler header
+
+The IPv6 header is a fixed **40 bytes**, and has fewer fields than IPv4's (<Ch n="12">chapter 12</Ch>):
+
+<V6Header />
+
+<Table>
+  <tbody>
+    <tr><td>No header checksum</td><td>Links (FCS) and TCP/UDP already check for errors, so routers no longer recompute a checksum every hop. This is why the UDP checksum becomes mandatory (<Ch n="15">chapter 15</Ch>).</td></tr>
+    <tr><td>No fragmentation by routers</td><td>Only the sender may fragment; routers send ICMPv6 "Packet Too Big" instead (<Ch n="18">chapter 18</Ch>). Every IPv6 link must carry at least **1,280 bytes**.</td></tr>
+    <tr><td>Extension headers</td><td>Options, fragmentation info and more move into optional headers chained by the **Next Header** field, which otherwise says TCP (6), UDP (17) or ICMPv6 (58).</td></tr>
+    <tr><td>Hop Limit</td><td>IPv4's TTL, renamed to say what it really counts (<Ch n="12">chapter 12</Ch>)</td></tr>
+    <tr><td>Flow Label</td><td>Marks packets of one flow so routers can keep them on the same path (ECMP, <Ch n="12">chapter 12</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## No NAT: end-to-end again
+
+With addresses to spare, every device gets its own public address and no NAT is needed. The front desk PC and the packing PC reach kade-api with their own addresses, and <Ch n="10">chapter 10</Ch>'s port limits and "lost device in the logs" problems disappear.
+
+<Key title="Public does not mean reachable">
+
+Without NAT, an IPv4-era assumption breaks: "devices at home are hidden". In IPv6 the router's **stateful firewall** (<Ch n="10">chapter 10</Ch>, section 13) must block unsolicited incoming connections. Home routers do this by default; always check it on office routers and VPCs.
+
+</Key>
+
+## Living with both: dual stack
+
+The internet is in a long transition. Most devices run <Term>dual stack</Term>: IPv4 and IPv6 at the same time.
+
+<Table>
+  <tbody>
+    <tr><td>**DNS**</td><td>A name can have A and AAAA records (<Ch n="23">chapter 23</Ch>). A dual-stack client asks for both.</td></tr>
+    <tr><td>**Happy Eyeballs**</td><td>The client tries IPv6 first and starts IPv4 a fraction of a second later; whichever connects first wins. A broken IPv6 path then costs only a tiny delay.</td></tr>
+    <tr><td>**NAT64 + DNS64**</td><td>Many mobile networks give phones **only** IPv6. To reach IPv4-only sites, the carrier's DNS invents an AAAA record that points to a translator (NAT64), which converts to IPv4. The rider's phone may reach an IPv4-only api.kade.lk this way.</td></tr>
+    <tr><td>**Tunnels**</td><td>Older ways to carry IPv6 inside IPv4 packets across networks that only speak IPv4 (6in4 and similar)</td></tr>
+  </tbody>
+</Table>
+
+## IPv6 in the Kadé setup
+
+<Table>
+  <tbody>
+    <tr><td>**Public entry**</td><td>GCP's external load balancers can take an IPv6 address. Add an AAAA record for api.kade.lk pointing to it, and IPv6 users connect natively, even if everything behind the load balancer stays IPv4.</td></tr>
+    <tr><td>**Inside the VPC**</td><td>GCP subnets can be **dual-stack**: each /64 IPv6 range sits beside the IPv4 range, internal (ULA) or external. VMs then get an IPv6 address too.</td></tr>
+    <tr><td>**Firewalls**</td><td>IPv6 needs its own rules: a rule for `0.0.0.0/0` does not cover `::/0`. Check both.</td></tr>
+    <tr><td>**URLs and logs**</td><td>Addresses in URLs go in brackets because of the colons: `https://[2001:db8::1]:443/`. Link-local addresses need the interface: `fe80::1%en0`. Log parsers and allowlists written for IPv4 often break on these.</td></tr>
+  </tbody>
+</Table>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1-2</td><td>IPv6</td><td>128 bits, 8 hex groups; /64 networks: 64-bit prefix + 64-bit interface ID</td><td>IPv6, interface ID</td></tr>
+    <tr><td>3</td><td>Shortening</td><td>Drop leading zeros; one :: for the longest zero run</td><td></td></tr>
+    <tr><td>4</td><td>Prefixes</td><td>ISPs hand out /48 or /56; each network is a /64</td><td>prefix delegation</td></tr>
+    <tr><td>5-6</td><td>Types</td><td>Global, link-local, ULA, multicast, ::1, ::; several per interface; no broadcast</td><td>link-local, ULA, privacy address</td></tr>
+    <tr><td>7</td><td>SLAAC</td><td>Router Advertisements give the prefix; the device builds its own address; DHCPv6 optional</td><td>SLAAC, RA, EUI-64, DHCPv6</td></tr>
+    <tr><td>8</td><td>NDP</td><td>ARP's replacement over ICMPv6 multicast; ICMPv6 must not be blocked</td><td>NDP, DAD, RA Guard</td></tr>
+    <tr><td>9</td><td>Header</td><td>Fixed 40 bytes; no checksum; no router fragmentation; extension headers</td><td>Next Header, Hop Limit, Flow Label</td></tr>
+    <tr><td>10-11</td><td>Transition</td><td>No NAT but a firewall; dual stack; Happy Eyeballs; NAT64/DNS64</td><td>dual stack, NAT64</td></tr>
+    <tr><td>12</td><td>Kadé</td><td>IPv6 load balancer + AAAA; dual-stack subnets; separate ::/0 rules</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Your IPv6 addresses">
+
+- **What to look for:** A fe80:: address always; global ones if your ISP gives IPv6.
+- **Runs on:** macOS · Linux: ip -6 addr · Windows: ipconfig
+- **From section:** [6. One interface, several addresses](#one-interface-several-addresses)
+
+```sh
+ifconfig en0 | grep inet6
+```
+
+</TryIt>
+
+<TryIt n={2} title="Your public IPv6 and IPv4 addresses">
+
+- **Steps:** `curl -6 https://ifconfig.co` and `curl -4 https://ifconfig.co`
+- **What to look for:** If -6 fails, your network has no working IPv6.
+- **From section:** [11. Living with both: dual stack](#living-with-both-dual-stack)
+
+```sh
+curl -6 https://ifconfig.co
+curl -4 https://ifconfig.co
+```
+
+</TryIt>
+
+<TryIt n={3} title="An IPv6 DNS record">
+
+- **What to look for:** A 2404:… or 2607:… address.
+- **From section:** [11. Living with both: dual stack](#living-with-both-dual-stack)
+
+```sh
+dig AAAA google.com +short
+```
+
+</TryIt>
+
+<TryIt n={4} title="Every IPv6 device on your link answers">
+
+- **What to look for:** Replies from several fe80:: addresses, including the router.
+- **Runs on:** macOS · Linux: ping -6 ff02::1%eth0
+- **From section:** [5. Address types](#address-types)
+
+```sh
+ping6 ff02::1%en0
+```
+
+</TryIt>
+
+<TryIt n={5} title="The NDP neighbour table (ARP's replacement)">
+
+- **What to look for:** IPv6 addresses with MACs, the router marked as router.
+- **Runs on:** macOS · Linux: ip -6 neigh
+- **From section:** [8. NDP: ARP's replacement](#ndp-arp-s-replacement)
+
+```sh
+ndp -a
+```
+
+</TryIt>
+
+<TryIt n={6} title="IPv6 routes">
+
+- **What to look for:** `default via fe80::… `: the gateway is a link-local address.
+- **Runs on:** Linux · macOS: netstat -rn -f inet6
+- **From section:** [7. Self-configuration: SLAAC](#self-configuration-slaac)
+
+```sh
+ip -6 route
+```
+
+</TryIt>
+
+<TryIt n={7} title="A full dual-stack check">
+
+- **What to look for:** A score out of 10, and whether IPv6 is preferred.
+- **From section:** [11. Living with both: dual stack](#living-with-both-dual-stack)
+
+```sh
+test-ipv6.com
+```
+
+</TryIt>

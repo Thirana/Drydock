@@ -441,6 +441,12 @@
   .dd-chapter h2[data-section="numbered"] {
     counter-increment: dd-section;
   }
+  /* A part heading carries the rule; the section that opens it does not. */
+  .dd-chapter .dd-part + h2 {
+    margin-top: 1.25rem !important;
+    border-top: 0 !important;
+    padding-top: 0 !important;
+  }
   .dd-chapter h2[data-section="numbered"]::before {
     content: counter(dd-section) ".";
     display: inline-block;
@@ -510,6 +516,18 @@
   }
   .dd-fig text.mid {
     text-anchor: middle;
+  }
+  /* A label that crosses lines: a ring of page colour keeps it legible. */
+  .dd-fig text.halo {
+    paint-order: stroke;
+    stroke: var(--dd-ground);
+    stroke-width: 6px;
+    stroke-linejoin: round;
+  }
+  /* The step being described, in a step-through diagram. */
+  .dd-fig text.cur {
+    fill: var(--dd-ink);
+    font-weight: 700;
   }
 
   /* Boxes: neutral in faint ink; a hue adds its stroke and soft fill. */
@@ -647,6 +665,24 @@
   /* Not built yet, or optional. */
   .dd-fig .dash {
     stroke-dasharray: 6 5;
+  }
+
+  /* Interactive highlights: the path taken, its two ends, the router used. */
+  .dd-fig .w.hl {
+    stroke: var(--dd-green);
+    stroke-width: 3;
+  }
+  .dd-fig .n.src {
+    stroke: var(--dd-plum);
+    stroke-width: 2.5;
+  }
+  .dd-fig .n.dst {
+    stroke: var(--dd-green);
+    stroke-width: 2.5;
+  }
+  .dd-fig .n.via {
+    stroke: var(--dd-amber);
+    stroke-width: 2.5;
   }
 
   /* Arrowhead fills, used by the markers in <DiagramDefs />. */

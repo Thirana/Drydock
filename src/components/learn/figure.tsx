@@ -25,10 +25,12 @@ export function Figure({
   labels?: Partial<Record<Hue, string>>;
   wide?: boolean;
 }) {
-  const key = ORDER.filter((h) => hues.includes(h)).map((h) => ({
-    hue: h,
-    label: labels?.[h] ?? legend[h] ?? h,
-  }));
+  // Only hues the course legend or the figure itself names; an unnamed hue is
+  // explained by the labels inside the drawing.
+  const key = ORDER.filter((h) => hues.includes(h)).flatMap((h) => {
+    const label = labels?.[h] ?? legend[h];
+    return label ? [{ hue: h, label }] : [];
+  });
   return (
     <figure className={cn("not-prose my-10", !wide && "max-w-[760px]")}>
       <div className="dd-fig border-rule bg-ground overflow-x-auto rounded-[2px] border p-4 sm:p-5">

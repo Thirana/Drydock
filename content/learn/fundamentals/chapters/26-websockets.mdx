@@ -1,0 +1,269 @@
+import { SeqDiagram } from "@/components/learn/widgets/seq";
+import { RtSim, WsDump, WsHeader } from "@/components/learn/widgets/web";
+import { FigScale } from "@content/learn/fundamentals/figures/26-websockets";
+
+## The problem: HTTP only answers
+
+In classic HTTP the client must start everything (<Ch n="24">chapter 24</Ch>). To get updates, apps resort to <Term>polling</Term>: asking "anything new?" over and over. It is wasteful and laggy. Most requests return nothing, and a real update waits until the next poll.
+
+<Table>
+  <tbody>
+    <tr><td>10,000 shoppers tracking orders</td><td><Mono>polling every 5 s = **2,000 requests per second** to kade-api</Mono></td></tr>
+    <tr><td>Each request</td><td><Mono>~700 bytes of headers (cookies, tokens) for a reply that is usually "no change"</Mono></td></tr>
+    <tr><td>A status change</td><td><Mono>seen **0-5 s** late, 2.5 s on average</Mono></td></tr>
+  </tbody>
+</Table>
+
+## Four ways to get updates
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Technique</th><th>How it works</th><th>Direction</th><th>Delay</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Short polling**</td><td>Ask every N seconds</td><td>client asks</td><td>up to N seconds</td></tr>
+    <tr><td>2</td><td>**Long polling**</td><td>Ask, and the server holds the request open until there is news (or a timeout), then the client asks again at once</td><td>client asks</td><td>about half a round trip, plus a gap after each message</td></tr>
+    <tr><td>3</td><td>**Server-Sent Events** (SSE)</td><td>One HTTP response that never ends; the server writes events into it as they happen</td><td>server → client only</td><td>about half a round trip</td></tr>
+    <tr><td>4</td><td>**WebSocket**</td><td>One long-lived connection where both sides send messages whenever they want</td><td>both ways, at any time</td><td>about half a round trip</td></tr>
+  </tbody>
+</Table>
+
+Watch them side by side for one minute of order tracking. Stars are updates happening on kade-api; the bars show when each app learns about them:
+
+<RtSim />
+
+## What a WebSocket is
+
+A <Term>WebSocket</Term> is a single, long-lived TCP connection that stays open and allows <Term>full-duplex</Term> communication: client and server can both send messages at any time, independently. No repeated requests, no waiting for a poll. Addresses use `ws://` or, over TLS, `wss://` (ports 80 and 443). Always use wss: it is encrypted, and it passes through proxies and firewalls much more reliably.
+
+## The handshake: an HTTP request that upgrades
+
+A WebSocket begins life as a normal HTTP/1.1 request asking to **upgrade**. If the server agrees, it replies **101 Switching Protocols**, and from that moment the same TCP connection speaks WebSocket instead of HTTP. Starting as HTTP means it works through existing web infrastructure: port 443, TLS, load balancers, cookies.
+
+<Cols n={2}>
+
+<Col title="Request (from the app)">
+
+```text
+GET /track/1042 HTTP/1.1
+Host: api.kade.lk
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+Origin: https://kade.lk
+Cookie: sid=8f2a91c
+```
+
+</Col>
+
+<Col title="Response (from kade-api)">
+
+```text
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+```
+
+After the blank line, no more HTTP on this connection: only WebSocket frames.
+
+</Col>
+
+</Cols>
+
+<Table>
+  <tbody>
+    <tr><td><Mono>Upgrade / Connection</Mono></td><td>"Please switch this connection to the websocket protocol"</td></tr>
+    <tr><td><Mono>Sec-WebSocket-Key</Mono></td><td>A random 16-byte value (base64) from the client</td></tr>
+    <tr><td><Mono>Sec-WebSocket-Accept</Mono></td><td>base64(SHA-1(key + a fixed GUID from the standard)). It proves the server really understands WebSockets, so a confused server or a caching proxy cannot accidentally "accept". It is not a security feature.</td></tr>
+    <tr><td><Mono>Origin</Mono></td><td>Which website opened it. The server must check it (section 10).</td></tr>
+    <tr><td><Mono>Sec-WebSocket-Protocol</Mono></td><td>(optional) a sub-protocol both sides agree on, e.g. a message format version</td></tr>
+  </tbody>
+</Table>
+
+<SeqDiagram set="ws" />
+
+## After the upgrade: frames
+
+Messages travel as **frames** with a tiny header of 2 to 14 bytes, compared with hundreds of bytes of headers on every HTTP request:
+
+<WsHeader />
+
+<Table>
+  <tbody>
+    <tr><td><Mono>FIN</Mono></td><td>1 = last frame of this message (big messages can be split into several frames)</td></tr>
+    <tr><td><Mono>Opcode</Mono></td><td>**1** text (UTF-8) · **2** binary · **0** continuation · **8** close · **9** ping · **10** pong</td></tr>
+    <tr><td><Mono>MASK + masking key</Mono></td><td>Every client → server frame must be XOR-masked with a random 4-byte key. This stops a malicious page from making the browser send bytes that look like an HTTP request to a proxy in between (cache poisoning). Server → client frames are not masked.</td></tr>
+    <tr><td><Mono>Payload length</Mono></td><td>7 bits (up to 125), or 126 + 2 more bytes, or 127 + 8 more bytes</td></tr>
+  </tbody>
+</Table>
+
+A real frame: the shopper's app sends `{"track":1042}` (14 bytes) to subscribe to its order. 20 bytes on the wire in total:
+
+<WsDump />
+
+## Full duplex in practice
+
+Once open, either side sends whenever it wants. On one order-tracking connection:
+
+<SeqDiagram set="wsduplex" />
+
+Where this fits, with Kadé examples:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Use</th><th>Why a WebSocket</th><th>Kadé example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Chat</td><td>Messages flow both ways, instantly</td><td>Shopper ↔ support chat</td></tr>
+    <tr><td>2</td><td>Live dashboards and notifications</td><td>The server pushes the moment something changes</td><td>The warehouse packing screen showing new orders</td></tr>
+    <tr><td>3</td><td>Positions and presence</td><td>Frequent small updates, both directions</td><td>The rider's app sending GPS; the shopper's app receiving it</td></tr>
+    <tr><td>4</td><td>Collaborative editing, multiplayer games</td><td>Many small edits from many people, merged live</td><td>-</td></tr>
+  </tbody>
+</Table>
+
+## Keeping connections alive
+
+A WebSocket that sends nothing for a while meets every idle timeout from <Ch n="21">chapter 21</Ch>: home and mobile NAT, firewalls, the load balancer. The protocol has **ping** and **pong** frames for this: one side pings, the other must pong. A ping every 20-30 seconds keeps middleboxes from forgetting the connection, and a missing pong tells the server the client is gone (a phone that lost signal never sends a close frame).
+
+<Note>
+
+**On GCP's load balancers**, WebSockets are supported, but the backend service timeout is treated as the **maximum lifetime** of a WebSocket connection, idle or not (per GCP's documentation at the time of writing). With the default 30 s, every connection is cut after 30 s. Raise it (for example to an hour) for kade-api's tracking endpoint, and still expect disconnects.
+
+</Note>
+
+## Reconnecting
+
+WebSockets **will** drop: the rider's phone changes network, kade-api is redeployed, the load balancer cuts a long connection. The client must handle it:
+
+- **Reconnect with backoff and jitter:** wait 1 s, 2 s, 4 s … up to a limit, plus a random extra. Otherwise, when kade-api restarts, all 10,000 apps reconnect in the same second (a "thundering herd").
+- **Catch up after reconnecting:** messages sent while disconnected are simply lost. The app should re-fetch the current order state, or send the last event ID it saw so the server can replay what was missed.
+- **Drain gracefully on deploy:** tell clients to reconnect (close code 1001 "going away"), rather than killing them all at once.
+
+```code
+function connect(attempt = 0) {
+  const ws = new WebSocket('wss://api.kade.lk/track/1042');
+  ws.onopen = () => { attempt = 0; refreshOrderState(); };    // catch up on what was missed
+  ws.onmessage = (e) => render(JSON.parse(e.data));
+  ws.onclose = () => {
+    const wait = Math.min(30_000, 1000 * 2 ** attempt) + Math.random() * 1000;
+    setTimeout(() => connect(attempt + 1), wait);             // backoff + jitter
+  };
+}
+```
+
+## Scaling: connections are stateful
+
+An HTTP request can go to any kade-api instance. A WebSocket is **pinned** to the instance that accepted it, for as long as it lives. When Kadé runs two instances, the rider's location may arrive at instance A while the shopper watching that order is connected to instance B:
+
+<Figure hues={["plum", "green", "amber"]} drawing={<FigScale />} />
+
+- **A shared message channel** (pub/sub) lets any instance publish, and every instance holding interested sockets deliver.
+- **Memory per connection:** each open socket costs buffers and app state, often tens of KB. 10,000 idle trackers is fine for one Node instance; plan capacity by open connections, not requests per second.
+- **File descriptor limits:** every socket is an open file; raise the OS limit (`ulimit -n`) on busy servers.
+
+## Security
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Risk</th><th>What to do</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Anyone connecting</td><td>Authenticate during the handshake. Gotcha: the browser's WebSocket API **cannot set custom headers**, so no `Authorization: Bearer`. Use the session cookie, or a short-lived ticket in the URL or in the first message.</td></tr>
+    <tr><td>2</td><td>Cross-site WebSocket hijacking</td><td>A malicious site can open a WebSocket to api.kade.lk and the browser attaches Kadé's cookie. CORS does **not** protect WebSockets. The server must check the `Origin` header against its own sites.</td></tr>
+    <tr><td>3</td><td>Bad or huge messages</td><td>Validate every message; set a maximum message size; rate-limit per connection</td></tr>
+    <tr><td>4</td><td>Eavesdropping</td><td>wss only (TLS, <Ch n="25">chapter 25</Ch>)</td></tr>
+    <tr><td>5</td><td>Long-lived sessions</td><td>A token checked once at connect may expire while the socket stays open. Re-check periodically, or close sockets when the session ends.</td></tr>
+  </tbody>
+</Table>
+
+## WebSocket, SSE or polling?
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Need</th><th>Good choice</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Server → client only (order status, notifications)</td><td>**SSE**</td><td>Plain HTTP, works over HTTP/2 and 3, automatic reconnect with last-event-ID built into the browser's EventSource, easy through proxies. Text only.</td></tr>
+    <tr><td>2</td><td>Both directions, often (chat, rider GPS in and out)</td><td>**WebSocket**</td><td>Full duplex, tiny frames, binary allowed</td></tr>
+    <tr><td>3</td><td>Rare updates, simple setup, or behind strict proxies</td><td>**Polling** (short or long)</td><td>Stateless, works everywhere, nothing to keep alive</td></tr>
+    <tr><td>4</td><td>Server → another server</td><td>**Webhooks**</td><td>PayGate calls a Kadé URL when a payment settles: an HTTP POST, not a held connection</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The classic WebSocket runs on its own HTTP/1.1 connection. Newer standards can carry WebSockets inside HTTP/2 and HTTP/3 streams, and **WebTransport** (on QUIC) is emerging for low-latency apps.</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1-2</td><td>The problem</td><td>HTTP cannot push; polling is wasteful and late</td><td>short polling, long polling, SSE</td></tr>
+    <tr><td>3</td><td>WebSocket</td><td>One long-lived, full-duplex connection; ws:// and wss://</td><td>WebSocket, full duplex</td></tr>
+    <tr><td>4</td><td>Handshake</td><td>HTTP Upgrade → 101 Switching Protocols; Key/Accept</td><td>Upgrade, 101</td></tr>
+    <tr><td>5</td><td>Frames</td><td>2-14 byte header; opcodes; client frames masked</td><td>frame, opcode, masking</td></tr>
+    <tr><td>7-8</td><td>Operations</td><td>Ping/pong through idle timeouts; reconnect with backoff, jitter and catch-up</td><td>ping/pong, thundering herd</td></tr>
+    <tr><td>9</td><td>Scaling</td><td>Sockets are pinned; pub/sub between instances; plan by connections</td><td>pub/sub</td></tr>
+    <tr><td>10</td><td>Security</td><td>Auth at handshake (no custom headers in browsers); check Origin</td><td>cross-site WebSocket hijacking</td></tr>
+    <tr><td>11</td><td>Choosing</td><td>SSE for one-way, WebSocket for two-way, polling for rare, webhooks for servers</td><td>webhook</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="The handshake and every message">
+
+- **Steps:** Chrome DevTools → Network → filter **WS**, open any chat or live site
+- **What to look for:** Status `101`; the **Messages** tab lists frames sent (up) and received (down).
+- **From section:** [4. The handshake: an HTTP request that upgrades](#the-handshake-an-http-request-that-upgrades)
+
+</TryIt>
+
+<TryIt n={2} title="An interactive WebSocket client">
+
+- **What to look for:** Type a line: it is sent as one text frame; replies print as they arrive.
+- **Runs on:** or websocat
+- **From section:** [4. The handshake: an HTTP request that upgrades](#the-handshake-an-http-request-that-upgrades)
+
+```sh
+npx wscat -c wss://your-server/path
+```
+
+</TryIt>
+
+<TryIt n={3} title="Just the handshake">
+
+- **What to look for:** `HTTP/1.1 101 Switching Protocols` and the matching Accept value.
+- **From section:** [4. The handshake: an HTTP request that upgrades](#the-handshake-an-http-request-that-upgrades)
+
+```sh
+curl -i -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' https://your-server/path
+```
+
+</TryIt>
+
+<TryIt n={4} title="How many sockets are open">
+
+- **What to look for:** Grows with connected apps, not with request rate.
+- **Runs on:** Linux, on kade-api
+- **From section:** [9. Scaling: connections are stateful](#scaling-connections-are-stateful)
+
+```sh
+ss -tn state established '( sport = :443 )' | wc -l
+```
+
+</TryIt>
+
+<TryIt n={5} title="Max open files for the process">
+
+- **What to look for:** Often 1024 by default: too low for thousands of WebSockets.
+- **From section:** [9. Scaling: connections are stateful](#scaling-connections-are-stateful)
+
+```sh
+ulimit -n
+```
+
+</TryIt>

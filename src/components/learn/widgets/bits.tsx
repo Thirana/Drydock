@@ -19,7 +19,7 @@ export function BitCell({
 }: {
   bit: string;
   part?: Part;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
   className?: string;
 }) {
   return (

@@ -1,0 +1,444 @@
+import { NatLookup } from "@/components/learn/widgets/local-delivery";
+import { FigCloudnat, FigSwap, FigTimeouts, FigTraverse } from "@content/learn/fundamentals/figures/10-nat-sharing-one-public-ip";
+
+<Part n="A">How NAT works</Part>
+
+## The problem
+
+IPv4 has about 4.3 billion addresses, far fewer than the number of devices online (<Ch n="2">chapter 2</Ch>). The fix has two parts: reserve some ranges for private use, and let many private devices share one public address. That sharing is <Term>NAT</Term> (Network Address Translation).
+
+The private ranges, which are never routed on the public internet:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Range</th><th>Addresses</th><th>Typical use</th><th>In the Kadé scenario</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`10.0.0.0/8`</td><td>16,777,216</td><td>Large networks, cloud VPCs</td><td>kade-vpc 10.10.0.0/16</td></tr>
+    <tr><td>2</td><td>`172.16.0.0/12`</td><td>1,048,576</td><td>Medium networks, offices</td><td>Kadé office 172.16.0.0/16</td></tr>
+    <tr><td>3</td><td>`192.168.0.0/16`</td><td>65,536</td><td>Homes and small offices</td><td>Your home 192.168.1.0/24</td></tr>
+  </tbody>
+</Table>
+
+## Why a private source cannot go out as it is
+
+Suppose the laptop's packet reached kade-api with source 192.168.1.23. kade-api would reply to 192.168.1.23, and that reply could never find its way back: internet routers do not route private ranges, and millions of homes use that exact address anyway. So the source must be changed before the packet leaves the home.
+
+## The swap, out and back
+
+The home router rewrites the source to its own public IP on the way out, and reverses the change on the way back. With the form of NAT used at home, it rewrites the source **port** too:
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigSwap />}>
+
+kade-api only ever sees 203.0.113.45. It has no idea the laptop exists.
+
+</Figure>
+
+## What exactly is rewritten
+
+NAT changes more than one field. Using the <Ch n="1">chapter 1</Ch> envelopes, here is the outgoing packet as it leaves the router's WAN side:
+
+<Fields>
+  <Field label="IP · source address" changed>203.0.113.45</Field>
+  <Field label="IP · destination address">34.87.120.15</Field>
+  <Field label="TCP · source port" changed>40001</Field>
+  <Field label="TCP · destination port">443</Field>
+  <Field label="IP · header checksum" changed>recalculated</Field>
+  <Field label="TCP · checksum" changed>recalculated</Field>
+  <Field label="Data (HTTP, TLS-encrypted)">not touched</Field>
+  <Field label="Frame · MACs">new pair anyway, as at every hop</Field>
+</Fields>
+
+<Caption>A **checksum** is a small number computed from the header so the receiver can spot damage. Change any field and the checksum must be recomputed, or the packet is thrown away as corrupt.</Caption>
+
+Two details follow from this:
+
+- **NAT only rewrites headers, never the data.** Keep this in mind for section 12.
+- **Ping has no ports.** ICMP (the protocol behind ping) has no port numbers, so NAT uses the ping's ID number in the same way instead.
+
+## The NAT table
+
+To send each reply to the right device, the router records every connection in a <Term>NAT table</Term>. Here the laptop has two browser tabs open to Kadé, the phone runs the Kadé app, and the TV is streaming:
+
+<Table>
+  <thead>
+    <tr><th>Device</th><th>Private side</th><th>Public side</th><th>Talking to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Laptop, tab 1</td><td><Mono>192.168.1.23:52814</Mono></td><td><Mono>203.0.113.45:**40001**</Mono></td><td><Mono>34.87.120.15:443</Mono></td></tr>
+    <tr><td>Laptop, tab 2</td><td><Mono>192.168.1.23:52815</Mono></td><td><Mono>203.0.113.45:**40002**</Mono></td><td><Mono>34.87.120.15:443</Mono></td></tr>
+    <tr><td>Phone, Kadé app</td><td><Mono>192.168.1.40:61022</Mono></td><td><Mono>203.0.113.45:**40003**</Mono></td><td><Mono>34.87.120.15:443</Mono></td></tr>
+    <tr><td>Smart TV</td><td><Mono>192.168.1.52:49200</Mono></td><td><Mono>203.0.113.45:**40004**</Mono></td><td><Mono>a streaming service</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Three connections go to exactly the same place, kade-api on 443. After the swap they all share one public IP. Only the public port tells them apart.</Caption>
+
+Ports do the telling-apart, so this common form is called <Term>PAT</Term> (Port Address Translation), or "NAT overload". When people say NAT at home, they mean PAT.
+
+Two more details about the table:
+
+- **Each row is keyed by 5 values:** protocol (TCP or UDP), source IP, source port, destination IP, destination port. These are the four values from <Ch n="1">chapter 1</Ch> plus the protocol. Tracking all of them is called <Term>connection tracking</Term>.
+- **Port preservation.** Many routers keep the original port if it is free (52814 stays 52814) and only pick a new one when two devices clash. This chapter uses 4000x to make the change easy to see.
+
+<Part n="B">Kinds and limits</Part>
+
+## Kinds of NAT
+
+NAT is described in two ways: by how addresses are shared, and by which field it changes.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>Mapping</th><th>How it works</th><th>Where you see it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Static NAT</td><td>1 private ↔ 1 public, fixed</td><td>One private IP always maps to the same public IP, both ways.</td><td>kade-api's external IP 34.87.120.15 ↔ 10.10.1.10</td></tr>
+    <tr><td>2</td><td>Dynamic NAT</td><td>1 ↔ 1, from a pool</td><td>A device borrows a public IP from a pool while it is active. Rare today.</td><td>Old enterprise networks</td></tr>
+    <tr><td>3</td><td>PAT</td><td>many ↔ 1, by port</td><td>Many devices share one IP; ports tell them apart.</td><td>Home and office routers, Cloud NAT</td></tr>
+  </tbody>
+</Table>
+
+<Cols n={2}>
+
+<Col title="SNAT · source NAT">
+
+Changes the **source** of packets going out. Lets private devices reach the internet.
+
+src 192.168.1.23 → 203.0.113.45
+
+</Col>
+
+<Col title="DNAT · destination NAT">
+
+Changes the **destination** of packets coming in. Lets the internet reach a private device.
+
+dst 203.0.113.45:8443 → 192.168.1.23:3000
+
+</Col>
+
+</Cols>
+
+Everything in Part A is SNAT. Port forwarding (section 10) is DNAT. GCP's external IP for kade-api does both: DNAT for traffic coming in, SNAT for traffic going out. Load balancers also use DNAT, which comes in a later chapter.
+
+## Port limits
+
+Ports 1024 to 65535 are the ones NAT normally hands out: **64,512 ports per public IP, per protocol**. Because each row also records the destination (section 5), the same public port can be reused for different destinations. So the real limit is: **about 64,000 connections at the same time from one public IP to one destination IP and port.**
+
+<Table>
+  <thead>
+    <tr><th>Situation</th><th>Connections through one public IP</th><th>OK?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Your home</td><td>4 devices, a few hundred connections</td><td>**plenty of room**</td></tr>
+    <tr><td>Kadé office</td><td>20 staff × ~30 connections to kade-api = ~600</td><td>**plenty of room**</td></tr>
+    <tr><td>kade-api → PayGate via Cloud NAT</td><td>Cloud NAT gives each VM only a slice of ports. The default minimum is 64, so kade-api can hold 64 connections to PayGate:443 at once.</td><td>**can run out**</td></tr>
+  </tbody>
+</Table>
+
+When the ports run out, new connections fail while old ones keep working. In GCP this shows up as dropped connections with the reason `OUT_OF_RESOURCES` in the Cloud NAT logs. The fixes: reuse connections (HTTP keep-alive, connection pools), give each VM more ports, turn on dynamic port allocation, or add more NAT IPs.
+
+## Timeouts: when a NAT row disappears
+
+The router cannot keep every row forever. It deletes a row when a connection closes, or when it has been **idle** for too long. After that, a late packet on that connection has no row and is dropped, even though both ends think the connection is still open.
+
+<Figure drawing={<FigTimeouts />}>
+
+Green = row exists. The limit shown is 20 minutes, Cloud NAT's default for an open TCP connection.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>Connection type</th><th>Cloud NAT default idle timeout</th><th>Home routers</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>TCP, open connection</td><td><Mono>1,200 s (20 min)</Mono></td><td>Varies a lot, from minutes to hours</td></tr>
+    <tr><td>TCP, opening or closing</td><td><Mono>30 s</Mono></td><td>Short</td></tr>
+    <tr><td>UDP</td><td><Mono>30 s</Mono></td><td>Often 30 s to a few minutes</td></tr>
+    <tr><td>ICMP (ping)</td><td><Mono>30 s</Mono></td><td>Short</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Why a backend engineer cares">
+
+A database connection pool or a WebSocket that sits idle longer than the timeout breaks silently. The next query hangs until it times out. The fix is a keepalive shorter than the NAT timeout: TCP keepalive settings, or an app-level ping every few minutes.
+
+</Key>
+
+<Part n="C">Getting in from outside</Part>
+
+## Outbound is easy, inbound is hard
+
+A reply always matches a row, because the connection was started from inside. A request that starts on the internet has no row, so the router does not know which device should get it, and drops it. Try a few incoming packets:
+
+<NatLookup />
+
+## Port forwarding, UPnP and hairpin NAT
+
+To host something behind NAT, you add a <Term>port forwarding</Term> rule: a fixed row (DNAT) that maps a public port to one internal device. Say you want a teammate to try the Kadé Node app running on your laptop, port 3000:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>203.0.113.45:8443</Mono></td><td><Mono>→</Mono></td><td><Mono>192.168.1.23:3000</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Anyone who connects to 203.0.113.45:8443 now reaches your laptop. Remove the rule when you are done: it is an open door into your home network.</Caption>
+
+<Table>
+  <tbody>
+    <tr><td>**UPnP**</td><td>A protocol that lets apps inside the network ask the router to open a port automatically. Games and some smart devices use it. Handy, but any program on the LAN, including malware, can open a door the same way. Many guides suggest turning it off.</td></tr>
+    <tr><td>**Hairpin NAT**</td><td>From your own laptop, open 203.0.113.45:8443. The packet goes to the router and has to turn straight back inside. Routers that support "hairpin NAT" (also called NAT loopback) handle it; others fail. Inside the LAN, just use 192.168.1.23:3000.</td></tr>
+  </tbody>
+</Table>
+
+## Without port forwarding: tunnels and hole punching
+
+Port forwarding needs access to the router, and does not work at all behind carrier-grade NAT. Two other ways are used every day.
+
+### Reverse tunnels
+
+The laptop opens an **outgoing** connection to a tunnel service and keeps it open. Visitors connect to the service, and it sends their traffic back down that open connection. Outgoing connections always get a NAT row, so this works through any NAT. Examples: Cloudflare Tunnel, ngrok, or `ssh -R` to a server you own.
+
+### Hole punching (peer to peer)
+
+Video calls and WebRTC apps connect two devices that are **both** behind NAT, with no server in the middle carrying the traffic:
+
+<Figure hues={["plum", "teal", "green"]} drawing={<FigTraverse />} />
+
+Whether step 3 works depends on how each NAT behaves. The classic names:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>NAT type</th><th>Public port</th><th>Who can send in on it</th><th>Hole punching</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Full cone</td><td>Same for every destination</td><td>Anyone</td><td>Works</td></tr>
+    <tr><td>2</td><td>Restricted cone</td><td>Same for every destination</td><td>Only IPs you have sent to</td><td>Works</td></tr>
+    <tr><td>3</td><td>Port-restricted cone</td><td>Same for every destination</td><td>Only IP:port pairs you have sent to</td><td>Usually works</td></tr>
+    <tr><td>4</td><td>Symmetric</td><td>New one for each destination</td><td>Only the exact destination</td><td>Fails: STUN saw a different port</td></tr>
+  </tbody>
+</Table>
+
+<Caption>When hole punching fails, apps fall back to a **TURN** relay server that carries the traffic. **ICE** is the method WebRTC uses to try direct first, then the relay. Symmetric NAT is common in company networks and mobile carriers.</Caption>
+
+<Part n="D">Side effects</Part>
+
+## Problems NAT causes
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Problem</th><th>Why</th><th>In the Kadé scenario</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Devices cannot be reached from outside</td><td>Every connection must start from inside (section 9)</td><td>You need a tunnel or forwarding to demo your laptop's Node app</td></tr>
+    <tr><td>2</td><td>Protocols that put IPs in the data break</td><td>NAT only rewrites headers (section 4). FTP (active mode) and SIP phone calls write the private IP inside the message. Routers use an **ALG** (Application Layer Gateway) to patch these, and ALGs cause their own bugs.</td><td>An office VoIP phone with one-way audio is the classic symptom</td></tr>
+    <tr><td>3</td><td>Many people, one IP</td><td>A per-IP limit or ban hits everyone behind the NAT</td><td>If kade-api allows 100 requests per minute per IP, the whole office (198.51.100.20) shares that limit. Limit by user or API key instead.</td></tr>
+    <tr><td>4</td><td>Logs lose the device</td><td>The server only sees the public IP</td><td>kade-api's logs show 198.51.100.20, not which staff PC. Finding it needs the router's NAT log (time + public port).</td></tr>
+    <tr><td>5</td><td>Double NAT</td><td>Two NATs in a row (your router + carrier-grade NAT, <Ch n="2">chapter 2</Ch>)</td><td>Port forwarding at home stops working; some games and calls fail</td></tr>
+    <tr><td>6</td><td>State to keep</td><td>Every connection costs memory and can time out (section 8)</td><td>Idle database connections through Cloud NAT drop after 20 minutes</td></tr>
+  </tbody>
+</Table>
+
+## NAT is not a firewall, and IPv6
+
+<Cols n={2}>
+
+<Col title="NAT">
+
+Built to save addresses. Blocking unknown inbound traffic is a side effect, and UPnP or a forwarding rule can undo it.
+
+</Col>
+
+<Col title="Stateful firewall">
+
+Built to protect. It lets replies in and blocks unknown traffic on purpose, with rules you control. This is the useful part of NAT's side effect, done properly.
+
+</Col>
+
+</Cols>
+
+With IPv6 there are enough addresses for every device to have its own public one, so home networks normally do not use NAT at all. Protection then comes from the router's firewall. This is one reason to learn firewalls as their own topic, not as "what NAT does".
+
+<Part n="E">NAT in the cloud</Part>
+
+## Cloud NAT
+
+Later in the course, kade-api moves behind a load balancer and loses its external IP (<Ch n="0">chapter 0</Ch>'s plan). kade-db never had one. Both still need to call out: kade-api to PayGate, kade-db for OS updates. <Term>Cloud NAT</Term> is GCP's PAT for VMs without external IPs:
+
+<Figure hues={["teal", "green", "amber"]} drawing={<FigCloudnat />} />
+
+<Table>
+  <tbody>
+    <tr><td>Not a box</td><td>There is no NAT VM to size or patch. GCP's software network does the translation on each VM's host, so it has no single bottleneck.</td></tr>
+    <tr><td>Regional</td><td>Set up on a Cloud Router in one region, for chosen subnets (or all of them).</td></tr>
+    <tr><td>Outbound only</td><td>Replies come back; new inbound connections never do. Inbound traffic needs a load balancer or an external IP.</td></tr>
+    <tr><td>Static or automatic IPs</td><td>Use reserved static IPs when a partner keeps an allow list, as PayGate does. Automatic IPs can change.</td></tr>
+    <tr><td>Ports per VM</td><td>Default minimum 64 ports per VM (section 7). Raise it, or turn on dynamic port allocation, for busy callers.</td></tr>
+    <tr><td>Only VMs without external IPs</td><td>A VM that has its own external IP uses that (1:1 NAT) and skips Cloud NAT.</td></tr>
+    <tr><td>Logs</td><td>Can log each translation and each drop (like OUT\_OF\_RESOURCES), which answers "which VM made this call?"</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Serverless services such as Cloud Run can use the same static IP by sending their outbound traffic through the VPC.</Caption>
+
+## NAT across the Kadé scenario
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Where</th><th>Kind</th><th>What happens</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Home router</td><td>PAT (SNAT), many → 1</td><td>192.168.1.x devices share 203.0.113.45</td></tr>
+    <tr><td>2</td><td>Office router</td><td>PAT (SNAT), many → 1</td><td>Both office networks (172.16.1.x and 172.16.2.x) share 198.51.100.20 (<Ch n="6">chapter 6</Ch>, case 3)</td></tr>
+    <tr><td>3</td><td>kade-api's external IP</td><td>Static 1 → 1 (DNAT in, SNAT out)</td><td>GCP translates 34.87.120.15 ↔ 10.10.1.10. The VM's OS only knows 10.10.1.10: run `ip addr` on it and the external IP is not there.</td></tr>
+    <tr><td>4</td><td>Cloud NAT (planned)</td><td>PAT (SNAT), many → 1</td><td>kade-api (after the load balancer) and kade-db share static 34.87.200.7 for outgoing calls</td></tr>
+    <tr><td>5</td><td>Some ISPs</td><td>Carrier-grade NAT</td><td>If your router's WAN IP is 100.64.x.x to 100.127.x.x (<Ch n="2">chapter 2</Ch>), your ISP runs another NAT in front of yours</td></tr>
+  </tbody>
+</Table>
+
+## Where this leaves us
+
+This completes the addressing part of the course: IP addresses, networks and masks, the gateway, MAC and ARP for local delivery, and NAT for leaving a private network. The steps from <Ch n="1">chapter 1</Ch> now all have a name and a reason. Next come the layers above: hop-by-hop routing, TCP, TLS and HTTP.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Why</td><td>Not enough IPv4 addresses; private ranges + sharing</td><td>NAT, private range</td></tr>
+    <tr><td>3</td><td>The swap</td><td>Source rewritten on the way out, reversed on the way back</td><td></td></tr>
+    <tr><td>4</td><td>Rewritten</td><td>IP, port, checksums; never the data; ping uses its ID</td><td>checksum</td></tr>
+    <tr><td>5</td><td>NAT table</td><td>Rows keyed by 5 values; ports tell connections apart</td><td>PAT, connection tracking, port preservation</td></tr>
+    <tr><td>6</td><td>Kinds</td><td>Static 1:1, dynamic pool, PAT many:1; SNAT out, DNAT in</td><td>SNAT, DNAT</td></tr>
+    <tr><td>7</td><td>Limits</td><td>~64,500 ports per IP per destination; Cloud NAT: 64 per VM by default</td><td>port exhaustion</td></tr>
+    <tr><td>8</td><td>Timeouts</td><td>Idle rows are deleted; keepalives prevent silent drops</td><td>idle timeout, keepalive</td></tr>
+    <tr><td>9-10</td><td>Inbound</td><td>No row → dropped; forwarding adds a fixed row; UPnP and hairpin</td><td>port forwarding, UPnP, hairpin NAT</td></tr>
+    <tr><td>11</td><td>Traversal</td><td>Tunnels go out and stay open; hole punching needs a cone NAT</td><td>STUN, TURN, ICE, symmetric NAT</td></tr>
+    <tr><td>12</td><td>Side effects</td><td>Breaks inbound, IPs in data, shared limits, lost device in logs</td><td>ALG, double NAT</td></tr>
+    <tr><td>13</td><td>Not a firewall</td><td>Protection is a side effect; IPv6 usually has no NAT</td><td>stateful firewall</td></tr>
+    <tr><td>14</td><td>Cloud</td><td>Cloud NAT: regional, outbound only, static IPs, ports per VM</td><td>Cloud NAT, Cloud Router</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Your private IP, then your public IP">
+
+- **Steps:** `ipconfig getifaddr en0` then `curl ifconfig.me`
+- **What to look for:** Two different addresses: NAT sits between them.
+- **Runs on:** Linux: hostname -I · Windows: ipconfig
+- **From section:** [3. The swap, out and back](#the-swap-out-and-back)
+
+```sh
+ipconfig getifaddr en0
+curl ifconfig.me
+```
+
+</TryIt>
+
+<TryIt n={2} title="The first few hops">
+
+- **What to look for:** Two private hops in a row (192.168.x.x then 10.x or 100.64.x) mean double NAT.
+- **From section:** [12. Problems NAT causes](#problems-nat-causes)
+
+```sh
+traceroute 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={3} title="Your open connections">
+
+- **What to look for:** Your side shows the private IP. The router's public ports are never visible here.
+- **Runs on:** Linux · macOS: netstat -an -p tcp
+- **From section:** [5. The NAT table](#the-nat-table)
+
+```sh
+ss -tn
+```
+
+</TryIt>
+
+<TryIt n={4} title="A real NAT table">
+
+- **What to look for:** Each row shows the original and the translated address and port.
+- **Runs on:** on a Linux machine acting as a router
+- **From section:** [5. The NAT table](#the-nat-table)
+
+```sh
+sudo conntrack -L
+```
+
+</TryIt>
+
+<TryIt n={5} title="A NAT timeout">
+
+- **What to look for:** Often 30 (seconds) for UDP.
+- **Runs on:** Linux router
+- **From section:** [8. Timeouts: when a NAT row disappears](#timeouts-when-a-nat-row-disappears)
+
+```sh
+sysctl net.netfilter.nf_conntrack_udp_timeout
+```
+
+</TryIt>
+
+<TryIt n={6} title="Ports opened on your router by UPnP">
+
+- **What to look for:** Rows you never added by hand.
+- **Runs on:** install miniupnpc
+- **From section:** [10. Port forwarding, UPnP and hairpin NAT](#port-forwarding-upnp-and-hairpin-nat)
+
+```sh
+upnpc -l
+```
+
+</TryIt>
+
+<TryIt n={7} title="A reverse tunnel to your local app">
+
+- **What to look for:** A public URL that reaches your laptop with no port forwarding.
+- **From section:** [11. Without port forwarding: tunnels and hole punching](#without-port-forwarding-tunnels-and-hole-punching)
+
+```sh
+cloudflared tunnel --url http://localhost:3000
+```
+
+</TryIt>
+
+<TryIt n={8} title="The VM's interfaces">
+
+- **What to look for:** Only 10.10.1.10. The external IP lives in GCP's network, not on the VM.
+- **Runs on:** run on kade-api
+- **From section:** [15. NAT across the Kadé scenario](#nat-across-the-kad-scenario)
+
+```sh
+ip addr
+```
+
+</TryIt>
+
+<TryIt n={9} title="A Cloud NAT's settings">
+
+- **What to look for:** IP allocation (manual = static), min ports per VM, timeouts.
+- **From section:** [14. Cloud NAT](#cloud-nat)
+
+```sh
+gcloud compute routers nats describe NAT --router=ROUTER --region=REGION
+```
+
+</TryIt>
+
+<TryIt n={10} title="Which VM holds which NAT ports">
+
+- **What to look for:** Port ranges per VM interface.
+- **From section:** [14. Cloud NAT](#cloud-nat)
+
+```sh
+gcloud compute routers get-nat-mapping-info ROUTER --region=REGION
+```
+
+</TryIt>

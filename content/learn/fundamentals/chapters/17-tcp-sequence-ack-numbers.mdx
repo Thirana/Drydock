@@ -1,0 +1,193 @@
+import { SeqDiagram, SeqSimulator } from "@/components/learn/widgets/seq";
+
+## Two numbers on every segment
+
+Every TCP segment carries a <Term>sequence number</Term> (SEQ) and an <Term>acknowledgement number</Term> (ACK). Together they let both sides track exactly which bytes have been sent and which have safely arrived.
+
+<Cols n={2}>
+
+<Col title={"SEQ · \"this is where I am\""}>
+
+The number of the **first byte** of data in this segment.
+
+</Col>
+
+<Col title={"ACK · \"this is what I want next\""}>
+
+The number of the **next byte** the sender of this segment expects from the other side.
+
+</Col>
+
+</Cols>
+
+Each direction has its own count. The laptop numbers the bytes it sends to kade-api; kade-api numbers the bytes it sends back. Every segment says both "here are my bytes from N" (SEQ) and "I have yours up to M − 1" (ACK).
+
+## Numbers start at random
+
+Numbers do not start at 0. During the handshake each side picks a random <Term>Initial Sequence Number</Term> (ISN), a 32-bit number. The SYN in <Ch n="18">chapter 18</Ch> really starts at 2,591,834,610.
+
+- **Security:** an attacker who is not on the path would have to guess the current numbers to inject fake data or reset the connection. A random start makes that very hard.
+- **Safety:** a new connection on the same ports will not accept stray packets from an old one, because the old numbers are far away from the new ones.
+
+<Note>
+
+**Wireshark shows "relative" numbers.** To keep numbers readable, Wireshark subtracts the ISN and shows the SYN as 0 and the first data byte as 1. tcpdump shows real numbers on the handshake and relative ones after. The rest of this chapter uses small numbers too (starting at 4,000 and 9,000) so the arithmetic is easy to follow.
+
+</Note>
+
+## SEQ counts bytes, not segments
+
+This is the subtle, important part. If a segment carries bytes 1-50, its SEQ is 1. The next segment, carrying bytes 51-100, has SEQ = 51, not 2. The SEQ is simply the number of the first byte in that segment.
+
+<Segments label="the laptop's 150-byte request to kade-api, cut into three 50-byte segments (small, to keep the numbers easy)">
+  <Seg w={1} hue="amber">SEQ 1 · bytes 1-50</Seg>
+  <Seg w={1} hue="amber">SEQ 51 · bytes 51-100</Seg>
+  <Seg w={1} hue="amber">SEQ 101 · bytes 101-150</Seg>
+</Segments>
+
+<Segments>
+  <Seg w={1} hue="green">ACK 51</Seg>
+  <Seg w={1} hue="green">ACK 101</Seg>
+  <Seg w={1} hue="green">ACK 151</Seg>
+</Segments>
+
+<Caption>Next SEQ = this SEQ + number of data bytes in this segment. <Ch n="1">Chapter 1</Ch>'s chunking example (1, 1461, 2921) was exactly this rule.</Caption>
+
+## ACK names the next byte expected
+
+If kade-api has received bytes 1-50, it replies ACK = 51. That means: "I have everything up to byte 50. Send me byte 51 next." The ACK never lists what arrived; it names the first gap.
+
+## The numbers in the handshake
+
+You can watch the counting start in the handshake itself. Say the laptop picks ISN x = 4000 and kade-api picks y = 9000:
+
+<SeqDiagram set="hsnums" />
+
+<Table>
+  <thead>
+    <tr><th>Segment</th><th>SEQ</th><th>ACK</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>SYN</td><td><Mono>x = 4000</Mono></td><td><Mono>-</Mono></td><td>The laptop's random start</td></tr>
+    <tr><td>SYN-ACK</td><td><Mono>y = 9000</Mono></td><td><Mono>x + 1 = 4001</Mono></td><td>The SYN **uses up one number**, even with no data, so the next expected is 4001</td></tr>
+    <tr><td>ACK</td><td><Mono>x + 1 = 4001</Mono></td><td><Mono>y + 1 = 9001</Mono></td><td>Same for kade-api's SYN</td></tr>
+    <tr><td>First data</td><td><Mono>4001</Mono></td><td><Mono>9001</Mono></td><td>The first real byte from the laptop is number 4001</td></tr>
+  </tbody>
+</Table>
+
+<Caption>SYN and FIN each use one sequence number, so they can be acknowledged and resent like data. A plain ACK with no data uses none.</Caption>
+
+## Losses and how they are repaired
+
+Reliability falls out of these two numbers. If a segment is lost, no ACK for it comes back, and because ACKs name the next expected byte, the sender knows exactly what to resend. The laptop sends five 100-byte segments. Pick what goes wrong:
+
+<SeqSimulator />
+
+## Two ways to notice a loss
+
+<Table>
+  <thead>
+    <tr><th></th><th>Retransmission timeout</th><th>Fast retransmit</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Trigger</td><td>No ACK for a segment before a timer runs out</td><td>3 duplicate ACKs in a row</td></tr>
+    <tr><td>How fast</td><td>Slow: the timer (RTO) is based on measured round-trip time, at least 200 ms on Linux, and doubles after each miss</td><td>Fast: about one round trip after the loss</td></tr>
+    <tr><td>When it is needed</td><td>The lost segment was the last one, so nothing follows to cause duplicate ACKs</td><td>More data keeps flowing after the lost segment</td></tr>
+    <tr><td>After it</td><td>Congestion window drops hard (<Ch n="16">chapter 16</Ch>)</td><td>Congestion window is cut, less sharply</td></tr>
+  </tbody>
+</Table>
+
+While waiting for the missing segment, the receiver keeps the later ones in a buffer. It cannot hand them to the app yet, because TCP promises order. This waiting is the head-of-line blocking from <Ch n="14">chapter 14</Ch>.
+
+<Note>
+
+**SACK (selective ACK).** A plain ACK only names the first gap. With the SACK option (agreed in the handshake, <Ch n="18">chapter 18</Ch>), the receiver can also say "I have 4201-4500 too", so the sender resends only the missing piece. Almost every modern system uses it.
+
+</Note>
+
+## Cumulative and delayed ACKs
+
+ACKs are <Term>cumulative</Term>: one ACK = 4501 confirms every byte up to 4500 at once, not just one segment. This keeps overhead low. Receivers also use <Term>delayed ACK</Term>: instead of answering every segment, they usually ACK every second segment, or after a short wait (up to about 40 ms on Linux). Both appear in the "Normal" case of the simulator.
+
+ACKs also ride on data going the other way (<Term>piggybacking</Term>). When kade-api sends its response, the same segments carry its ACK for the laptop's request, so no separate ACK is needed.
+
+## When the numbers run out
+
+SEQ is 32 bits, so it wraps back to 0 after 4,294,967,295 bytes (about 4 GB). That is fine: comparisons are done "around the circle". On very fast links, 4 GB can pass in a few seconds, so TCP adds a **timestamp option** to each segment to tell an old, wrapped-around segment from a new one.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Two numbers</td><td>SEQ = my first byte here; ACK = your next byte I expect</td><td>SEQ, ACK</td></tr>
+    <tr><td>2</td><td>Random start</td><td>Each side picks a random ISN; tools show relative numbers</td><td>ISN</td></tr>
+    <tr><td>3</td><td>Bytes</td><td>Next SEQ = SEQ + data length</td><td></td></tr>
+    <tr><td>5</td><td>Handshake</td><td>SYN and FIN use one number each: ACK = x + 1</td><td></td></tr>
+    <tr><td>6-7</td><td>Losses</td><td>Timeout or 3 duplicate ACKs → resend exactly the missing bytes</td><td>RTO, duplicate ACK, fast retransmit, SACK</td></tr>
+    <tr><td>8</td><td>Low overhead</td><td>Cumulative, delayed and piggybacked ACKs</td><td>delayed ACK, piggybacking</td></tr>
+    <tr><td>9</td><td>Wraparound</td><td>32-bit numbers wrap after ~4 GB; timestamps help</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="A real conversation">
+
+- **Steps:** `sudo tcpdump -n -i en0 host example.com`, then `curl -s http://example.com > /dev/null`
+- **What to look for:** `seq 1:78` = bytes 1 to 77 (78 is the next); `ack 1235`; the handshake with real random numbers.
+- **From section:** [5. The numbers in the handshake](#the-numbers-in-the-handshake)
+
+```sh
+sudo tcpdump -n -i en0 host example.com
+curl -s http://example.com > /dev/null
+```
+
+</TryIt>
+
+<TryIt n={2} title="The same, with absolute numbers">
+
+- **What to look for:** Big 10-digit numbers everywhere.
+- **From section:** [2. Numbers start at random](#numbers-start-at-random)
+
+```sh
+sudo tcpdump -S -n -i en0 host example.com
+```
+
+</TryIt>
+
+<TryIt n={3} title="Live TCP details per connection">
+
+- **What to look for:** `rtt`, `rto`, `retrans`, `cwnd`.
+- **Runs on:** Linux
+- **From section:** [7. Two ways to notice a loss](#two-ways-to-notice-a-loss)
+
+```sh
+ss -ti
+```
+
+</TryIt>
+
+<TryIt n={4} title="Retransmission counters">
+
+- **What to look for:** Fast retransmits vs timeouts since boot.
+- **From section:** [7. Two ways to notice a loss](#two-ways-to-notice-a-loss)
+
+```sh
+netstat -s | grep -i retrans
+```
+
+</TryIt>
+
+<TryIt n={5} title="Problems Wireshark detected">
+
+- **What to look for:** "Duplicate ACK", "Retransmission", "Out-Of-Order" labels.
+- **From section:** [6. Losses and how they are repaired](#losses-and-how-they-are-repaired)
+
+```sh
+tcp.analysis.flags
+```
+
+</TryIt>

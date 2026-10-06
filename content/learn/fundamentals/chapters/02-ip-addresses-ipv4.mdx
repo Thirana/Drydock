@@ -1,0 +1,213 @@
+import { IpAnatomy, PlaceValue } from "@/components/learn/widgets/bytes";
+import { IpConv } from "@/components/learn/widgets/calculators";
+
+## What an IP address is
+
+IP stands for Internet Protocol, one of the most important protocols on the internet. An <Term>IP address</Term> is the number a device uses to be found on a network. Every device that wants to talk on a network needs one.
+
+One detail the short definition hides: an IP address belongs to a <Term>network interface</Term>, not to the whole device. An interface is one connection point: the WiFi card, an Ethernet port, or a virtual one made by the OS. Your laptop has several:
+
+<Table>
+  <thead>
+    <tr><th>Interface</th><th>Address</th><th>What it is for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**lo0 · loopback**</td><td><Mono>127.0.0.1</Mono></td><td>The laptop talking to itself<Sub>what you use when you run the Node app on localhost</Sub></td></tr>
+    <tr><td>**en0 · WiFi**</td><td><Mono>192.168.1.23</Mono></td><td>The home network<Sub>the one we follow in every chapter</Sub></td></tr>
+    <tr><td>**en1 · Ethernet**</td><td><Mono>none</Mono></td><td>No cable plugged in<Sub>no connection, so no address</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Names differ by OS: Linux uses lo, wlan0 or wlp2s0, eth0; Windows shows "Wi-Fi" and "Ethernet". In GCP, kade-api's interface (nic0) holds 10.10.1.10.</Caption>
+
+## Dotted-quad notation
+
+An IPv4 address is written as four whole numbers separated by dots, in the form A.B.C.D. This is called <Term>dotted-quad</Term> (or dotted-decimal) notation. Four numbers, three dots.
+
+<IpAnatomy ip="192.168.1.23" />
+
+Each number is called an <Term>octet</Term>, so 192.168.1.23 has four. You will often hear "the first three octets" and "the last octet". On the home network, the first three octets (192.168.1) are the same for every device, and only the last octet changes: .23 for the laptop, .40 for the phone, .52 for the TV. <Ch n="3">Chapter 3</Ch> explains why: an address is split into a network part and a host part.
+
+## Why "octet": binary in two minutes
+
+Humans read decimal (192). Computers store <Term>binary</Term>: only 0 and 1. Each 0 or 1 is one <Term>bit</Term>. Each octet is stored in 8 bits, and "octet" simply means a group of eight.
+
+In binary, each position has a value that doubles from right to left: 1, 2, 4, 8, 16, 32, 64, 128. A 1 means "count this position". Add up the positions that hold a 1 and you get the decimal number. Here is the laptop's address, octet by octet:
+
+<PlaceValue values="192,168,1,23" />
+
+<Key title="Decimal to binary, by hand">
+
+Go left to right. If the number is at least the place value, write 1 and subtract it. Otherwise write 0. For 23: 128 no, 64 no, 32 no, 16 yes (7 left), 8 no, 4 yes (3 left), 2 yes (1 left), 1 yes. Result: 00010111.
+
+</Key>
+
+## Why each octet is 0 to 255
+
+The smallest 8-bit value is 00000000, which is 0. The largest is 11111111, which is 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255. So one octet can hold 256 different values, from 0 to 255. That is why 192.168.1.300 is not a valid address: 300 needs 9 bits.
+
+Try any address below. Each octet is shown in binary and in hex.
+
+<IpConv ip="34.87.120.15" />
+
+## 32 bits = 4 bytes
+
+Now the key fact. There are 4 octets and each is 8 bits:
+
+<Equation>4 octets × 8 bits = 32 bits = 4 bytes</Equation>
+
+This links back to <Ch n="1">chapter 1</Ch>. When the IP layer wraps a packet, the source and destination address fields are exactly these 4 bytes each. The laptop 192.168.1.23 is stored as `C0 A8 01 17`, and kade-api 34.87.120.15 as `22 57 78 0F`.
+
+32 bits give 2<sup>32</sup> = 4,294,967,296 possible addresses, about 4.3 billion. That sounds like a lot, but it is fewer than the number of people on Earth, and many people have a phone, a laptop and more. Large blocks are also set aside for special jobs (section 7). IPv4 addresses ran out.
+
+## Running out, and IPv6
+
+The internet dealt with the shortage in two ways. The short-term fix: **private addresses** that many networks can reuse, plus **NAT** at the router to share one public address (both covered later). The long-term fix: <Term>IPv6</Term>, a new address format with a far bigger space.
+
+<Table>
+  <thead>
+    <tr><th></th><th>IPv4</th><th>IPv6</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Size</td><td><Mono>32 bits</Mono></td><td><Mono>128 bits</Mono></td></tr>
+    <tr><td>Written as</td><td>4 decimal numbers, dots</td><td>8 groups of hex, colons</td></tr>
+    <tr><td>Example</td><td><Mono>192.168.1.23</Mono></td><td><Mono>2001:db8::1<Sub>:: stands for a run of all-zero groups</Sub></Mono></td></tr>
+    <tr><td>Addresses</td><td><Mono>2<sup>32</sup> ≈ 4.3 billion</Mono></td><td><Mono>2<sup>128</sup> ≈ 3.4 × 10<sup>38</sup></Mono></td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**For now:** this course uses IPv4 to build intuition. The ideas (network part and host part, masks, routing) carry over to IPv6, which gets its own chapter later.
+
+</Note>
+
+## Special address ranges
+
+Not every address can be used for anything. Some ranges have fixed jobs. They are written in CIDR form, like 10.0.0.0/8, which <Ch n="3">chapter 3</Ch> explains. For now, read 10.0.0.0/8 as "every address that starts with 10".
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Range</th><th>Name</th><th>What it means</th><th>In the Kadé scenario</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`10.0.0.0/8`</td><td>Private</td><td>Free for any private network. Not reachable from the internet.</td><td>kade-vpc 10.10.0.0/16</td></tr>
+    <tr><td>2</td><td>`172.16.0.0/12`</td><td>Private</td><td>Same idea. Covers 172.16.x.x to 172.31.x.x.</td><td>Kadé office 172.16.0.0/16 (<Ch n="6">ch 6</Ch>)</td></tr>
+    <tr><td>3</td><td>`192.168.0.0/16`</td><td>Private</td><td>Same idea. Most home routers use part of this.</td><td>Home LAN 192.168.1.0/24</td></tr>
+    <tr><td>4</td><td>`100.64.0.0/10`</td><td>Shared (carrier NAT)</td><td>Used by ISPs that share one public IP among many customers.</td><td>If your router's WAN IP starts with 100.64 to 100.127, your ISP does this</td></tr>
+    <tr><td>5</td><td>`127.0.0.0/8`</td><td>Loopback</td><td>Never leaves the machine. 127.0.0.1 is "localhost".</td><td>Running Node on your laptop</td></tr>
+    <tr><td>6</td><td>`169.254.0.0/16`</td><td>Link-local</td><td>Self-assigned when no DHCP server answers. Also used for special cloud services.</td><td>GCP metadata server 169.254.169.254</td></tr>
+    <tr><td>7</td><td>`0.0.0.0`</td><td>"Any" / "none yet"</td><td>On a server: listen on every interface. As a source: "I have no address yet".</td><td>The laptop's first DHCP message (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>8</td><td>`255.255.255.255`</td><td>Broadcast</td><td>Every device on the local network.</td><td>Where that DHCP message is sent</td></tr>
+    <tr><td>9</td><td>`203.0.113.0/24`<Os>also 192.0.2.0/24, 198.51.100.0/24</Os></td><td>Documentation</td><td>Reserved for examples. Never used on the real internet.</td><td>Home router's public IP 203.0.113.45</td></tr>
+    <tr><td>10</td><td>almost everything else</td><td>Public</td><td>Unique worldwide. Reachable across the internet.</td><td>kade-api's external IP 34.87.120.15</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Private vs public">
+
+The same private address, 192.168.1.23, exists in millions of homes at once. That works because private addresses never travel on the internet: the home router swaps them for its public address first (NAT, a later chapter). A public address must be unique in the whole world.
+
+</Key>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>What an IP is</td><td>The number used to find a device on a network. It belongs to an interface.</td><td>IP address, interface, loopback</td></tr>
+    <tr><td>2</td><td>How it is written</td><td>Four numbers with dots: 192.168.1.23</td><td>dotted-quad, octet</td></tr>
+    <tr><td>3</td><td>How it is stored</td><td>Each octet is 8 bits; place values 128 down to 1</td><td>bit, binary</td></tr>
+    <tr><td>4</td><td>Octet range</td><td>00000000 to 11111111 = 0 to 255</td><td></td></tr>
+    <tr><td>5</td><td>Total size</td><td>32 bits = 4 bytes, so about 4.3 billion addresses</td><td>2<sup>32</sup></td></tr>
+    <tr><td>6</td><td>The shortage</td><td>Fixed with private addresses + NAT, and long-term with IPv6</td><td>IPv6</td></tr>
+    <tr><td>7</td><td>Special ranges</td><td>Private, loopback, link-local, broadcast, documentation, public</td><td>private, public</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Your IP on WiFi">
+
+- **What to look for:** Something like 192.168.x.x: a private address.
+- **Runs on:** macOS · Linux: hostname -I · Windows: ipconfig
+- **From section:** [1. What an IP address is](#what-an-ip-address-is)
+
+```sh
+ipconfig getifaddr en0
+```
+
+</TryIt>
+
+<TryIt n={2} title="All your interfaces">
+
+- **What to look for:** lo / lo0 with 127.0.0.1, your WiFi with its IP, unplugged ones with no `inet` line.
+- **Runs on:** macOS · Linux: ip -4 addr · Windows: ipconfig /all
+- **From section:** [1. What an IP address is](#what-an-ip-address-is)
+
+```sh
+ifconfig
+```
+
+</TryIt>
+
+<TryIt n={3} title="Loopback">
+
+- **What to look for:** Replies even with WiFi off. The packet never leaves the laptop.
+- **Runs on:** Windows: ping 127.0.0.1
+- **From section:** [7. Special address ranges](#special-address-ranges)
+
+```sh
+ping -c 3 127.0.0.1
+```
+
+</TryIt>
+
+<TryIt n={4} title="Your public IP, as the internet sees it">
+
+- **What to look for:** Different from your local IP. The router swapped it (NAT).
+- **From section:** [7. Special address ranges](#special-address-ranges)
+
+```sh
+curl ifconfig.me
+```
+
+</TryIt>
+
+<TryIt n={5} title="Decimal to binary">
+
+- **What to look for:** `11000000`
+- **Runs on:** macOS / Linux
+- **From section:** [3. Why "octet": binary in two minutes](#why-octet-binary-in-two-minutes)
+
+```sh
+echo "obase=2; 192" | bc
+```
+
+</TryIt>
+
+<TryIt n={6} title="The 4 bytes of the address">
+
+- **What to look for:** `C0 A8 01 17`
+- **Runs on:** macOS / Linux
+- **From section:** [5. 32 bits = 4 bytes](#32-bits-4-bytes)
+
+```sh
+printf '%02X ' 192 168 1 23
+```
+
+</TryIt>
+
+<TryIt n={7} title="The VM's internal IP, from the metadata server">
+
+- **What to look for:** On kade-api this returns 10.10.1.10.
+- **Runs on:** run on a GCP VM
+- **From section:** [7. Special address ranges](#special-address-ranges)
+
+```sh
+curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip
+```
+
+</TryIt>

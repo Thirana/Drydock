@@ -11,6 +11,7 @@ export function Field({
   invalid,
   describedBy,
   short,
+  long,
   inputMode,
 }: {
   label: string;
@@ -19,6 +20,8 @@ export function Field({
   invalid?: boolean;
   describedBy?: string;
   short?: boolean;
+  /** For URLs and IPv6 addresses. */
+  long?: boolean;
   inputMode?: "text" | "numeric";
 }) {
   const id = useId();
@@ -42,7 +45,7 @@ export function Field({
           invalid
             ? "border-fault"
             : "border-rule-strong hover:border-ink-faint",
-          short ? "w-[96px]" : "w-[210px]",
+          short ? "w-[96px]" : long ? "w-[360px] max-w-full" : "w-[210px]",
         )}
       />
     </div>

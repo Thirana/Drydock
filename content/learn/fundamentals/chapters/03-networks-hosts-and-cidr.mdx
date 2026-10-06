@@ -1,0 +1,260 @@
+import { CidrBar } from "@/components/learn/widgets/bits";
+import { VpcSlots } from "@/components/learn/widgets/bytes";
+import { CidrCalc } from "@/components/learn/widgets/calculators";
+import { FigDhcp, FigLanwan, FigNetwork } from "@content/learn/fundamentals/figures/03-networks-hosts-and-cidr";
+
+## What a network is
+
+A <Term>network</Term> is a set of devices connected so they can talk to each other. Your home WiFi is one: the laptop, phone, smart TV and printer, all joined through the home router.
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigNetwork />} />
+
+Devices on the same network reach each other directly. When you print a Kadé invoice, the laptop sends it straight to the printer. Reaching anything outside, like api.kade.lk, means leaving the network through the router. <Ch n="4">Chapter 4</Ch> shows how the laptop decides which case it is in.
+
+## Hosts
+
+A <Term>host</Term> is any single device on a network that has its own IP address. The home network above has five hosts: the four devices and the router itself (192.168.1.1). In the cloud, kade-api and kade-db are hosts on kade-vpc.
+
+Each host needs a unique address on its network, so data is delivered to exactly the right one. If two devices end up with the same address (an IP conflict), both start losing their connections.
+
+## How devices get their IP: DHCP
+
+You never type these addresses in. When a device joins, the router hands it one using <Term>DHCP</Term> (Dynamic Host Configuration Protocol). It takes four messages, often remembered as **DORA**:
+
+<Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigDhcp />}>
+
+Dashed amber = broadcast (sent to every device). The laptop has no address yet, so it can only shout. Leases are renewed quietly, usually at half the lease time.
+
+</Figure>
+
+The Offer carries more than an address. It gives the laptop everything it needs to use the network, and every item shows up again later in the course:
+
+<Table>
+  <thead>
+    <tr><th>Setting</th><th>Value</th><th>Used for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>IP address</td><td><Mono>192.168.1.23</Mono></td><td>The laptop's own address<Sub><Ch n="2">chapter 2</Ch></Sub></td></tr>
+    <tr><td>Subnet mask</td><td><Mono>255.255.255.0</Mono></td><td>Telling "same network" from "somewhere else"<Sub><Ch n="4">chapter 4</Ch></Sub></td></tr>
+    <tr><td>Default gateway</td><td><Mono>192.168.1.1</Mono></td><td>Where to send anything not on this network<Sub>the router's MAC in <Ch n="1">chapter 1</Ch>'s frame</Sub></td></tr>
+    <tr><td>DNS server</td><td><Mono>192.168.1.1</Mono></td><td>Who to ask for names like api.kade.lk<Sub>the router passes questions on to the ISP's resolver</Sub></td></tr>
+    <tr><td>Lease time</td><td><Mono>24 hours</Mono></td><td>How long the address is the laptop's<Sub>then it must renew</Sub></td></tr>
+  </tbody>
+</Table>
+
+The router keeps a table of who has which address. It matches devices by MAC address:
+
+<Table>
+  <thead>
+    <tr><th>Device</th><th>MAC</th><th>IP</th><th>Type</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Laptop</td><td><Mono>a4:83:e7:2b:91:0c</Mono></td><td><Mono>192.168.1.23</Mono></td><td>Dynamic<Sub>lease ends in 17 h</Sub></td></tr>
+    <tr><td>Phone</td><td><Mono>5e:1a:0b:c3:77:e2</Mono></td><td><Mono>192.168.1.40</Mono></td><td>Dynamic<Sub>lease ends in 9 h</Sub></td></tr>
+    <tr><td>Smart TV</td><td><Mono>90:0f:3d:12:a8:4b</Mono></td><td><Mono>192.168.1.52</Mono></td><td>Dynamic<Sub>lease ends in 22 h</Sub></td></tr>
+    <tr><td>Printer</td><td><Mono>00:1b:a9:44:7c:21</Mono></td><td><Mono>192.168.1.60</Mono></td><td>Reserved<Sub>always gets .60</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Reserved vs static.** The laptop must find the printer at the same address every time, so the router is told "always give MAC 00:1b:a9:44:7c:21 the address .60". That is a **reservation**: the address still comes from DHCP. A **static** address is typed into the device itself, and DHCP is not used. GCP works the same way: kade-api gets 10.10.1.10 from GCP's DHCP, and you can reserve it as a static internal IP.
+
+</Note>
+
+## LAN and WAN
+
+The home network is a <Term>LAN</Term> (Local Area Network): devices in one place, on one network. Everything beyond it, the ISP and the wider internet, is the <Term>WAN</Term> (Wide Area Network). Most of networking is about how a device on your LAN reaches something out on the WAN.
+
+<Figure wide hues={["teal", "green"]} drawing={<FigLanwan />}>
+
+The router stands on both sides and has two addresses. The ISP gives it the WAN address, also with DHCP. The internet only ever sees 203.0.113.45, never 192.168.1.x.
+
+</Figure>
+
+## CIDR notation
+
+To describe a whole network we need a way to name a range of addresses. <Term>CIDR</Term> (Classless Inter-Domain Routing) does it in one short line: an IP, a slash, and a number. The home network is `192.168.1.0/24`.
+
+<CidrBar ip="192.168.1.0" prefix="24" />
+
+- **The /24** is how many bits, counted from the left, form the network part. The rest are the host part.
+- **The .0 address**, the first of the range, stands for the network itself. It is never given to a device.
+- **The .255 address**, the last of the range, is the <Term>broadcast address</Term>: a message sent to it reaches every device on this network. It is not given to a device either.
+
+In 192.168.1.0/24, the first 24 bits (three octets: 8 + 8 + 8) are the network part. They are the same for every device on the network. The last 8 bits (the last octet) are the host part, different for each device:
+
+<Table>
+  <tbody>
+    <tr><td>Laptop</td><td><Mono>192.168.1.23</Mono></td><td>same network, host 23</td></tr>
+    <tr><td>Phone</td><td><Mono>192.168.1.40</Mono></td><td>same network, host 40</td></tr>
+    <tr><td>Printer (new)</td><td><Mono>192.168.1.60</Mono></td><td>plugged in today: network part unchanged, only the host part is new</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Rule of thumb">
+
+Network bits are fixed across the whole network. Host bits are free to change per device.
+
+</Key>
+
+## How many hosts fit
+
+The number of host bits decides how many addresses the network has. With 8 host bits (a /24), there are 2<sup>8</sup> = 256 addresses. Two of them are reserved (network and broadcast), which leaves 254 for devices, and the router takes one of those.
+
+<Range>
+  <RangePart kind="special" w="13%" sub="network">.0</RangePart>
+  <RangePart kind="router" w="13%" sub="router">.1</RangePart>
+  <RangePart kind="devices" sub="devices: .23 laptop, .40 phone, .52 TV, .60 printer">.2 to .254</RangePart>
+  <RangePart kind="special" w="13%" sub="broadcast">.255</RangePart>
+</Range>
+
+<Caption>Many routers hand out only part of this, for example .100 to .200, to leave room for fixed devices.</Caption>
+
+<Key title="The formula">
+
+Addresses = 2<sup>host bits</sup> = 2<sup>(32 − prefix)</sup>. Usable for devices = that number − 2. When every address is taken, the next device to join gets no IP: the network is full.
+
+</Key>
+
+## Reading CIDR ranges
+
+A smaller number after the slash means fewer network bits, more host bits and a bigger network.
+
+<Table>
+  <thead>
+    <tr><th>CIDR</th><th>Network bits</th><th>Host bits</th><th>Addresses</th><th>Example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>/32</td><td>32</td><td>0</td><td>1</td><td>One exact address. A firewall rule for "only my home": `203.0.113.45/32`</td></tr>
+    <tr><td>/28</td><td>28</td><td>4</td><td>16</td><td>A tiny subnet</td></tr>
+    <tr><td>/24</td><td>24</td><td>8</td><td>256</td><td>Home LAN `192.168.1.0/24`, sn-app `10.10.1.0/24`</td></tr>
+    <tr><td>/20</td><td>20</td><td>12</td><td>4,096</td><td>Size of the subnets GCP creates for you in "auto mode" VPCs</td></tr>
+    <tr><td>/16</td><td>16</td><td>16</td><td>65,536</td><td>kade-vpc `10.10.0.0/16`</td></tr>
+    <tr><td>/8</td><td>8</td><td>24</td><td>16,777,216</td><td>The whole private range `10.0.0.0/8`</td></tr>
+    <tr><td>/0</td><td>0</td><td>32</td><td>4,294,967,296</td><td>`0.0.0.0/0`: every address, "the entire internet". Seen in routes and "allow from anywhere" rules.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The prefix does not have to be a multiple of 8. A /20 cuts through the third octet: 4 of its bits are network, 4 are host. Splitting ranges like this is subnetting, a later chapter.</Caption>
+
+## CIDR in the cloud
+
+CIDR is used everywhere in cloud work. When kade-vpc was created, its range was chosen with CIDR: `10.10.0.0/16`. That range holds 256 blocks of /24, and Kadé uses two of them as subnets:
+
+<VpcSlots />
+
+Subnets inside one VPC must not overlap. GCP also keeps 4 addresses in every subnet for itself, not 2:
+
+<Table>
+  <thead>
+    <tr><th>sn-app address</th><th>Kept for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>10.10.1.0</Mono></td><td>The network address</td></tr>
+    <tr><td><Mono>10.10.1.1</Mono></td><td>The default gateway for VMs in this subnet</td></tr>
+    <tr><td><Mono>10.10.1.254</Mono></td><td>Reserved by Google for future use</td></tr>
+    <tr><td><Mono>10.10.1.255</Mono></td><td>The broadcast address</td></tr>
+  </tbody>
+</Table>
+
+<Caption>So a /24 subnet in GCP has 256 − 4 = 252 usable addresses. kade-api's 10.10.1.10 is one of them.</Caption>
+
+Try any range:
+
+<CidrCalc cidr="10.10.1.0/24" />
+
+<Note>
+
+**Plan ranges early.** Two networks can only be joined (by VPN or peering) if their ranges do not overlap. kade-vpc (10.10.0.0/16) and the future Kadé office (172.16.0.0/16) are safe. If the VPC had been created as 192.168.0.0/16, it would clash with most home and office networks.
+
+</Note>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Network</td><td>Devices connected so they can talk directly</td><td>network</td></tr>
+    <tr><td>2</td><td>Host</td><td>One device with its own IP on a network</td><td>host, IP conflict</td></tr>
+    <tr><td>3</td><td>DHCP</td><td>Router hands out IP, mask, gateway, DNS and a lease in 4 messages</td><td>DORA, lease, reservation, static IP</td></tr>
+    <tr><td>4</td><td>LAN / WAN</td><td>Your local network vs everything beyond it; the router sits on both</td><td>LAN, WAN</td></tr>
+    <tr><td>5</td><td>CIDR</td><td>IP/prefix: prefix bits are the network part, the rest the host part</td><td>CIDR, network address, broadcast address</td></tr>
+    <tr><td>6</td><td>Size</td><td>2<sup>(32 − prefix)</sup> addresses, minus 2 for devices (minus 4 in GCP)</td><td></td></tr>
+    <tr><td>7</td><td>Reading ranges</td><td>Smaller prefix = bigger network; /32 is one address, /0 is all of them</td><td></td></tr>
+    <tr><td>8</td><td>Cloud</td><td>VPCs and subnets are CIDR ranges and must not overlap</td><td>VPC, subnet</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="The DHCP answer your laptop got">
+
+- **What to look for:** `yiaddr` (your IP), `router`, `subnet_mask`, `domain_name_server`, `lease_time`.
+- **Runs on:** macOS · Windows: ipconfig /all · Linux: nmcli device show
+- **From section:** [3. How devices get their IP: DHCP](#how-devices-get-their-ip-dhcp)
+
+```sh
+ipconfig getpacket en0
+```
+
+</TryIt>
+
+<TryIt n={2} title="Run DHCP again">
+
+- **What to look for:** Usually the same IP comes back: the router remembers your MAC.
+- **Runs on:** macOS · Windows: ipconfig /release then ipconfig /renew
+- **From section:** [3. How devices get their IP: DHCP](#how-devices-get-their-ip-dhcp)
+
+```sh
+sudo ipconfig set en0 DHCP
+```
+
+</TryIt>
+
+<TryIt n={3} title="Other hosts your laptop has talked to on the LAN">
+
+- **What to look for:** Their IPs and MACs, all in 192.168.1.x.
+- **From section:** [2. Hosts](#hosts)
+
+```sh
+arp -a
+```
+
+</TryIt>
+
+<TryIt n={4} title="Your IP with its prefix">
+
+- **What to look for:** `192.168.1.23/24` and the word `dynamic` (from DHCP).
+- **Runs on:** Linux
+- **From section:** [5. CIDR notation](#cidr-notation)
+
+```sh
+ip -4 addr
+```
+
+</TryIt>
+
+<TryIt n={5} title="Size and broadcast of a range">
+
+- **What to look for:** `256 192.168.1.255`
+- **From section:** [6. How many hosts fit](#how-many-hosts-fit)
+
+```sh
+python3 -c "import ipaddress as i; n=i.ip_network('192.168.1.0/24'); print(n.num_addresses, n.broadcast_address)"
+```
+
+</TryIt>
+
+<TryIt n={6} title="A VPC's subnets and their ranges">
+
+- **What to look for:** The RANGE column is CIDR.
+- **From section:** [8. CIDR in the cloud](#cidr-in-the-cloud)
+
+```sh
+gcloud compute networks subnets list --network=kade-vpc
+```
+
+</TryIt>

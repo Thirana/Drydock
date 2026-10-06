@@ -1,0 +1,285 @@
+import { TraceSim } from "@/components/learn/widgets/routing";
+import { FigPing } from "@content/learn/fundamentals/figures/13-icmp-ping-traceroute";
+
+## What ICMP is
+
+<Term>ICMP</Term> (Internet Control Message Protocol) is a helper protocol at the Internet layer. Routers and hosts use it to send status and error messages: "your packet could not be delivered", "TTL expired", "are you there?". It never carries application data.
+
+Unlike TCP and UDP, ICMP has **no ports**. It rides directly inside an IP packet. Compare the two envelopes:
+
+<Segments label="TCP packet">
+  <Seg w={1.1} hue="teal">frame</Seg>
+  <Seg w={1.6} hue="green">IP · protocol 6 (TCP)</Seg>
+  <Seg w={1.6} hue="amber">TCP · ports 40001 → 443</Seg>
+  <Seg w={2.5} hue="plum">HTTP data</Seg>
+</Segments>
+
+<Segments>
+  <Seg w={1.1} hue="teal">frame</Seg>
+  <Seg w={1.6} hue="green">IP · protocol 1 (ICMP)</Seg>
+  <Seg w={1.6} hue="green">ICMP · type, code, checksum</Seg>
+  <Seg w={2.5} muted>small payload (no app data)</Seg>
+</Segments>
+
+<Caption>The IP header has a "protocol" field that says what is inside: 6 = TCP, 17 = UDP, 1 = ICMP. ICMP is part of the IP world (green), not a transport like TCP (amber).</Caption>
+
+## Common ICMP messages
+
+Every ICMP message has a **type** (what kind of message) and a **code** (more detail):
+
+<Table>
+  <thead>
+    <tr><th>Type</th><th>Name</th><th>Codes worth knowing</th><th>Used by</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>8</td><td>Echo Request</td><td>0</td><td>ping: "are you there?"</td></tr>
+    <tr><td>0</td><td>Echo Reply</td><td>0</td><td>ping: "yes"</td></tr>
+    <tr><td>11</td><td>Time Exceeded</td><td>0 = TTL reached 0 in transit</td><td>Loops (<Ch n="12">chapter 12</Ch>), traceroute</td></tr>
+    <tr><td>3</td><td>Destination Unreachable</td><td>0 = no route to network · 1 = host unreachable · 3 = port unreachable · 4 = packet too big (section 8)</td><td>Routers and hosts reporting failure</td></tr>
+    <tr><td>5</td><td>Redirect</td><td>1 = better next hop for this host</td><td>A router suggesting a better gateway on the same LAN (usually ignored today)</td></tr>
+  </tbody>
+</Table>
+
+## ping
+
+<Term>ping</Term> sends an Echo Request and waits for an Echo Reply. If the reply comes back, the host is up and reachable. The time between sending and receiving is the <Term>RTT</Term> (round-trip time): how you measure latency.
+
+<Figure hues={["plum", "green", "amber"]} drawing={<FigPing />} />
+
+Pinging kade-api from home:
+
+```text
+$ ping -c 4 api.kade.lk
+PING api.kade.lk (34.87.120.15): 56 data bytes
+64 bytes from 34.87.120.15: icmp_seq=0 ttl=57 time=41.2 ms
+64 bytes from 34.87.120.15: icmp_seq=1 ttl=57 time=40.8 ms
+64 bytes from 34.87.120.15: icmp_seq=2 ttl=57 time=42.0 ms
+64 bytes from 34.87.120.15: icmp_seq=3 ttl=57 time=41.3 ms
+
+--- api.kade.lk ping statistics ---
+4 packets transmitted, 4 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 40.8/41.3/42.0/0.4 ms
+```
+
+<Table>
+  <thead>
+    <tr><th>Part</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>(34.87.120.15)</Mono></td><td>DNS ran first (<Ch n="1">chapter 1</Ch>). ping works on IPs.</td></tr>
+    <tr><td><Mono>icmp\_seq=0,1,2…</Mono></td><td>Each request's number. A missing number = a lost packet.</td></tr>
+    <tr><td><Mono>ttl=57</Mono></td><td>The reply's TTL on arrival. kade-api (Linux) starts at 64, so the reply passed about 64 − 57 = 7 routers.</td></tr>
+    <tr><td><Mono>time=41.2 ms</Mono></td><td>RTT. Colombo to Singapore and back; most of it is distance (section 6).</td></tr>
+    <tr><td><Mono>0.0% packet loss</Mono></td><td>Any steady loss means a problem on the path.</td></tr>
+    <tr><td><Mono>stddev = 0.4 ms</Mono></td><td>How much the RTT jumps around (jitter). Matters for calls and games.</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**A failed ping does not always mean "down".** kade-vpc is a custom VPC, and custom VPCs block all incoming traffic until you add firewall rules. If there is a rule for port 443 but none for ICMP, `curl https://api.kade.lk` works while ping gets no answer. Section 9 shows the rule.
+
+</Note>
+
+## Time Exceeded: the key to traceroute
+
+Recall from <Ch n="12">chapter 12</Ch>: every router lowers a packet's TTL by 1. When it reaches 0, the router drops the packet and sends an ICMP **Time Exceeded** message back to the sender. That message comes **from** the router, so its source IP tells the sender exactly which router the packet died at.
+
+## How traceroute works
+
+<Term>traceroute</Term> uses this on purpose. It sends a probe with TTL=1: the first router lowers it to 0 and replies with Time Exceeded, revealing hop 1. Then TTL=2 reveals hop 2, TTL=3 reveals hop 3, and so on until the destination itself answers. Run it from the office front desk PC, along <Ch n="12">chapter 12</Ch>'s path. Press the button to send each probe:
+
+<TraceSim />
+
+<Table>
+  <thead>
+    <tr><th>Tool</th><th>Probe sent</th><th>How the destination answers</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>traceroute<Sub>macOS, Linux default</Sub></Mono></td><td>UDP to high ports (33434 and up)</td><td>ICMP Destination Unreachable, code 3 (port unreachable)</td></tr>
+    <tr><td><Mono>tracert<Sub>Windows · traceroute -I</Sub></Mono></td><td>ICMP Echo Request</td><td>ICMP Echo Reply</td></tr>
+    <tr><td><Mono>traceroute -T -p 443<Sub>Linux, needs sudo</Sub></Mono></td><td>TCP to port 443</td><td>A TCP reply, since the port is open</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Routers along the way answer Time Exceeded in every mode. Only the last line depends on the mode. If kade-vpc's firewall only allows TCP 443, the UDP and ICMP modes show stars for the last hop, and the TCP mode gets through.</Caption>
+
+## Reading traceroute output
+
+```text
+$ traceroute api.kade.lk
+traceroute to api.kade.lk (34.87.120.15), 64 hops max
+ 1  172.16.1.1     0.9 ms   0.8 ms   1.0 ms
+ 2  198.51.100.1   5.8 ms   6.1 ms   5.9 ms
+ 3  10.200.0.2     7.1 ms   7.3 ms   7.0 ms
+ 4  192.0.2.2     36.4 ms  36.2 ms  36.8 ms
+ 5  * * *
+ 6  34.87.120.15  37.2 ms  37.0 ms  37.5 ms
+```
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>You see</th><th>It means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Three times per line</td><td>traceroute sends 3 probes per TTL. Each time is the RTT to that router.</td></tr>
+    <tr><td>3</td><td>A private IP (10.200.0.2) in the middle</td><td>An ISP's internal link. Normal.</td></tr>
+    <tr><td>4</td><td>A jump from 7 ms to 36 ms</td><td>The link from Colombo to Singapore. A jump that **stays** for every later hop is distance or a slow link at that point.</td></tr>
+    <tr><td>5</td><td>`* * *`</td><td>No answer within the time limit. Often a router that does not send Time Exceeded, or limits how many it sends. If later hops answer, the path is fine.</td></tr>
+    <tr><td>-</td><td>Stars from some hop to the end</td><td>Traffic really is stopped there, or the destination's firewall blocks the probe type (section 5).</td></tr>
+    <tr><td>-</td><td>One hop slow, the next ones fast</td><td>That router is just slow to _answer_ ICMP (low priority). Not a real problem.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Traceroute only shows the path **to** the destination. Replies can come back another way (asymmetric routing, <Ch n="12">chapter 12</Ch>), and every RTT includes that return trip.</Caption>
+
+`mtr` combines both tools: it runs traceroute continuously and shows loss and latency per hop, which makes a flaky hop much easier to spot than a single run.
+
+## Destination Unreachable
+
+Type 3 tells the sender its packet went nowhere, and the code says why:
+
+<Table>
+  <thead>
+    <tr><th>Code</th><th>Sent by</th><th>Kadé example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>0 network</Mono></td><td>A router with no route for the destination</td><td>R1 loses its default route: every internet destination fails at once</td></tr>
+    <tr><td><Mono>1 host</Mono></td><td>The last router: ARP for the host got no answer</td><td>The office printer is switched off</td></tr>
+    <tr><td><Mono>3 port</Mono></td><td>The host itself: nothing listens on that UDP port</td><td>What traceroute's last hop sends (section 5)</td></tr>
+    <tr><td><Mono>4 too big</Mono></td><td>A router: packet too big for the next link, and "don't fragment" is set</td><td>Section 8</td></tr>
+  </tbody>
+</Table>
+
+## Packet too big: path MTU discovery
+
+<Ch n="1">Chapter 1</Ch> set the MTU at 1,500 bytes. Some links carry less: VPN tunnels add their own headers, and GCP VPCs use an MTU of 1,460 by default. When a big packet reaches a smaller link, IP could split it into pieces (<Term>fragmentation</Term>), but TCP packets are normally marked "don't fragment". So the router drops it and replies ICMP type 3, code 4: "too big, the limit here is N". The sender then uses smaller packets. This is <Term>path MTU discovery</Term>.
+
+<Table>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>Office PC sends a 1,500-byte packet, "don't fragment" set, toward kade-db over the future VPN.</td></tr>
+    <tr><td><Mono>2</Mono></td><td>The VPN link carries at most 1,400. The router drops it and sends **ICMP 3/4: MTU 1,400**.</td></tr>
+    <tr><td><Mono>3</Mono></td><td>The PC resends in 1,400-byte packets. Everything works.</td></tr>
+    <tr><td><Mono>!</Mono></td><td>If a firewall blocks **all** ICMP, step 2's message never arrives. Small requests work, but big responses hang forever. This is called a **PMTU black hole**, and it is very confusing to debug.</td></tr>
+  </tbody>
+</Table>
+
+## ICMP and firewalls
+
+Because ICMP has no ports, firewalls treat it as its own protocol, allowed or blocked as a whole or by type. Some networks block ping so their hosts are harder to discover. That is fine, but blocking **all** ICMP breaks section 8 and makes debugging much harder.
+
+For kade-vpc, allow ping only from Kadé's own public IPs (the home and office NAT addresses from <Ch n="10">chapter 10</Ch>):
+
+```sh
+gcloud compute firewall-rules create kade-allow-icmp \
+  --network=kade-vpc --direction=INGRESS --allow=icmp \
+  --source-ranges=203.0.113.45/32,198.51.100.20/32
+```
+
+<Note>
+
+**Good rule of thumb:** Echo (ping) is optional. Destination Unreachable, including "packet too big", and Time Exceeded should be allowed back in, or path MTU discovery and traceroute stop working. ICMP is also why NAT needs the ping ID (<Ch n="10">chapter 10</Ch>): with no ports, the ID is how replies find the right device.
+
+</Note>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>ICMP</td><td>Internet-layer status and error messages; no ports, no app data</td><td>ICMP, IP protocol number</td></tr>
+    <tr><td>2</td><td>Messages</td><td>Type + code: Echo (8/0), Time Exceeded (11), Unreachable (3), Redirect (5)</td><td>type, code</td></tr>
+    <tr><td>3</td><td>ping</td><td>Echo Request/Reply; RTT, loss, jitter; reply TTL hints at hop count</td><td>RTT, jitter, packet loss</td></tr>
+    <tr><td>5</td><td>traceroute</td><td>TTL 1, 2, 3 … each router answers Time Exceeded</td><td>traceroute, probe</td></tr>
+    <tr><td>6</td><td>Reading it</td><td>Jumps that stay = real; lone stars = often fine; path is one-way</td><td>mtr</td></tr>
+    <tr><td>8</td><td>Too big</td><td>ICMP 3/4 drives path MTU discovery; block it and big transfers hang</td><td>fragmentation, PMTUD, black hole</td></tr>
+    <tr><td>9</td><td>Firewalls</td><td>Treat ICMP by type; allow errors back in</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Reachability and RTT">
+
+- **What to look for:** time, ttl, loss.
+- **Runs on:** Windows: ping -n 4 1.1.1.1
+- **From section:** [3. ping](#ping)
+
+```sh
+ping -c 4 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={2} title="A ping with TTL=1">
+
+- **What to look for:** "Time to live exceeded" from your gateway: traceroute's trick by hand.
+- **Runs on:** macOS · Linux: ping -c 1 -t 1 · Windows: ping -n 1 -i 1
+- **From section:** [4. Time Exceeded: the key to traceroute](#time-exceeded-the-key-to-traceroute)
+
+```sh
+ping -c 1 -m 1 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={3} title="Every router on the way">
+
+- **What to look for:** Hop 1 is your gateway; watch for jumps that stay.
+- **Runs on:** Windows: tracert 1.1.1.1
+- **From section:** [5. How traceroute works](#how-traceroute-works)
+
+```sh
+traceroute 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={4} title="Same path, different probes">
+
+- **What to look for:** Differences in the last hops show what firewalls allow.
+- **Runs on:** ICMP mode · Linux TCP mode: sudo traceroute -T -p 443 1.1.1.1
+- **From section:** [5. How traceroute works](#how-traceroute-works)
+
+```sh
+traceroute -I 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={5} title="Live traceroute with loss per hop">
+
+- **What to look for:** Loss that starts at one hop and stays for all later ones.
+- **Runs on:** install mtr
+- **From section:** [6. Reading traceroute output](#reading-traceroute-output)
+
+```sh
+mtr 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={6} title="Largest packet that fits">
+
+- **What to look for:** 1472 + 8 + 20 = 1500 works; 1473 gives "message too long".
+- **Runs on:** macOS · Linux: ping -M do -s 1472
+- **From section:** [8. Packet too big: path MTU discovery](#packet-too-big-path-mtu-discovery)
+
+```sh
+ping -D -s 1472 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={7} title="ICMP messages live">
+
+- **What to look for:** "echo request", "echo reply", "time exceeded in-transit".
+- **From section:** [2. Common ICMP messages](#common-icmp-messages)
+
+```sh
+sudo tcpdump -n -i en0 icmp
+```
+
+</TryIt>
