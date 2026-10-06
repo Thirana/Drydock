@@ -1,0 +1,457 @@
+import { PktWalk, ScopeQuiz } from "@/components/learn/widgets/gcp/foundations";
+import { FigAndromeda, FigScope, FigWhy } from "@content/learn/gcp/figures/01-the-mental-model-andromeda-no-layer-2";
+
+<Box kind="problem" title="The problem">
+
+kade-api-1 and kade-api-2 are both in `sn-app 10.10.1.0/24`. In the fundamentals course (<Ch n="4">ch 4</Ch>), two machines in the same subnet sit on the same switch and talk directly: ARP for the other machine's MAC, then send a frame to it.
+
+But kade-api-1 is in zone `a` and kade-api-2 is in zone `b`, which can be separate buildings. No cable or switch joins them. And when you log in to kade-api-1, `ip addr` shows `10.10.1.10/32`, not `/24`.
+
+So what is a "subnet" here, and who is doing the work that the switch and the router used to do?
+
+</Box>
+
+## Why GCP cannot use a normal network
+
+<Recalls><Recall n="32">Hubs, switches and routers</Recall><Recall n="9">ARP</Recall></Recalls>
+
+Google has to give millions of unrelated customers each their own private network, running on the same shared physical machines, in data centres all over the world. Each customer must feel like they have a data centre of their own, and must never see anyone else's traffic.
+
+The tools from the fundamentals course do not stretch that far:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Normal network tool</th><th>Why it fails at Google's size</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A switch and one broadcast domain per network</td><td>Your VMs are spread over hosts in different zones. There is no single cable or switch they could all share</td></tr>
+    <tr><td>2</td><td>VLANs to keep customers apart</td><td>A VLAN ID has 12 bits, so there are only 4,094 usable IDs. Google has far more networks than that</td></tr>
+    <tr><td>3</td><td>ARP broadcasts and MAC learning</td><td>Broadcasts across a whole data centre would flood every host, and switch MAC tables would never be big enough</td></tr>
+    <tr><td>4</td><td>Firewall and NAT boxes in the path</td><td>Every packet would have to pass through a few boxes. They would become the slowest point and a single point of failure</td></tr>
+  </tbody>
+</Table>
+
+So the picture you see (two VMs side by side in one subnet) and what is really there are very different:
+
+<Figure wide hues={["plum", "teal"]} drawing={<FigWhy />}>
+
+The subnet is not a place. It is a range of addresses and a set of rules, and Google's software makes VMs in it behave as if they were neighbours.
+
+</Figure>
+
+## Andromeda: a control plane and a data plane
+
+The software that runs every VPC is called <Term>Andromeda</Term>. It has two parts, and the split between them explains almost everything in this chapter.
+
+<Key title="Definition">
+
+The **control plane** is the global record: every VPC, subnet, VM, IP address, route and firewall rule, and which physical host each VM runs on. The **data plane** is software on every physical host, sitting next to each VM's virtual network card (vNIC). It moves each packet using state the control plane gave it in advance.
+
+</Key>
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigAndromeda />}>
+
+Kadé's VMs share hosts with other customers' VMs. The data plane on each host keeps them apart: it only ever hands a VM packets that belong to that VM's own network.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Part</th><th>Where it runs</th><th>What it knows</th><th>What it does</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Control plane</td><td>Google's own servers, one logical system for the world</td><td>Everything: every VM, IP, host, route, firewall rule</td><td>Decides; pushes the parts each host needs down to it</td></tr>
+    <tr><td>2</td><td>Data plane</td><td>Every physical host, beside each vNIC</td><td>Only what it was given: where each destination IP lives, which rules apply</td><td>Acts on every packet: check firewall, look up the destination host, wrap, send</td></tr>
+  </tbody>
+</Table>
+
+Compare this with the home router in the fundamentals course. The home router was both at once: it held the routing table and it moved the packets. In GCP the thinking and the moving are split, and the moving is copied onto every host.
+
+## Nothing is discovered: it is all known in advance
+
+<Recalls><Recall n="27">DHCP</Recall><Recall n="9">ARP</Recall><Recall n="32">Switch MAC learning</Recall></Recalls>
+
+This is the most important idea in the chapter. A normal LAN **finds things out** while it runs: DHCP hands out a free address, ARP asks who has an IP, and a switch learns which port each MAC is on by watching traffic.
+
+GCP never needs to find anything out. When a VM is created, the control plane decides its IP and its host, and pushes that to every data plane that may need it. So there is no discovery, no flooding and no learning.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Job</th><th>Home LAN (fundamentals course)</th><th>GCP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Give a device an IP</td><td>DHCP picks a free address from a pool (<Ch n="27">ch 27</Ch>)</td><td>Control plane picks it when the VM is created. DHCP only delivers it</td></tr>
+    <tr><td>2</td><td>Find the MAC for an IP</td><td>ARP broadcast, the owner replies (<Ch n="9">ch 9</Ch>)</td><td>The data plane answers the VM itself; nothing is broadcast</td></tr>
+    <tr><td>3</td><td>Know where a device is</td><td>Switch learns MAC → port from traffic (<Ch n="32">ch 32</Ch>)</td><td>Control plane already knows IP → host</td></tr>
+    <tr><td>4</td><td>Decide if traffic is allowed</td><td>One firewall box at the edge</td><td>Rules loaded into the data plane beside every VM</td></tr>
+    <tr><td>5</td><td>Share one public IP</td><td>NAT on the home router (<Ch n="10">ch 10</Ch>)</td><td>1:1 NAT done by the data plane on the VM's host</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Key idea">
+
+In GCP the network does not learn. It is told. Whatever the control plane records is the truth, and whatever the VM's operating system believes is ignored if it disagrees.
+
+</Key>
+
+## Follow one packet: kade-api-1 to kade-db
+
+<Recalls><Recall n="1">The envelopes</Recall><Recall n="8">MAC vs IP</Recall></Recalls>
+
+kade-api-1 (zone a) runs a SQL query on kade-db (zone b). Step through what happens. Watch which parts change and which never do.
+
+<PktWalk />
+
+Two things to take from this. First, the packet your VM builds (source `10.10.1.10`, destination `10.10.2.5`) arrives exactly as it was sent. Google puts it inside its own outer envelope to cross the physical network, then takes it back out. The VMs never see that envelope. Second, the MAC addresses in the frame are only there because the guest OS expects them. The data plane throws them away and routes on the IP.
+
+## What the VM sees: a /32 and one gateway
+
+<Recalls><Recall n="4">Subnet masks</Recall><Recall n="5">The default gateway</Recall></Recalls>
+
+In the fundamentals course, the subnet mask decided everything: same network, send directly; different network, send to the gateway. GCP uses that same rule to switch direct sending off.
+
+On Linux, DHCP gives the VM a **/32** mask. A /32 network holds exactly one address, the VM itself. So to the VM, **every other address is on a different network**, even kade-api-2 in the same subnet. Everything goes to the gateway `10.10.1.1`, and the only MAC the VM ever needs is the gateway's.
+
+<Box kind="check" title="gcloud check">
+
+Log in to kade-api-1 and look at its address, routes and ARP table:
+
+```sh
+gcloud compute ssh kade-api-1 --zone=asia-southeast1-a --tunnel-through-iap
+ip -4 addr show ens4
+ip route
+ip neigh
+```
+
+<Label>Output (trimmed; details vary a little by image)</Label>
+
+```text
+2: ens4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1460 ...
+    inet 10.10.1.10/32 metric 100 scope global dynamic ens4
+
+default via 10.10.1.1 dev ens4 proto dhcp src 10.10.1.10 metric 100
+10.10.1.1 dev ens4 proto dhcp scope link src 10.10.1.10 metric 100
+
+10.10.1.1 dev ens4 lladdr 42:01:0a:0a:01:01 REACHABLE
+```
+
+<Label>What it tells you</Label>
+
+- `10.10.1.10/32`: the VM's own network is just itself.
+- `10.10.1.1 dev ens4 scope link`: a special route that says "the gateway is directly reachable", even though it is outside the /32. Without it, the VM could not reach its gateway at all (<Ch course="fundamentals" n="5">Fundamentals ch 5</Ch>: the gateway must be reachable directly).
+- `default via 10.10.1.1`: everything else goes there, including kade-api-2 and kade-db.
+- The ARP table has one entry, the gateway, even after talking to other VMs. `mtu 1460` comes from DHCP too (section 08).
+
+The `--tunnel-through-iap` path works today only because `kade-allow-ssh` is open to everyone, which includes IAP's range. <Ch n="6">Chapter 6</Ch> makes it the only way in.
+
+</Box>
+
+<Note>
+
+**Two exceptions.** Windows images get the real subnet mask, and newer subnet and image settings can give Linux the real mask too. Even then, Google's docs are clear that ARP requests are never delivered to other VMs. The VM only thinks it has neighbours.
+
+</Note>
+
+## Two things GCP fakes: ARP and DHCP
+
+The VM runs an ordinary operating system that expects an ordinary Ethernet network. Instead of changing every OS, Google lets the guest do what it always does, and the data plane quietly answers.
+
+### ARP
+
+The VM asks "who has 10.10.1.1?". The request never leaves the host. The data plane replies with a MAC (`42:01:0a:0a:01:01`), the VM builds its frame with it, and the data plane throws the MAC away and routes on the IP. Because no other VM ever hears an ARP request, one VM cannot answer for another. ARP spoofing, from the <Ch course="fundamentals" n="9">Fundamentals ch 9</Ch>, cannot work here.
+
+### DHCP
+
+The VM boots and runs a normal DHCP client. The answer comes from the metadata server (section 07), but there is no pool to choose from: the address was fixed by the control plane when the network card was created. DHCP is only the delivery van for a decision already made. That is why the lease always renews to the same address.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>DHCP delivers</th><th>Value for kade-api-1</th><th>Why it matters</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>IP address and mask</td><td>`10.10.1.10/32`</td><td>Always the same; set by the control plane</td></tr>
+    <tr><td>2</td><td>Gateway and routes</td><td>`10.10.1.1`, plus the scope-link route to it</td><td>Section 05</td></tr>
+    <tr><td>3</td><td>DNS server</td><td>`169.254.169.254`</td><td>Internal names like `kade-db.asia-southeast1-b.c.kade-prod.internal` (<Ch n="8">chapter 8</Ch>)</td></tr>
+    <tr><td>4</td><td>MTU</td><td>`1460`</td><td>The VPC's MTU, the same on every VM (section 08)</td></tr>
+    <tr><td>5</td><td>Host name and search domains</td><td>`kade-api-1`, `c.kade-prod.internal`, …</td><td>Short names work inside the VPC</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Never set a static IP inside the guest OS">
+
+The data plane delivers packets based on the control plane's record, not on what the OS believes. If you edit the network config by hand and the two disagree, the VM becomes unreachable. To keep an address fixed, reserve a static internal IP in GCP (<Ch n="3">chapter 3</Ch>) and let DHCP keep handing it over.
+
+</Key>
+
+## The metadata server: 169.254.169.254
+
+<Recalls><Recall n="2">Link-local addresses</Recall></Recalls>
+
+Every VM can reach `169.254.169.254`, also known by the name `metadata.google.internal`. It is a link-local address: it is never routed anywhere, and the answer comes from Google's software for that VM, not from a machine out on the network. It does several jobs:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Job</th><th>What the VM gets</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>DHCP server</td><td>IP, routes, MTU, DNS server (section 06)</td><td className="whitespace-nowrap">1</td></tr>
+    <tr><td>2</td><td>DNS resolver</td><td>Internal VM names, private zones, and normal internet names</td><td className="whitespace-nowrap">8</td></tr>
+    <tr><td>3</td><td>Time (NTP)</td><td>Clock sync, as in the <Ch course="fundamentals" n="27">Fundamentals ch 27</Ch></td><td className="whitespace-nowrap">-</td></tr>
+    <tr><td>4</td><td>Instance metadata</td><td>Its own name, zone, IPs, tags, startup scripts</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>5</td><td>Access tokens</td><td>Short-lived tokens for the VM's service account</td><td className="whitespace-nowrap">5</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+From kade-api-1, ask the metadata server which zone the VM is in, and see which DNS server the VM uses:
+
+```sh
+curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/zone
+cat /etc/resolv.conf
+```
+
+<Label>Output</Label>
+
+```text
+projects/123456789012/zones/asia-southeast1-a
+
+nameserver 169.254.169.254
+search asia-southeast1-a.c.kade-prod.internal c.kade-prod.internal google.internal
+```
+
+<Label>What it tells you</Label>
+
+The `Metadata-Flavor: Google` header is required; without it the server refuses. It is a simple guard against tricking an app into fetching metadata. The number in the zone path is the project _number_, not the project ID.
+
+</Box>
+
+## MTU: 1460, set on the whole VPC
+
+<Recalls><Recall n="18">MTU, MSS and fragmentation</Recall></Recalls>
+
+In the fundamentals course, the MTU was a property of each link, usually 1500 on Ethernet. In GCP there are no links you manage, so the MTU is a setting on the **VPC network**. Every VM in kade-vpc gets the same value through DHCP.
+
+The default is **1460**, 40 bytes less than normal Ethernet. Google's own outer envelope (section 04) is added underneath your MTU, so it never eats into your 1460. So a full TCP segment inside kade-vpc carries:
+
+<Equation>1460 MTU − 20 IP − 20 TCP = 1420 MSS</Equation>
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+A VPC's MTU can be any value from 1300 to 8896. Common values are 1460 (the default, kept for historic reasons), 1500 and 8896. Changing it on an existing network is done with gcloud or the API, and Google asks you to stop the VMs in the network first.
+
+</Box>
+
+Two ways MTU goes wrong in practice:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Mistake</th><th>What you see</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Someone hardcodes `mtu 1500` inside a VM's OS while the VPC is 1460</td><td>Small requests work; large responses or file copies hang. The same black hole as <Ch course="fundamentals" n="18">Fundamentals ch 18</Ch></td><td className="whitespace-nowrap">1</td></tr>
+    <tr><td>2</td><td>A VPN adds its own headers on top of 1460</td><td>The same symptom across the VPN, unless MSS is lowered</td><td className="whitespace-nowrap">15</td></tr>
+  </tbody>
+</Table>
+
+## The firewall and external IPs live in the data plane too
+
+<Recalls><Recall n="10">NAT</Recall><Recall n="16">TCP connections</Recall></Recalls>
+
+Because the data plane sits beside every VM, jobs that normally need a box in the middle are done there instead:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Job</th><th>How GCP does it</th><th>What follows from that</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Firewall</td><td>Rules are loaded into the data plane of every host. Outgoing (egress) rules are checked beside the sending VM, incoming (ingress) rules beside the receiving VM</td><td>No firewall box to size or to fail. A packet blocked by an egress rule never leaves the host. The firewall scales with the number of VMs</td></tr>
+    <tr><td>2</td><td>Stateful firewall</td><td>The data plane remembers each allowed connection, like the NAT table in the fundamentals course</td><td>Replies to an allowed connection come back in without needing their own rule (<Ch n="5">chapter 5</Ch>)</td></tr>
+    <tr><td>3</td><td>External IP</td><td>1:1 NAT on the VM's host: the external IP is swapped for the internal IP on the way in, and back on the way out</td><td>The VM's OS never sees its external IP. `ip addr` shows only the internal one (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>4</td><td>Changes</td><td>A new or edited rule must reach every data plane it affects</td><td>Changes take effect within seconds, not at once. After a change, wait a moment before testing</td></tr>
+  </tbody>
+</Table>
+
+## What you lose without layer 2, and what to use instead
+
+A VPC is a layer 3 network: everything is routing, nothing is switching. Most apps never notice. Some things do:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Missing</th><th>What breaks</th><th>Use instead</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Broadcast and multicast</td><td>Anything that finds peers by broadcasting, such as some cluster discovery. It fails silently</td><td>A fixed list of peers, DNS, or a discovery service</td></tr>
+    <tr><td>2</td><td>VLANs</td><td>Nothing to configure; there are no tags</td><td>Separate subnets, firewall rules, or separate VPCs</td></tr>
+    <tr><td>3</td><td>Promiscuous mode</td><td>You cannot sniff other VMs' traffic; you only ever get your own packets</td><td>VPC Flow Logs or Packet Mirroring (<Ch n="16">chapter 16</Ch>)</td></tr>
+    <tr><td>4</td><td>Gratuitous ARP (used by VRRP, HSRP, CARP, keepalived)</td><td>Moving a "floating IP" between two VMs by announcing it. The data plane ignores what the guest claims</td><td>An internal load balancer with health checks, or move an alias IP range through GCP (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>5</td><td>Meaningful MAC addresses</td><td>Licences or tools tied to a MAC. Nothing routes on MACs here</td><td>Tie things to the VM name or IP instead</td></tr>
+    <tr><td>6</td><td>A real layer 2 segment</td><td>Old clustering software or appliances that truly need one</td><td>Tunnel layer 2 over layer 3 (VXLAN or GRE) inside the VPC</td></tr>
+  </tbody>
+</Table>
+
+Some of these losses are also protections. Rogue DHCP servers and ARP spoofing are impossible, because no other VM ever hears the request.
+
+<Box kind="exam" title="Exam angle">
+
+A question that mentions keepalived, VRRP or a floating IP between two VMs is testing this section. The expected answer is an internal load balancer with health checks, not a clever ARP setting.
+
+</Box>
+
+## Three scopes: global, regional, zonal
+
+Once the network is software, where a thing "lives" becomes a choice Google made per resource. Every GCP resource has one of three scopes, and the scope tells you two things: where it can be used, and what an outage can take down.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Scope</th><th>Meaning</th><th>Kadé's examples</th><th>If a zone fails</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Global</td><td>One object for the whole planet, not a copy per region</td><td>kade-vpc, firewall rules, routes, the load balancer IP `34.120.88.10`</td><td>Not affected</td></tr>
+    <tr><td>2</td><td>Regional</td><td>Lives in one region; Google spreads it over the zones inside</td><td>sn-app, sn-data, Cloud NAT and Cloud Router (<Ch n="7">ch 7</Ch>), the NAT IP, Cloud Run `kade-api` (<Ch n="10">ch 10</Ch>), HA VPN (<Ch n="15">ch 15</Ch>)</td><td>Keeps working from the other zones</td></tr>
+    <tr><td>3</td><td>Zonal</td><td>Pinned to one zone</td><td>kade-api-1 (zone a), kade-api-2 and kade-db (zone b), their disks</td><td>Unavailable until the zone is back, unless you built a copy elsewhere</td></tr>
+  </tbody>
+</Table>
+
+<Figure wide hues={["teal", "green"]} drawing={<FigScope />}>
+
+A subnet is regional, so it can stretch across zones. That only makes sense because there is no physical segment tying it down (section 01).
+
+</Figure>
+
+You can see a resource's scope in its full name (its <Term>self link</Term>). The path contains `global`, `regions/…` or `zones/…`, and gcloud asks for the matching flag:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Resource</th><th>Path in its full name</th><th>gcloud flag</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>kade-vpc</td><td>`projects/kade-prod/global/networks/kade-vpc`</td><td>none</td></tr>
+    <tr><td>2</td><td>sn-app</td><td>`projects/kade-prod/regions/asia-southeast1/subnetworks/sn-app`</td><td>`--region`</td></tr>
+    <tr><td>3</td><td>kade-api-1</td><td>`projects/kade-prod/zones/asia-southeast1-a/instances/kade-api-1`</td><td>`--zone`</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Some resources come in both kinds.** External IPs, health checks and load balancers exist as global or regional versions. Which one you need depends on what uses it: a global load balancer needs a global IP, while Cloud NAT and VMs use regional IPs. <Ch n="3">Chapters 3</Ch> and <Ch n="11">11</Ch> cover this.
+
+</Note>
+
+### Try it: which scope?
+
+<ScopeQuiz />
+
+<Box kind="exam" title="Exam angle">
+
+"VPCs are global, subnets are regional, VMs are zonal" is tested often, usually as "can one subnet span two zones?" (yes) or "do I need a VPN between two regions of the same VPC?" (no).
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Answered">
+
+- **What is sn-app?** A regional range of addresses and a set of rules, not a place. kade-api-1 and kade-api-2 can be in different buildings and still be in it.
+- **Who does the switch's job?** Nobody; there is nothing to switch. The data plane on each host routes every packet by IP, using state the control plane pushed in advance.
+- **Who does the router's job?** The same data plane. The gateway `10.10.1.1` is an address the data plane answers for, not a machine.
+- **Why /32?** So the VM sends everything, even to its neighbours, to the gateway, and never tries to reach another VM directly at layer 2.
+- **What does this mean for the problems in <Ch n="0">chapter 0</Ch>?** Firewall rules like `kade-allow-internal` are enforced beside every VM, not at an edge box, which is why <Ch n="5">chapter 5</Ch> can aim them at single VMs.
+
+</Box>
+
+## Commands in this chapter
+
+All read-only. Commands 2 to 6 run inside the VM after command 1.
+
+<TryIt n={1} title="Log in to a VM">
+
+- **What it shows:** Opens an SSH session on kade-api-1 through IAP, without an external IP.
+- **What to look for:** If it fails, the firewall or IAM is blocking IAP. <Ch n="6">Chapter 6</Ch> covers both.
+
+```sh
+gcloud compute ssh kade-api-1 --zone=asia-southeast1-a --tunnel-through-iap
+```
+
+</TryIt>
+
+<TryIt n={2} title="See the VM's address and MTU">
+
+- **What it shows:** The IP, mask and MTU the VM got from DHCP.
+- **What to look for:** `/32` on Linux, and `mtu` matching the VPC's MTU.
+
+```sh
+ip -4 addr show ens4
+```
+
+</TryIt>
+
+<TryIt n={3} title="See the VM's routes">
+
+- **What it shows:** Where the VM sends traffic.
+- **What to look for:** A `scope link` route to `10.10.1.1` and a default route via it. No route for the rest of the subnet.
+
+```sh
+ip route
+```
+
+</TryIt>
+
+<TryIt n={4} title="See the VM's ARP table">
+
+- **What it shows:** Every IP the VM has resolved to a MAC.
+- **What to look for:** Only the gateway, with a MAC starting `42:01`, even after talking to other VMs.
+
+```sh
+ip neigh
+```
+
+</TryIt>
+
+<TryIt n={5} title="Ask the metadata server a question">
+
+- **What it shows:** The zone the VM runs in, straight from the metadata server.
+- **What to look for:** A path with the project number. Try it without the header and see the refusal.
+
+```sh
+curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/zone
+```
+
+</TryIt>
+
+<TryIt n={6} title="Test the MTU from inside the VPC">
+
+- **What it shows:** Whether a full-size packet reaches kade-db without being split. 1432 bytes of data plus 28 bytes of headers is exactly 1460.
+- **What to look for:** 1432 works; 1433 fails with "message too long". That confirms the path MTU is 1460.
+
+```sh
+ping -c 3 -M do -s 1432 10.10.2.5
+ping -c 3 -M do -s 1433 10.10.2.5
+```
+
+</TryIt>
+
+<TryIt n={7} title="Read the VPC's MTU from outside">
+
+- **What it shows:** The MTU set on kade-vpc.
+- **What to look for:** `1460`, matching what the VM reported in command 2.
+
+```sh
+gcloud compute networks describe kade-vpc --format="value(mtu)"
+```
+
+</TryIt>
+
+<TryIt n={8} title="See a resource's scope in its full name">
+
+- **What it shows:** The self link of the VM and of its subnet.
+- **What to look for:** `zones/asia-southeast1-a` in the VM's path, `regions/asia-southeast1` in the subnet's.
+
+```sh
+gcloud compute instances describe kade-api-1 --zone=asia-southeast1-a \
+  --format="value(selfLink,networkInterfaces[0].subnetwork)"
+```
+
+</TryIt>

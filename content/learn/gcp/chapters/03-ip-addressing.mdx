@@ -1,0 +1,414 @@
+import { IpFate } from "@/components/learn/widgets/gcp/foundations";
+import { FigExternal, FigTiers } from "@content/learn/gcp/figures/03-ip-addressing";
+
+<Box kind="problem" title="The problem">
+
+Before the load balancer, `api.kade.lk` pointed straight at kade-api's external IP, `34.87.120.15`. One evening someone stopped kade-api to give it more memory. It came back with `34.87.121.204`. DNS still pointed at the old address, and the shop was down until a customer complained.
+
+The same trap is still waiting in two places. The temporary external IPs from finding 5 change every time. And kade-db's `10.10.2.5`, which the app has hardcoded (finding 6), is only safe until someone recreates the VM. <Ch n="7">Chapter 7</Ch> will also need an address that PayGate can allow-list and that never changes.
+
+</Box>
+
+## Every kind of address in a VPC
+
+<Recalls><Recall n="2">Private and public addresses</Recall></Recalls>
+
+A VM's network card can carry several addresses, and other resources have addresses of their own. The one column to watch is the second: whether the address actually exists inside the VM.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Address</th><th>On the VM's card?</th><th>Comes from</th><th>Kadé's example</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Primary internal IPv4</td><td><St k="ok">yes</St></td><td>The subnet's primary range</td><td>`10.10.1.10` on kade-api-1</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>2</td><td>Alias IP range</td><td><St k="ok">yes</St></td><td>The subnet's primary or secondary range</td><td>none yet (section 08)</td><td className="whitespace-nowrap">2, 3</td></tr>
+    <tr><td>3</td><td>External IPv4</td><td><St k="bad">no</St></td><td>Google's public pool, mapped by 1:1 NAT</td><td>the old `34.87.120.15`</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>4</td><td>IPv6 (internal or external)</td><td><St k="ok">yes</St></td><td>The subnet's `/64`; no NAT</td><td>none; Kadé is IPv4 only</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>5</td><td>Internal load balancer IP</td><td>-</td><td>A subnet's primary range, held by a forwarding rule</td><td>none yet</td><td className="whitespace-nowrap">11</td></tr>
+    <tr><td>6</td><td>Global external IP</td><td>-</td><td>Google's anycast pool</td><td>load balancer `34.120.88.10`</td><td className="whitespace-nowrap">3, 11</td></tr>
+    <tr><td>7</td><td>Regional external IP for a service</td><td>-</td><td>Google's pool in one region</td><td>Cloud NAT `34.87.200.7`</td><td className="whitespace-nowrap">3, 7</td></tr>
+    <tr><td>8</td><td>Global internal IP</td><td>-</td><td>Any free internal range outside your subnets</td><td>a Private Service Connect endpoint for Google APIs</td><td className="whitespace-nowrap">9</td></tr>
+  </tbody>
+</Table>
+
+## The external IP is not on the VM
+
+<Recalls><Recall n="10">NAT, and 1:1 NAT</Recall></Recalls>
+
+The internal IP is real in every sense: it is on the network card, it shows in `ip addr`, and the app can bind to it. The external IP is only a **mapping** kept by the data plane on the VM's host (<Ch n="1">chapter 1</Ch>). It is the 1:1 NAT from the fundamentals course, done beside every VM instead of in a box at the edge.
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigExternal />}>
+
+The external IP is attached as an "access config" of type ONE\_TO\_ONE\_NAT on the VM's network card. The name says exactly what it is.
+
+</Figure>
+
+Four things follow from this, and each one causes real bugs:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Consequence</th><th>What goes wrong</th><th>Do this instead</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The VM does not know its external IP</td><td>An app that reads its own address to build URLs or callbacks gets `10.10.1.10`</td><td>Ask the metadata server (gcloud check below), or use a DNS name</td></tr>
+    <tr><td>2</td><td>The app cannot bind to the external IP</td><td>`listen 34.87.120.15:8080` fails: that address is not on any interface (<Ch course="fundamentals" n="31">Fundamentals ch 31</Ch>)</td><td>Bind to `0.0.0.0` or the internal IP</td></tr>
+    <tr><td>3</td><td>Outside services see the external IP</td><td>An allow-list (PayGate, a partner, Cloud SQL authorized networks) must hold the external IP, not the internal one. The VM never sees that address, so it is easy to get wrong</td><td>Use a static IP for anything an allow-list depends on (section 03)</td></tr>
+    <tr><td>4</td><td>Firewall rules on the receiving side see the sender's external IP</td><td>If one of your own VMs calls another through an external IP, the internal allow rule does not match (section 06)</td><td>Use internal IPs between your own VMs</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+See the mapping from outside, and ask for the external IP from inside the VM:
+
+```sh
+gcloud compute instances describe kade-api-1 --zone=asia-southeast1-a \
+  --format="yaml(networkInterfaces)"
+
+# inside the VM:
+curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip
+```
+
+<Label>Output (from the time kade-api-1 had a temporary external IP)</Label>
+
+```text
+networkInterfaces:
+- accessConfigs:
+  - name: external-nat
+    natIP: 34.87.121.204
+    networkTier: PREMIUM
+    type: ONE_TO_ONE_NAT
+  name: nic0
+  networkIP: 10.10.1.10
+  subnetwork: .../regions/asia-southeast1/subnetworks/sn-app
+
+34.87.121.204
+```
+
+<Label>What it tells you</Label>
+
+`networkIP` is the address on the card; `natIP` is the mapping. Today kade-api-1 has no `accessConfigs` block at all, which is what "no external IP" looks like, and the metadata request returns nothing.
+
+</Box>
+
+## Ephemeral and static
+
+Every internal and external address is either **ephemeral** (it belongs to the VM for a while) or **static** (a named address resource you own until you release it). The two kinds behave very differently for internal and external addresses:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Ephemeral internal</th><th>Static internal</th><th>Ephemeral external</th><th>Static external</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Comes from</td><td>Next free address in the subnet</td><td>An address you reserve in a subnet</td><td>Google's pool, when the VM starts</td><td>An address you reserve</td></tr>
+    <tr><td>2</td><td>VM stopped and started</td><td><St k="ok">same address</St></td><td><St k="ok">same address</St></td><td><St k="bad">new address</St></td><td><St k="ok">same address</St></td></tr>
+    <tr><td>3</td><td>VM deleted</td><td>Released</td><td>Kept, ready to reuse</td><td>Released</td><td>Kept, ready to reuse</td></tr>
+    <tr><td>4</td><td>Listed by `addresses list`</td><td>No</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+    <tr><td>5</td><td>Cost</td><td>Free</td><td>Free</td><td>Charged while the VM runs</td><td>Charged while in use; charged more while idle</td></tr>
+  </tbody>
+</Table>
+
+Row 2 is Kadé's outage: an ephemeral **external** address does not survive a stop. Ephemeral **internal** addresses do, which is why kade-db has kept `10.10.2.5` so far. It would lose it only if the VM were deleted and recreated.
+
+<Key title="Promote instead of replace">
+
+An ephemeral address already in use can be turned into a static one without changing it. You "reserve" the exact address the VM already has, and GCP converts it in place. No downtime, no new address, nothing to update in DNS or allow-lists.
+
+</Key>
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+Internal addresses are free. An external IPv4 address on a running standard VM costs about US$0.005 per hour, the same for ephemeral and static. A static external address that is reserved but not in use costs more, about US$0.01 per hour, because Google wants unused IPv4 addresses given back. A static address attached to a stopped VM still counts as in use. Check the VPC pricing page for your region before relying on these numbers.
+
+</Box>
+
+So the rule is simple: **if anything depends on an address, make it static.** A DNS record, an allow-list, a partner's config, or an app setting all count.
+
+### Try it: what happens to the address?
+
+<IpFate />
+
+## Regional and global external addresses
+
+A static external address is reserved as either regional or global (<Ch n="1">chapter 1</Ch> section 11), and one cannot be used where the other is needed:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Scope</th><th>Used by</th><th>Kadé's example</th><th>Tier</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Regional</td><td>VMs, Cloud NAT, regional load balancers, VPN gateways, in one region</td><td>`kade-nat-ip 34.87.200.7` in asia-southeast1 (<Ch n="7">chapter 7</Ch>)</td><td>Premium or Standard</td></tr>
+    <tr><td>2</td><td>Global</td><td>Global external load balancers only</td><td>`kade-lb-ip 34.120.88.10`</td><td>Premium only</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="exam" title="Exam angle">
+
+"The IP cannot be attached to the global load balancer" usually means a regional address was reserved. Reserve it with `--global`. The reverse is also tested: a Cloud NAT gateway or a VM needs a regional address in its own region.
+
+</Box>
+
+## Network tiers: Premium and Standard
+
+<Recalls><Recall n="12">How routing works across the internet</Recall></Recalls>
+
+Every external address has a <Term>network tier</Term>. The tier decides where traffic joins or leaves Google's network, and so how much of the trip happens on the public internet.
+
+<Figure wide hues={["plum", "teal"]} drawing={<FigTiers />}>
+
+The difference is who carries the packet. Premium: Google, from near the user. Standard: the public internet, until close to your region.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Premium</th><th>Standard</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Where traffic enters and leaves Google</td><td>The Google edge nearest the user</td><td>Near your GCP region</td></tr>
+    <tr><td>2</td><td>Rest of the trip</td><td>Google's private backbone</td><td>The public internet, through other providers</td></tr>
+    <tr><td>3</td><td>Latency and consistency</td><td>Lower and steadier</td><td>Higher and more variable</td></tr>
+    <tr><td>4</td><td>Outbound data price</td><td>Higher</td><td>Lower</td></tr>
+    <tr><td>5</td><td>Global load balancers and global IPs</td><td>Supported</td><td>Not supported; regional only</td></tr>
+    <tr><td>6</td><td>Good for</td><td>Anything users wait on</td><td>Batch jobs, bulk downloads, tools where the path does not matter</td></tr>
+  </tbody>
+</Table>
+
+The tier is set per address or resource, and a project has a default tier (Premium unless changed). A resource and its address must use the same tier, which is why a global load balancer can only ever have a Premium address. Everything shopper-facing at Kadé is Premium.
+
+## Between your own VMs, always use internal addresses
+
+A common mistake is one VM calling another (or itself) through an external IP, often because the external address was copied into a config file. It works, which is why it goes unnoticed. But the packet goes out through 1:1 NAT and comes back in as if it came from the internet:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>kade-api-1 → `10.10.2.5:5432`</th><th>kade-api-1 → kade-db's external IP (if it had one)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Source kade-db sees</td><td>`10.10.1.10`</td><td>kade-api-1's external IP, or the NAT IP</td></tr>
+    <tr><td>2</td><td>Firewall rule needed on kade-db</td><td>An internal rule for `10.10.0.0/16`</td><td>A rule that allows an external address, and so is open wider than it should be</td></tr>
+    <tr><td>3</td><td>Cost</td><td>Internal traffic pricing</td><td>Counted as traffic leaving the zone, even inside one zone</td></tr>
+    <tr><td>4</td><td>Needs</td><td>Nothing extra</td><td>Both VMs to have external IPs, or NAT</td></tr>
+  </tbody>
+</Table>
+
+The same applies to a VM calling **its own** external IP, which usually means a setting that should say `localhost` or an internal name. The fix is always the same: internal IPs or internal DNS names (<Ch n="8">chapter 8</Ch>) between your own machines.
+
+## Choosing and keeping internal addresses
+
+By default a VM gets the next free address in its subnet. You can choose one when you create the VM, or reserve one ahead of time so nothing else takes it:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Goal</th><th>How</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Pick an address when creating a VM</td><td>`--private-network-ip=10.10.1.20`, or pass the name of a reserved address</td></tr>
+    <tr><td>2</td><td>Keep an address that is already in use</td><td>Promote it: reserve the same address in the same subnet (section 03)</td></tr>
+    <tr><td>3</td><td>Hold an address for something that does not exist yet</td><td>Reserve it now; it stays yours until you use or release it</td></tr>
+  </tbody>
+</Table>
+
+For Kadé, that means promoting kade-db's `10.10.2.5` now, so the hardcoded address is safe until <Ch n="8">chapter 8</Ch> gives it a name, and reserving `10.10.1.20` for kade-worker, which arrives in <Ch n="10">chapter 10</Ch>.
+
+## Alias IPs in practice
+
+<Ch n="2">Chapter 2</Ch> introduced alias IP ranges. Adding one, or moving it from one VM to another, is a change to the VM's network card through GCP, not inside the OS:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>Command (short form)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Give kade-api-1 the extra address `10.10.1.100`</td><td>`network-interfaces update kade-api-1 --aliases="10.10.1.100/32"`</td></tr>
+    <tr><td>2</td><td>Take it away from kade-api-1</td><td>`network-interfaces update kade-api-1 --aliases=""`</td></tr>
+    <tr><td>3</td><td>Give it to kade-api-2</td><td>`network-interfaces update kade-api-2 --aliases="10.10.1.100/32"`</td></tr>
+  </tbody>
+</Table>
+
+<Caption>An address can only be on one network card at a time, so a move is always "remove, then add". The full commands are at the end of the chapter.</Caption>
+
+On Google's standard images, the guest agent adds the alias to the OS's local routing table, so the VM accepts traffic for it without any manual setup. This remove-then-add move is the GCP way to do what gratuitous ARP did on a real LAN (<Ch n="1">chapter 1</Ch> section 10). For automatic failover, an internal load balancer with health checks is still the better tool (<Ch n="11">chapter 11</Ch>).
+
+## IP forwarding and the anti-spoofing check
+
+By default, the data plane checks every packet a VM sends and receives:
+
+- A VM may only **send** packets whose source is one of its own addresses.
+- A VM may only **receive** packets whose destination is one of its own addresses.
+
+Anything else is dropped on the host. This is what stops one VM from pretending to be another. The `canIpForward` setting (`--can-ip-forward` when creating a VM) turns the check off, so the VM can pass traffic on for other machines. Only something built to forward traffic needs it: a router VM, a VPN appliance, or a self-built NAT VM.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Question</th><th>Answer</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Does Kadé need it?</td><td>No. Cloud NAT and Cloud VPN are managed services, so Kadé never runs its own forwarding VM</td></tr>
+    <tr><td>2</td><td>Why check for it?</td><td>A VM with forwarding on can relay traffic it should not. Security benchmarks (CIS 4.6) flag it</td></tr>
+    <tr><td>3</td><td>Can it be changed later?</td><td>It used to be creation-only. Today you can change it by exporting the VM's config, editing `canIpForward`, and applying it with `update-from-file`, which restarts the VM</td></tr>
+  </tbody>
+</Table>
+
+## IPv6 in GCP, briefly
+
+<Recalls><Recall n="30">IPv6</Recall></Recalls>
+
+Kadé stays on IPv4, so this is only what is different in GCP:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Point</th><th>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Where it lives</td><td>A dual-stack subnet gets a `/64`; each VM network card gets a `/96` from it, handed out by DHCPv6</td></tr>
+    <tr><td>2</td><td>Internal or external</td><td>Chosen per subnet. Internal addresses come from the VPC's `/48` in `fd20::/20`; external ones are real internet addresses</td></tr>
+    <tr><td>3</td><td>No NAT</td><td>An external IPv6 address is really on the VM and shows in `ip addr`, unlike external IPv4 (section 02)</td></tr>
+    <tr><td>4</td><td>Limits</td><td>Custom mode networks only; external IPv6 needs Premium tier</td></tr>
+    <tr><td>5</td><td>Firewall</td><td>IPv6 needs its own rules. An IPv4 rule never matches IPv6 traffic</td></tr>
+  </tbody>
+</Table>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: addresses that must not change">
+
+- **The load balancer IP** `34.120.88.10` is already a static global address, reserved in the fundamentals course (<Ch n="33">ch 33</Ch>). DNS can safely point at it.
+- **kade-db's** `10.10.2.5` is promoted to static (`kade-db-ip`). The hardcoded setting from finding 6 no longer breaks if kade-db is rebuilt. <Ch n="8">Chapter 8</Ch> replaces it with a name.
+- **kade-worker's** `10.10.1.20` is reserved now (`kade-worker-ip`), so no other VM takes it before <Ch n="10">chapter 10</Ch>.
+- **No temporary external IPs any more.** They were the cause of this chapter's outage and part of finding 5. <Ch n="6">Chapter 6</Ch> replaces them for admin access, <Ch n="7">chapter 7</Ch> for outgoing calls.
+
+After the change, `gcloud compute addresses list` shows:
+
+```text
+NAME            ADDRESS/RANGE  TYPE      PURPOSE       NETWORK  REGION           SUBNET   STATUS
+kade-db-ip      10.10.2.5      INTERNAL  GCE_ENDPOINT           asia-southeast1  sn-data  IN_USE
+kade-lb-ip      34.120.88.10   EXTERNAL                                                   IN_USE
+kade-worker-ip  10.10.1.20     INTERNAL  GCE_ENDPOINT           asia-southeast1  sn-app   RESERVED
+```
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 5 are read-only. Commands 6 to 10 change the project.
+
+<TryIt n={1} title="List reserved addresses">
+
+- **What it shows:** Every static address in the project, internal and external, with its status.
+- **What to look for:** `RESERVED` external addresses nobody uses (billed while idle), and important addresses missing from the list, which means they are ephemeral.
+
+```sh
+gcloud compute addresses list
+```
+
+</TryIt>
+
+<TryIt n={2} title="See a VM's internal and external addresses">
+
+- **What it shows:** `networkIP` (on the card) and any `accessConfigs` with `natIP` (the 1:1 NAT mapping).
+- **What to look for:** An `accessConfigs` block on a VM that should not have an external IP.
+
+```sh
+gcloud compute instances describe kade-api-1 --zone=asia-southeast1-a \
+  --format="yaml(networkInterfaces)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="Ask a VM for its own external IP">
+
+- **What it shows:** The external IP, as the metadata server knows it. Run inside the VM.
+- **What to look for:** Empty output means no external IP.
+
+```sh
+curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip
+```
+
+</TryIt>
+
+<TryIt n={4} title="Find VMs with IP forwarding on">
+
+- **What it shows:** VMs where the anti-spoofing check is off.
+- **What to look for:** An empty list, unless you run a router or appliance on purpose.
+
+```sh
+gcloud compute instances list --filter="canIpForward=true"
+```
+
+</TryIt>
+
+<TryIt n={5} title="See the project's default network tier">
+
+- **What it shows:** The tier used when a resource does not say.
+- **What to look for:** `PREMIUM`, or empty, which also means Premium.
+
+```sh
+gcloud compute project-info describe --format="value(defaultNetworkTier)"
+```
+
+</TryIt>
+
+<TryIt n={6} title="Promote kade-db's address to static (changes the project)">
+
+- **What it shows:** Reserves the address kade-db already uses, so it survives the VM being rebuilt.
+- **What to look for:** `kade-db-ip` appears in command 1 with status `IN_USE`. kade-db keeps running throughout.
+
+```sh
+gcloud compute addresses create kade-db-ip \
+  --region=asia-southeast1 --subnet=sn-data --addresses=10.10.2.5
+```
+
+</TryIt>
+
+<TryIt n={7} title="Reserve an internal address for later (changes the project)">
+
+- **What it shows:** Holds `10.10.1.20` for kade-worker.
+- **What to look for:** Status `RESERVED` until a VM uses it. Internal reservations are free.
+
+```sh
+gcloud compute addresses create kade-worker-ip \
+  --region=asia-southeast1 --subnet=sn-app --addresses=10.10.1.20
+```
+
+</TryIt>
+
+<TryIt n={8} title="Promote an ephemeral external IP (changes the project)">
+
+- **What it shows:** The fix for this chapter's outage: keep the external IP a VM already has, so a restart does not change it.
+- **What to look for:** The same address, now listed as static. Shown for a VM that still has an external IP; replace the address and region with your own.
+
+```sh
+gcloud compute addresses create kade-api-ip \
+  --addresses=34.87.121.204 --region=asia-southeast1
+```
+
+</TryIt>
+
+<TryIt n={9} title="Remove an external IP from a VM (changes the project)">
+
+- **What it shows:** Deletes the access config, so the VM has no external IP.
+- **What to look for:** No `accessConfigs` in command 2. An ephemeral address is gone for good; a static one returns to `RESERVED` and starts costing the idle rate.
+
+```sh
+gcloud compute instances delete-access-config kade-api-1 \
+  --zone=asia-southeast1-a --access-config-name="external-nat"
+```
+
+</TryIt>
+
+<TryIt n={10} title="Move an alias IP between VMs (changes the project)">
+
+- **What it shows:** Removes the alias from kade-api-1, then gives it to kade-api-2.
+- **What to look for:** The alias appears under `aliasIpRanges` on kade-api-2 in command 2. Traffic to it stops briefly between the two steps.
+
+```sh
+gcloud compute instances network-interfaces update kade-api-1 \
+  --zone=asia-southeast1-a --aliases=""
+gcloud compute instances network-interfaces update kade-api-2 \
+  --zone=asia-southeast1-b --aliases="10.10.1.100/32"
+```
+
+</TryIt>

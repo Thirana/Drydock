@@ -1,0 +1,236 @@
+import { SshCheck } from "@/components/learn/widgets/gcp/access";
+import { FigGates, FigNoip } from "@content/learn/gcp/figures/06.2-admin-access-os-login-and-no-external-ips";
+
+<Box kind="problem" title="The problem">
+
+Look at kade-prod's project metadata and there is a list of SSH public keys under `ssh-keys`. Some belong to the team. One belongs to a freelancer who worked on Kadé last year. Nobody removed it, and a key in project metadata works on **every** VM.
+
+IAP from <Ch n="6.1">chapter 6.1</Ch> limits who can reach port 22. But anyone who can reach it and still holds an old private key can log in, and the logs only say that "someone used this key".
+
+</Box>
+
+## The older way: SSH keys in metadata
+
+<Recalls><Recall n="29">SSH keys</Recall></Recalls>
+
+```text
+public key ──▶ VM or project metadata ──▶ guest agent copies it into the VM
+anyone holding the matching private key logs in
+(nothing checks whether that person should still have access)
+```
+
+The part most people miss is how the keys got there. When OS Login is off and you run `gcloud compute ssh` for the first time, gcloud creates a key pair on your laptop and **adds your public key to the project's metadata**, if you have permission to edit it. So every person who has ever SSHed in with gcloud has usually left a key behind that works on every VM.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Problem</th><th>What it means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Keys are not tied to people</td><td>A key is just a key. Someone leaves, and their key keeps working until a human removes it</td></tr>
+    <tr><td>2</td><td>Project keys spread everywhere</td><td>A key in project metadata works on every VM in the project. Giving access to one VM usually gives access to all of them</td></tr>
+    <tr><td>3</td><td>No central control</td><td>Managing access means editing metadata by hand, key by key, and hoping nobody forgets to clean up</td></tr>
+    <tr><td>4</td><td>Weak record</td><td>Logs show which key logged in, not which person</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A VM can ignore project-wide keys with the instance metadata `block-project-ssh-keys=TRUE`. That narrows the problem but does not fix it; OS Login does.</Caption>
+
+## The better way: OS Login
+
+<Term>OS Login</Term> ties SSH login to Google identities and IAM instead of keys kept in metadata:
+
+```text
+your Google identity ──▶ IAM check: do you hold an OS Login role?
+                         │ yes
+                         ▼
+log in as a Linux user made from your identity   (you@kade.lk → you_kade_lk)
+(remove the role → access is gone on every VM, straight away)
+```
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Property</th><th>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Controlled by IAM roles</td><td>`roles/compute.osLogin` for a normal user, `roles/compute.osAdminLogin` for a user with sudo</td></tr>
+    <tr><td>2</td><td>Revocation is instant and central</td><td>Remove the role or disable the Google account, and access to every VM ends at once. No stray keys to hunt</td></tr>
+    <tr><td>3</td><td>Logins map to real people</td><td>The Linux username comes from the Google identity, so logs show who logged in</td></tr>
+    <tr><td>4</td><td>Metadata keys are ignored</td><td>Once OS Login is on for a VM, keys in project or instance metadata no longer work there. That is how the freelancer's old key stops working</td></tr>
+    <tr><td>5</td><td>Optional second factor</td><td>OS Login can require 2-step verification on top of the key (`enable-oslogin-2fa=TRUE`)</td></tr>
+    <tr><td>6</td><td>Turned on with metadata</td><td>`enable-oslogin=TRUE` on the project (all VMs) or on one VM. An organization policy can require it everywhere (<Ch n="17">chapter 17</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Two role traps">
+
+- **The VM's service account.** If the VM runs as a service account (all of Kadé's do after <Ch n="5.1">chapter 5.1</Ch>), the person also needs `roles/iam.serviceAccountUser` on that service account. Logging in could otherwise be used to act as it.
+- **People outside the organization.** A user who is not part of `kade.lk`, like the freelancer, also needs `roles/compute.osLoginExternalUser`, granted at the organization level.
+
+</Key>
+
+## Two gates, both about identity
+
+<Figure wide hues={["plum", "green", "amber"]} drawing={<FigGates />}>
+
+IAP controls reaching the VM by identity. OS Login controls logging in by identity. Together, access is decided entirely by who you are, and one IAM change removes it everywhere.
+
+</Figure>
+
+Try both gates together. Each setting matches one requirement:
+
+<SshCheck full="1" />
+
+## Switching to OS Login safely
+
+Do this **after** <Ch n="6.1">chapter 6.1</Ch>'s IAP change is proven, not at the same time. Changing both the access path and the login method at once makes it hard to tell which one broke if something does.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>Check</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Grant the roles first: `compute.osAdminLogin` for you, `serviceAccountUser` on each VM's service account</td><td>The grants show in IAM</td></tr>
+    <tr><td>2</td><td>Turn on OS Login for **one** VM: `enable-oslogin=TRUE` on kade-api-2</td><td>IAP SSH to kade-api-2 logs you in as `you_kade_lk`, and `sudo` works</td></tr>
+    <tr><td>3</td><td>Turn it on for the project</td><td>SSH works on every VM</td></tr>
+    <tr><td>4</td><td>Remove the old `ssh-keys` from project metadata</td><td>Nothing changes for anyone, because OS Login already ignores them. This is cleanup, and it removes the fallback if OS Login is ever turned off</td></tr>
+    <tr><td>5</td><td>Later: require OS Login with an organization policy</td><td><Ch n="17">Chapter 17</Ch></td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**VMs created by a managed instance group.** They read the same project metadata, so with `enable-oslogin=TRUE` set on the project, every VM the group creates already uses OS Login. Do not put `enable-oslogin` or `ssh-keys` in the instance template: a value there overrides the project for every future VM (<Ch n="12.2">chapter 12.2</Ch>).
+
+</Note>
+
+<Note>
+
+**Automation.** Scripts and CI jobs that SSH to VMs need an identity too. With OS Login, give the job's service account the OS Login role, the same as a person. No shared key to rotate.
+
+</Note>
+
+## Removing a VM's external IP: the full picture
+
+<Recalls><Recall n="10">NAT</Recall></Recalls>
+
+Can a VM have no external IP and still do its job? Yes, and it takes exactly three pieces, each from a different chapter:
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigNoip />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Without an external IP, the VM would be…</th><th>Fixed by</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Unreachable for admin work</td><td>IAP TCP forwarding</td><td className="whitespace-nowrap">6.1</td></tr>
+    <tr><td>2</td><td>Unable to reach Google APIs (Cloud Storage, Secret Manager, Logging)</td><td>Private Google Access</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>3</td><td>Unable to reach the internet (apt, PayGate)</td><td>Cloud NAT in its region</td><td className="whitespace-nowrap">7</td></tr>
+  </tbody>
+</Table>
+
+With all three in place, a VM works fully with nothing about it reachable from the internet. **No external IP is the strongest position a VM can be in**: it is one of only two ways a VM becomes reachable from the internet. The other is sitting behind an external load balancer, which Kadé controls on purpose (<Ch n="11">chapters 11</Ch> to 13).
+
+<Key title="It is ordered work, not a quick win">
+
+For a VM that has an external IP today, the prerequisites must land first: Cloud NAT in the region, Private Google Access on the subnet, and any database moved to a private path. Only then can the IP come off. IAP is the one piece that can be done early and on its own, because it is what makes "no external IP" survivable for admin work. That is exactly why it came first in this course.
+
+</Key>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: SSH access is identity-only">
+
+- **OS Login is on for the project.** You have `compute.osAdminLogin`; nobody else has a standing login role.
+- **The old keys are gone.** The `ssh-keys` list in project metadata is removed, including the freelancer's. It had already stopped working the moment OS Login was turned on.
+- **The freelancer's next visit** is three grants, all removable in one place: IAP tunnel on kade-worker (6.1 Scenario B), `compute.osLogin` on kade-worker, and `compute.osLoginExternalUser` at the organization.
+- **Still open:** outgoing internet (<Ch n="7">chapter 7</Ch>) and Google APIs without the internet (<Ch n="9">chapter 9</Ch>). Kadé's VMs already have no external IPs; after those two chapters, they no longer need one for anything.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 3 are read-only. Commands 4 to 7 change the project.
+
+<TryIt n={1} title="See SSH keys and OS Login settings in project metadata">
+
+- **What it shows:** Project-wide metadata, including `ssh-keys` and `enable-oslogin`.
+- **What to look for:** Keys whose owner you cannot name, and whether `enable-oslogin` is `TRUE`.
+
+```sh
+gcloud compute project-info describe \
+  --format="yaml(commonInstanceMetadata.items)"
+```
+
+</TryIt>
+
+<TryIt n={2} title="See one VM's own metadata">
+
+- **What it shows:** Instance-level keys and settings, which override the project's.
+- **What to look for:** `enable-oslogin=FALSE` on a single VM, which would switch it back to metadata keys.
+
+```sh
+gcloud compute instances describe kade-db --zone=asia-southeast1-b \
+  --format="yaml(metadata.items)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="See your OS Login profile">
+
+- **What it shows:** Your Linux username and the keys registered to your identity.
+- **What to look for:** The username, e.g. `you_kade_lk`, which is what shows in the VM's logs.
+
+```sh
+gcloud compute os-login describe-profile
+```
+
+</TryIt>
+
+<TryIt n={4} title="Grant OS Login with sudo (changes the project)">
+
+- **What it shows:** Lets you log in to every VM as an admin.
+- **What to look for:** Use `roles/compute.osLogin` instead for people who do not need sudo.
+
+```sh
+gcloud projects add-iam-policy-binding kade-prod \
+  --member=user:you@kade.lk --role=roles/compute.osAdminLogin
+```
+
+</TryIt>
+
+<TryIt n={5} title="Allow using a VM's service account (changes the project)">
+
+- **What it shows:** The second role trap: needed to log in to a VM that runs as sa-kade-db.
+- **What to look for:** Without it, OS Login refuses even with the login role.
+
+```sh
+gcloud iam service-accounts add-iam-policy-binding \
+  sa-kade-db@kade-prod.iam.gserviceaccount.com \
+  --member=user:you@kade.lk --role=roles/iam.serviceAccountUser
+```
+
+</TryIt>
+
+<TryIt n={6} title="Turn on OS Login for one VM, then the project (changes the project)">
+
+- **What it shows:** Steps 2 and 3 of section 04.
+- **What to look for:** After the first line, test SSH to kade-api-2 before running the second.
+
+```sh
+gcloud compute instances add-metadata kade-api-2 --zone=asia-southeast1-b \
+  --metadata=enable-oslogin=TRUE
+gcloud compute project-info add-metadata --metadata=enable-oslogin=TRUE
+```
+
+</TryIt>
+
+<TryIt n={7} title="Remove the old keys from project metadata (changes the project)">
+
+- **What it shows:** Step 4 of section 04: cleanup of every project-wide SSH key.
+- **What to look for:** `ssh-keys` gone from command 1. Save command 1's output first as a record.
+
+```sh
+gcloud compute project-info remove-metadata --keys=ssh-keys
+```
+
+</TryIt>

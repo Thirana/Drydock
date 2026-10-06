@@ -1,0 +1,358 @@
+import { HealEx, MigChain, MigOverview, ScaleEx, UpdateEx } from "@/components/learn/widgets/gcp/frontdoor";
+
+<Box kind="problem" title="The problem">
+
+Kadé adds **kade-media**: a service that resizes and watermarks product photos on request, at `www.kade.lk/media/…`. It needs image libraries that are awkward in a container, uses CPU steadily all day, and keeps a large local disk cache. That makes it a good fit for VMs.
+
+The first version is one hand-built VM. It cannot grow on a sale day, nobody notices when it hangs, a zone outage takes it down, and every update is done by hand over SSH. Kadé wants the same VM software, with Cloud Run's "it looks after itself" behaviour.
+
+</Box>
+
+## VM or Cloud Run?
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Choose VMs (in a MIG) when…</th><th>Choose Cloud Run when…</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The software needs OS-level setup: special libraries, drivers, a GPU, kernel settings</td><td>It runs happily in a container</td></tr>
+    <tr><td>2</td><td>Load is steady all day, so paying per VM-hour is cheaper than per request</td><td>Load is spiky or often near zero; Cloud Run scales to zero</td></tr>
+    <tr><td>3</td><td>Requests run long, or connections stay open for hours (WebSockets, streaming)</td><td>Requests finish within Cloud Run's request timeout</td></tr>
+    <tr><td>4</td><td>It needs a large local disk or memory cache that should survive between requests</td><td>Each request can stand alone</td></tr>
+    <tr><td>5</td><td>You need control over the machine (OS version, agents, tuning)</td><td>You want Google to own patching and scaling</td></tr>
+  </tbody>
+</Table>
+
+<Caption>What you take on with VMs: OS patching, image builds, the Ops Agent for metrics (<Ch n="16.1">chapter 16.1</Ch>), and the MIG settings in this chapter. Both kinds can sit behind the same load balancer, chosen by the URL map.</Caption>
+
+## The shape: template, group, load balancer
+
+<MigOverview />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>Job</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Instance template**</td><td>The recipe for every VM in the group</td><td>`kade-media-tpl-v1`</td></tr>
+    <tr><td>2</td><td>**Managed instance group**</td><td>Keeps the right number of VMs from that recipe running</td><td>`kade-media-mig`, regional, asia-southeast1</td></tr>
+    <tr><td>3</td><td>Autohealing</td><td>Recreates a VM whose app stops answering</td><td>HTTP check `/healthz`, initial delay 180 s</td></tr>
+    <tr><td>4</td><td>Autoscaler</td><td>Changes the number of VMs with load</td><td>2 to 8 VMs, load balancer usage target 80%</td></tr>
+    <tr><td>5</td><td>Backend service</td><td>Connects the group to the load balancer (<Ch n="12.1">chapter 12.1</Ch>, link 4)</td><td>`kade-media-backend`</td></tr>
+  </tbody>
+</Table>
+
+## Instance templates: the recipe
+
+A template holds everything needed to create one VM. The MIG uses it every time it adds or replaces a VM, so whatever is in the template is what every VM gets:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>In the template</th><th>Kadé's value</th><th>Why it matters</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Machine type</td><td>`e2-standard-2`</td><td>Size per VM; the autoscaler handles the count</td></tr>
+    <tr><td>2</td><td>Boot image</td><td>`kade-media-2026-09`, a custom image with the app and Ops Agent already installed</td><td>New VMs start in seconds. Installing everything at boot makes scale-out slow and fragile</td></tr>
+    <tr><td>3</td><td>Network interface</td><td>kade-vpc, `sn-app`, **no external IP**</td><td>One wrong template gives every future VM a public address (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>4</td><td>Service account</td><td>`sa-kade-media`</td><td>Firewall rules target it (<Ch n="5.1">chapter 5.1</Ch>), so new VMs are covered automatically</td></tr>
+    <tr><td>5</td><td>Metadata</td><td>A small startup script that reads config; OS Login inherited from the project</td><td>Never set `enable-oslogin=FALSE` here (<Ch n="6.2">chapter 6.2</Ch>)</td></tr>
+    <tr><td>6</td><td>Shielded VM, disk size</td><td>On; 50 GB balanced disk for the image cache</td><td>The cache is rebuilt on a new VM; nothing on the disk must be precious</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Templates cannot be edited">
+
+To change anything, you create a **new** template (`kade-media-tpl-v2`) and roll the group onto it (section 07). That sounds awkward, but it is what makes rollback trivial: the old template still exists, unchanged.
+
+</Key>
+
+## The group: zonal or regional
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Zonal MIG</th><th>Regional MIG</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Where VMs run</td><td>One zone</td><td>Spread across zones in the region (up to three)</td></tr>
+    <tr><td>2</td><td>A zone fails</td><td>The whole group is down</td><td>The others keep serving; the group rebuilds in the healthy zones</td></tr>
+    <tr><td>3</td><td>Use for</td><td>Batch work, testing</td><td>**Anything users depend on.** Kadé's choice</td></tr>
+  </tbody>
+</Table>
+
+<Caption>MIG VMs get generated names like `kade-media-x7k2`, and names change as VMs are replaced. Nothing should point at one VM's name or IP; traffic always goes through the load balancer.</Caption>
+
+A group also has **named ports**: a label for the port the app listens on, such as `http:8080`. The backend service refers to the name, not the number, so the port can change in one place.
+
+## Two health checks with two different jobs
+
+This is the most confusing part of MIGs, and it causes boot loops. There are two health checks, and they do different things to an unhealthy VM:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Load balancer health check</th><th>Autohealing health check</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Set on</td><td>The backend service</td><td>The MIG</td></tr>
+    <tr><td>2</td><td>When a VM fails it</td><td>**Stop sending it traffic**. The VM keeps running</td><td>**Delete and recreate the VM** from the template</td></tr>
+    <tr><td>3</td><td>Should be</td><td>Quick to react: a few seconds</td><td>Slower and more patient: only for VMs that will not recover by themselves</td></tr>
+    <tr><td>4</td><td>Firewall</td><td>Both come from `35.191.0.0/16` and `130.211.0.0/22`; one rule covers both (<Ch n="12.1">chapter 12.1</Ch> section 04)</td></tr>
+  </tbody>
+</Table>
+
+The setting that prevents disaster is the **initial delay**: how long autohealing waits after a VM starts before it judges it. See what happens without one:
+
+<HealEx />
+
+## Autoscaling
+
+The autoscaler watches a signal and changes the number of VMs to keep that signal near a target:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Signal</th><th>Means</th><th>Good for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Load balancer usage**</td><td>Requests per VM against the capacity set on the backend service</td><td>Web backends behind a load balancer. Kadé's choice</td></tr>
+    <tr><td>2</td><td>CPU utilization</td><td>Average CPU across the group</td><td>CPU-bound work; can also be **predictive**, scaling before a daily peak</td></tr>
+    <tr><td>3</td><td>A Cloud Monitoring metric</td><td>Any metric, such as a queue's length</td><td>Workers pulling jobs from a queue</td></tr>
+    <tr><td>4</td><td>Schedules</td><td>A minimum size during set hours</td><td>Known peaks: a sale starting at 8 pm</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>Kadé's value</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Minimum VMs</td><td>2</td><td>One VM per zone at least, so a zone failure or a single bad VM never empties the group</td></tr>
+    <tr><td>2</td><td>Maximum VMs</td><td>8</td><td>A ceiling for cost and for the NAT ports and database connections each VM uses (<Ch n="7">chapter 7</Ch>)</td></tr>
+    <tr><td>3</td><td>Initialization period</td><td>120 s</td><td>How long a new VM needs before its numbers count. Too short and the autoscaler adds even more VMs while the first ones are still starting</td></tr>
+    <tr><td>4</td><td>Scale-in controls</td><td>At most 2 VMs removed per 10 minutes</td><td>Stops a short dip from removing capacity that the next spike needs</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The autoscaler also waits about 10 minutes of lower load before scaling in, on purpose. Scaling out is fast; scaling in is cautious.</Caption>
+
+<ScaleEx />
+
+## Rolling updates, canaries and rollback
+
+A new version means a new template. The MIG moves VMs onto it gradually, controlled by two numbers:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>Means</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Max surge**</td><td>How many extra VMs may exist above the target size during the update</td><td>3 (one per zone; a regional MIG needs 0 or at least the number of zones)</td></tr>
+    <tr><td>2</td><td>**Max unavailable**</td><td>How many VMs may be out of service at once</td><td>0: never go below full capacity</td></tr>
+    <tr><td>3</td><td>Minimal action</td><td>`REPLACE` (new VM) or `RESTART`</td><td>REPLACE: a new template needs new VMs</td></tr>
+  </tbody>
+</Table>
+
+Step through an update. Each square is one VM, labelled with its template:
+
+<UpdateEx />
+
+## Connecting the group to the load balancer
+
+The group joins <Ch n="12.1">chapter 12.1</Ch>'s chain as the backend of a new backend service, and the URL map sends `/media/*` to it. Everything else in the chain is shared with kade-api:
+
+<MigChain />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Backend service setting</th><th>Kadé's value</th><th>Effect</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Port name</td><td>`http`</td><td>Matches the group's named port `http:8080`</td></tr>
+    <tr><td>2</td><td>Balancing mode</td><td>`RATE`, 80 requests per second per VM</td><td>"Full" means 80 rps; the autoscaler targets 80% of it</td></tr>
+    <tr><td>3</td><td>Capacity scaler</td><td>1.0</td><td>Set to 0 to drain a whole group without deleting it, for example before replacing it</td></tr>
+    <tr><td>4</td><td>Health check</td><td>`kade-media-hc`: HTTP `/healthz`, 5 s</td><td>The quick one from section 05</td></tr>
+    <tr><td>5</td><td>Connection draining</td><td>60 s</td><td>VMs leaving the group finish their requests (<Ch n="12.1">chapter 12.1</Ch> section 05)</td></tr>
+    <tr><td>6</td><td>Cloud Armor, CDN, logging</td><td>kade-edge-policy, CDN on (resized images cache well), logging 100%</td><td>Exactly as kade-api-backend</td></tr>
+  </tbody>
+</Table>
+
+## Network rules for VMs in a group
+
+Every network rule from earlier chapters applies to MIG VMs, with one difference: they must hold for VMs that do not exist yet. Put each one where new VMs inherit it:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Need</th><th>How, for a MIG</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>No public address</td><td>Template without an external IP; organization policy as a safety net</td><td className="whitespace-nowrap">3, 17</td></tr>
+    <tr><td>2</td><td>Health checks reach the app</td><td>Firewall rule from Google's ranges to **service account** `sa-kade-media` on 8080</td><td className="whitespace-nowrap">5.1</td></tr>
+    <tr><td>3</td><td>Outgoing internet (updates, APIs)</td><td>Cloud NAT covering sn-app; check ports at maximum size</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>4</td><td>Google APIs (Cloud Storage for originals)</td><td>Private Google Access on sn-app</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>5</td><td>Admin SSH</td><td>IAP + OS Login, inherited from project metadata</td><td className="whitespace-nowrap">6</td></tr>
+    <tr><td>6</td><td>Metrics and logs from inside the VM</td><td>Ops Agent baked into the image</td><td className="whitespace-nowrap">16.1</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="exam" title="Exam angle">
+
+"Automatically replace VMs whose application stops responding" is autohealing with a health check on the MIG. "Scale based on HTTP load behind a load balancer" is autoscaling on load balancer utilization. "Deploy a new version with no downtime" is a rolling update with max unavailable 0. "Survive a zone outage" is a regional MIG. "Test a new version on a few VMs first" is a canary update with two versions.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Done: kade-media looks after itself">
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Template</td><td>`kade-media-tpl-v1`: e2-standard-2, image `kade-media-2026-09`, sn-app, no external IP, `sa-kade-media`</td></tr>
+    <tr><td>2</td><td>Group</td><td>`kade-media-mig`, regional asia-southeast1 (zones a, b, c), named port `http:8080`</td></tr>
+    <tr><td>3</td><td>Autohealing</td><td>`kade-media-heal`: HTTP `/healthz`, every 20 s, 3 failures, initial delay 180 s</td></tr>
+    <tr><td>4</td><td>Autoscaling</td><td>2 to 8 VMs on load balancer usage 80%; initialization 120 s; scale-in at most 2 per 10 min; schedule: minimum 4 from 7 pm to 11 pm on sale days</td></tr>
+    <tr><td>5</td><td>Updates</td><td>Canary 1 VM, then rolling: max surge 3, max unavailable 0</td></tr>
+    <tr><td>6</td><td>Load balancer</td><td>`kade-media-backend` (RATE 80/VM, draining 60 s, Cloud Armor, CDN); URL map `www.kade.lk/media/*` → it</td></tr>
+    <tr><td>7</td><td>Firewall</td><td>`kade-lb-to-media`: tcp:8080 from `35.191.0.0/16`, `130.211.0.0/22` to `sa-kade-media`</td></tr>
+  </tbody>
+</Table>
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 3 are read-only. Commands 4 to 9 change the project.
+
+<TryIt n={1} title="See the group's VMs and their health">
+
+- **What it shows:** Each VM, its zone, status, current action, template and health.
+- **What to look for:** `RUNNING` and `HEALTHY`. VMs stuck in `RECREATING` again and again mean a boot loop (section 05).
+
+```sh
+gcloud compute instance-groups managed list-instances kade-media-mig \
+  --region=asia-southeast1
+```
+
+</TryIt>
+
+<TryIt n={2} title="See the autoscaler's view">
+
+- **What it shows:** Target size, autoscaling policy, and status messages.
+- **What to look for:** Messages such as "maximum number of instances reached", which mean the ceiling is limiting you.
+
+```sh
+gcloud compute instance-groups managed describe kade-media-mig \
+  --region=asia-southeast1 --format="yaml(targetSize,autoscaler,status,updatePolicy,versions)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="See which VMs autohealing replaced">
+
+- **What it shows:** System events where the MIG recreated a VM after a failed health check.
+- **What to look for:** Frequent entries for new VMs point at the initial delay or a broken image.
+
+```sh
+gcloud logging read \
+  'protoPayload.methodName="compute.instances.repair.recreateInstance"' \
+  --freshness=1d --limit=20 --format="table(timestamp,protoPayload.resourceName)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Create the template (changes the project)">
+
+- **What it shows:** The recipe, with no external IP (`--no-address`) and its own service account.
+- **What to look for:** The template in `gcloud compute instance-templates list`. It cannot be edited afterwards.
+
+```sh
+gcloud compute instance-templates create kade-media-tpl-v1 \
+  --machine-type=e2-standard-2 --image=kade-media-2026-09 --image-project=kade-prod \
+  --network=kade-vpc --subnet=sn-app --region=asia-southeast1 --no-address \
+  --service-account=sa-kade-media@kade-prod.iam.gserviceaccount.com --scopes=cloud-platform \
+  --shielded-secure-boot --boot-disk-size=50GB --boot-disk-type=pd-balanced
+```
+
+</TryIt>
+
+<TryIt n={5} title="Create the regional group with autohealing (changes the project)">
+
+- **What it shows:** Two VMs spread across the region's zones, recreated if `/healthz` fails, after a 180 s grace period.
+- **What to look for:** Command 1 shows one VM in each of two zones, then `HEALTHY`.
+
+```sh
+gcloud compute health-checks create http kade-media-heal --port=8080 \
+  --request-path=/healthz --check-interval=20s --unhealthy-threshold=3
+gcloud compute instance-groups managed create kade-media-mig --region=asia-southeast1 \
+  --template=kade-media-tpl-v1 --size=2 \
+  --health-check=kade-media-heal --initial-delay=180
+gcloud compute instance-groups set-named-ports kade-media-mig \
+  --region=asia-southeast1 --named-ports=http:8080
+```
+
+</TryIt>
+
+<TryIt n={6} title="Turn on autoscaling (changes the project)">
+
+- **What it shows:** 2 to 8 VMs, aiming for 80% of the load balancer capacity per VM.
+- **What to look for:** Target size changing in command 2 as traffic changes.
+
+```sh
+gcloud compute instance-groups managed set-autoscaling kade-media-mig \
+  --region=asia-southeast1 --min-num-replicas=2 --max-num-replicas=8 \
+  --target-load-balancing-utilization=0.8 --cool-down-period=120 \
+  --scale-in-control=max-scaled-in-replicas=2,time-window=600
+```
+
+</TryIt>
+
+<TryIt n={7} title="Add the group to the load balancer (changes the project)">
+
+- **What it shows:** The load balancer health check, the backend service with the group as its backend, and a new `/media/*` rule in the existing URL map (exported, edited, imported back).
+- **What to look for:** `get-health` on kade-media-backend shows each VM HEALTHY.
+
+```sh
+gcloud compute health-checks create http kade-media-hc --port=8080 \
+  --request-path=/healthz --check-interval=5s
+gcloud compute backend-services create kade-media-backend --global \
+  --load-balancing-scheme=EXTERNAL_MANAGED --protocol=HTTP --port-name=http \
+  --health-checks=kade-media-hc --connection-draining-timeout=60 \
+  --enable-logging --logging-sample-rate=1.0 --security-policy=kade-edge-policy --enable-cdn
+gcloud compute backend-services add-backend kade-media-backend --global \
+  --instance-group=kade-media-mig --instance-group-region=asia-southeast1 \
+  --balancing-mode=RATE --max-rate-per-instance=80
+gcloud compute url-maps export kade-url-map --global --destination=kade-url-map.yaml
+#   in pathMatchers → name: web → pathRules, add:
+#     - paths: ["/media/*"]
+#       service: https://www.googleapis.com/compute/v1/projects/kade-prod/global/backendServices/kade-media-backend
+gcloud compute url-maps import kade-url-map --global --source=kade-url-map.yaml
+```
+
+</TryIt>
+
+<TryIt n={8} title="Start a canary, then a full rolling update (changes the project)">
+
+- **What it shows:** First one VM on v2 alongside v1; when it looks good, everything moves to v2 with no capacity lost.
+- **What to look for:** Command 1 showing the template per VM, and error ratio unchanged on the dashboard.
+
+```sh
+gcloud compute instance-groups managed rolling-action start-update kade-media-mig \
+  --region=asia-southeast1 --version=template=kade-media-tpl-v1 \
+  --canary-version=template=kade-media-tpl-v2,target-size=1 --max-surge=3 --max-unavailable=0
+gcloud compute instance-groups managed rolling-action start-update kade-media-mig \
+  --region=asia-southeast1 --version=template=kade-media-tpl-v2 --max-surge=3 --max-unavailable=0
+```
+
+</TryIt>
+
+<TryIt n={9} title="Roll back (changes the project)">
+
+- **What it shows:** The same command, pointing at the previous template. The old template was never changed, so this always works.
+- **What to look for:** All VMs back on v1 in command 1.
+
+```sh
+gcloud compute instance-groups managed rolling-action start-update kade-media-mig \
+  --region=asia-southeast1 --version=template=kade-media-tpl-v1 --max-surge=3 --max-unavailable=0
+```
+
+</TryIt>

@@ -1,0 +1,430 @@
+import { FwWalk, RuleEx, StatefulEx } from "@/components/learn/widgets/gcp/access";
+import { FigWhere } from "@content/learn/gcp/figures/05.1-firewall-vpc-firewall-rules";
+
+<Box kind="problem" title="The problem">
+
+Four findings from <Ch n="0">chapter 0</Ch> are firewall problems:
+
+- **2.** `kade-allow-ssh` opens port 22 to the whole internet.
+- **3.** `kade-allow-web` opens 80, 443 and 8080 to the internet, left over from before the load balancer.
+- **4.** `kade-allow-internal` lets every VM reach every port on every other VM.
+- **9.** All VMs run as the default service account, so rules cannot tell them apart by identity.
+
+Fixing them means knowing exactly which rule decides each packet, and changing the rules without cutting off the shop.
+
+</Box>
+
+## A firewall that is everywhere
+
+<Recalls><Recall n="16">TCP connections</Recall><Recall n="31">Ports and sockets</Recall></Recalls>
+
+A traditional firewall is a **place**: a box that packets pass through. GCP's firewall is **distributed**. The rules that protect a VM are enforced at that VM's own virtual network card, by the data plane on its host (<Ch n="1">chapter 1</Ch> section 09). So every VM-to-VM connection is checked twice:
+
+<Figure wide hues={["teal", "green", "amber"]} drawing={<FigWhere />}>
+
+Two separate checks against two separate rule sets. The common failure: ingress is set up carefully, egress is forgotten, and traffic breaks the day someone tightens egress.
+
+</Figure>
+
+## Nothing is trusted for being inside
+
+Two VMs in the same subnet, even on the same host, are still firewalled against each other. Being "inside the VPC" gives no permission by itself. That is why rules like `default-allow-internal` and Kadé's `kade-allow-internal` exist: internal traffic is **not** trusted by default, and those rules choose to allow it. Delete them, and every VM-to-VM connection needs its own rule.
+
+A few kinds of traffic ignore your rules entirely:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Traffic</th><th>What happens</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>To the metadata server `169.254.169.254` (DHCP, DNS, time, metadata)</td><td><St k="ok">always allowed</St></td><td>The VM could not boot or resolve names without it (<Ch n="1">chapter 1</Ch>)</td></tr>
+    <tr><td>2</td><td>Outgoing TCP port 25 (SMTP) to the internet</td><td><St k="bad">always blocked</St></td><td>Google blocks it to stop spam. Use a mail service on 587 or 465</td></tr>
+    <tr><td>3</td><td>Health checks and Google Front Ends to backends</td><td>Need a rule</td><td>They arrive on special paths (<Ch n="4">chapter 4</Ch>), but the firewall still judges them. This is why `kade-allow-lb` exists</td></tr>
+  </tbody>
+</Table>
+
+## Stateful: rules are about who starts the conversation
+
+A rule decides who may **start** a connection, not which single packets pass. Once a connection is allowed to start, both directions flow, and the replies are not a separate decision. The data plane keeps a record of each allowed connection, the same idea as the NAT table in the fundamentals course.
+
+Each tab follows one connection through the data plane. Ticks are checks that pass, by a rule or because of the connection table; red crosses drop the packet.
+
+<StatefulEx />
+
+## The fields of a rule
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Field</th><th>What it says</th><th>Values</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`direction`</td><td>Which way this rule judges</td><td>`INGRESS` or `EGRESS`</td></tr>
+    <tr><td>2</td><td>`priority`</td><td>Who wins when rules overlap</td><td>0 to 65535; lower number wins</td></tr>
+    <tr><td>3</td><td>`action`</td><td>Allow or block</td><td>`allow` or `deny`</td></tr>
+    <tr><td>4</td><td>`target`</td><td>Which VMs the rule protects</td><td>all instances, network tags, or service accounts (section 05)</td></tr>
+    <tr><td>5</td><td>`source` (ingress only)</td><td>Who may reach the targets</td><td>IP ranges, network tags, service accounts</td></tr>
+    <tr><td>6</td><td>`destination` (egress only)</td><td>What the targets may reach</td><td>IP ranges</td></tr>
+    <tr><td>7</td><td>`protocol and ports`</td><td>Which traffic</td><td>`tcp:443`, `udp:53`, `icmp`, `all`</td></tr>
+    <tr><td>8</td><td>`disabled`</td><td>Switch the rule off without deleting it</td><td>true or false</td></tr>
+    <tr><td>9</td><td>`logging`</td><td>Record connections the rule matches</td><td>on or off (<Ch n="16">chapter 16</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The direction picks the field: ingress rules use `source`, egress rules use `destination`, never both.</Caption>
+
+Five rules, each drawn as a picture: where traffic comes from, the rule itself, and which of Kadé's four VMs it covers. The sentence under each one is the rule read out in plain words.
+
+<RuleEx />
+
+## Target and source: two separate questions
+
+Every rule answers two questions that have nothing to do with each other:
+
+- **Target:** which VMs does this rule protect?
+- **Source** (ingress) or **destination** (egress): who may reach them, or what may they reach?
+
+### Three ways to choose targets
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Target type</th><th>Means</th><th>Strength</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>All instances (no target)</td><td>Every VM in the VPC, now and every VM created later</td><td>Widest; what you get when you forget to narrow</td></tr>
+    <tr><td>2</td><td>Network tags, e.g. `api`</td><td>VMs that carry the tag</td><td><St k="bad">weak</St></td></tr>
+    <tr><td>3</td><td>Service accounts, e.g. `sa-kade-api`</td><td>VMs **running as** that service account</td><td><St k="ok">strong</St></td></tr>
+  </tbody>
+</Table>
+
+<Caption>One rule uses tags or service accounts for its targets, not both. Firewall policies add a fourth, stronger option, secure tags (<Ch n="5.2">chapter 5.2</Ch>).</Caption>
+
+<Cols n={2}>
+
+<Col title="Why tags are weak">
+
+A tag is just a string on the VM. Anyone allowed to edit the VM can add `api` to it and instantly pull in every rule that targets `api`, with no firewall permission at all. Nothing checks that a tagged VM should have the tag.
+
+</Col>
+
+<Col title="Why service accounts are stronger">
+
+The service account is the VM's identity. Attaching one needs the `iam.serviceAccountUser` role on it, and it can only be changed while the VM is stopped. The trade-off: it is more rigid, and it ties firewall design to IAM design. That rigidity is useful at production boundaries.
+
+</Col>
+
+</Cols>
+
+<Key title="Rules for VMs that do not exist yet">
+
+A managed instance group creates and deletes VMs all the time (<Ch n="12.2">chapter 12.2</Ch>). A rule that targets the **service account** set in the group's instance template covers every VM the group will ever create, with nothing to update. Rules that name single VMs or their IPs break on the first scale-out. Kadé's `kade-lb-to-media` targets `sa-kade-media` for exactly this reason.
+
+</Key>
+
+### Sources
+
+An ingress rule can name sources by IP range, network tag or service account. Two details catch people out:
+
+- If a rule lists both ranges and tags (or service accounts), a packet matches if it matches **either**.
+- Source tags and source service accounts only match traffic from VMs **inside the same VPC, sent to internal IPs**. A packet that arrives through an external IP never matches them, even from your own VM (<Ch n="3">chapter 3</Ch> section 06).
+
+## The scoping trap
+
+**Narrowing the target does nothing to the source.** A rule can be tightly targeted and wide open at the same time:
+
+<Box kind="console" title={"The trap · A metrics port \"for monitoring\""}>
+
+```text
+kade-allow-metrics:
+  targetTags:   [api]          ← TARGET scoped: only VMs tagged api
+  sourceRanges: 0.0.0.0/0      ← SOURCE wide open: the whole internet
+  allow:        tcp:9100
+
+Reads as: "the whole internet may reach port 9100 on any VM tagged api."
+```
+
+The tag makes it look scoped. It is not. The door is open to everyone; the tag only decides which VMs have that door. Compare `kade-allow-lb`, which targets the same tag but whose source is only Google's load balancer ranges.
+
+</Box>
+
+The four shapes a rule can have:
+
+<Box kind="console" title="Shape A · Narrow target, narrow source: actually scoped">
+
+```text
+target:  service account sa-kade-db
+source:  service account sa-kade-api
+allow:   tcp:5432
+→ only the API VMs reach the database, only on PostgreSQL
+```
+
+</Box>
+
+<Box kind="console" title="Shape B · Wide target, narrow source: survivable, if intended">
+
+```text
+target:        all instances
+sourceRanges:  198.51.100.20/32
+allow:         tcp:22
+→ one office IP may SSH to every VM. The source is tight, so the wide target is survivable.
+```
+
+</Box>
+
+<Box kind="console" title="Shape C · Wide target, wide source: the dangerous one">
+
+```text
+target:        all instances
+sourceRanges:  0.0.0.0/0
+allow:         tcp:22
+→ the entire internet may SSH to every VM, now and in the future.
+  This is kade-allow-ssh today (finding 2).
+```
+
+</Box>
+
+<Box kind="console" title="Shape D · The same rule with tags or with a service account">
+
+```text
+Tag version:  targetTags: [db]                    ← anyone who can edit a VM
+                                                     can join the "db" group
+SA version:   targetServiceAccounts: [sa-kade-db]  ← must be granted the SA,
+                                                     and the VM must be stopped
+```
+
+</Box>
+
+## Implied rules and priority
+
+Every VPC has two rules that are always there and always checked last:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Implied rule</th><th>Direction</th><th>Action</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Implied allow egress</td><td>EGRESS</td><td>allow to `0.0.0.0/0`</td><td>65535</td></tr>
+    <tr><td>2</td><td>Implied deny ingress</td><td>INGRESS</td><td>deny from `0.0.0.0/0`</td><td>65535</td></tr>
+  </tbody>
+</Table>
+
+<Caption>65535 is the highest number, so they are the weakest rules: the backstop when nothing else matches. They do not show in `firewall-rules list`.</Caption>
+
+- **All egress is allowed by default.** A new VM reaches the internet (if it has a path) with no egress rule. Egress hardening is opt-in: you add deny rules on top.
+- **All ingress is denied by default.** A new VM is unreachable until an allow rule opens a specific hole.
+
+### How priority works
+
+```text
+A packet is judged by walking the rules from low number to high. The first match decides.
+
+  priority 100    ─┐
+  priority 900     │  your rules (allow or deny; at a tie, deny wins)
+  priority 1000   ─┘
+  ...
+  priority 65535  ─── implied rule (allow egress / deny ingress)
+                       reached only if nothing above matched
+```
+
+Two rules: **lower number wins**, and **at the same priority, deny beats allow**. The second one lets you add a deny next to an allow without renumbering anything.
+
+<Box kind="console" title="Example A · Nothing matches: the implied rule decides">
+
+```text
+Inbound tcp:9000 to kade-api-1. No rule mentions 9000.
+→ walk finishes → implied deny ingress @65535 → DROPPED
+```
+
+</Box>
+
+<Box kind="console" title="Example B · An allow opens a hole in the implied deny">
+
+```text
+allow tcp:8080 from Google's ranges @1000  → matches → ALLOWED
+implied deny @65535                         → never reached
+```
+
+</Box>
+
+<Box kind="console" title="Example C · Deny beats allow at the same priority">
+
+```text
+deny   from 203.0.113.0/24   tcp:443  @1000
+allow  from 0.0.0.0/0        tcp:443  @1000
+
+Packet from 203.0.113.99 → both match, same priority → DENY wins
+Packet from anywhere else → only the allow matches   → ALLOWED
+```
+
+</Box>
+
+<Box kind="console" title="Example D · A lower number wins outright">
+
+```text
+deny   all       @100
+allow  tcp:443   @1000
+
+Packet to :443 → deny @100 is checked first and matches → DROPPED
+                 (the allow is never looked at)
+```
+
+</Box>
+
+<Box kind="console" title="Example E · Egress hardening needs an explicit deny">
+
+```text
+No egress rules → implied allow egress @65535 → kade-db can reach anything
+
+Add: deny  EGRESS to 0.0.0.0/0     @1000
+Add: allow EGRESS to 10.10.0.0/16  @900
+→ kade-db reaches Kadé's own ranges only; the implied allow is never reached
+```
+
+</Box>
+
+## Try it: is this packet allowed in?
+
+Pick a rule set, a target VM, where the packet comes from and which port. The tool walks the ingress rules in priority order, as the data plane does. It assumes the packet can physically reach the VM; for internet sources that means the VM would need an external IP.
+
+<FwWalk />
+
+## Changing rules without breaking things
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Habit</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Add and verify before you remove**</td><td>Create the narrow replacement first, confirm traffic still works, then take the wide rule away</td></tr>
+    <tr><td>2</td><td>**Disable before you delete**</td><td>A disabled rule is off but still there. If something breaks, enable it again in seconds instead of rebuilding it from memory</td></tr>
+    <tr><td>3</td><td>Turn on logging for the rule you plan to remove</td><td>A few days of logs show who still uses it (<Ch n="16">chapter 16</Ch>)</td></tr>
+    <tr><td>4</td><td>Allow a few seconds after each change</td><td>Rules spread to every host's data plane; testing too fast gives false results</td></tr>
+    <tr><td>5</td><td>Remember existing connections</td><td>Removing an allow rule does not always cut connections that are already open. Test with a new connection</td></tr>
+  </tbody>
+</Table>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: findings 3, 4 and 9 (finding 2 moves to chapter 6)">
+
+The new rule set, aimed at identities instead of "every VM":
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule</th><th>From</th><th>To (target)</th><th>Ports</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`kade-lb-to-api`</td><td>`35.191.0.0/16`, `130.211.0.0/22`</td><td>SA `sa-kade-api`</td><td>tcp:8080</td><td><St k="ok">new</St> replaces kade-allow-lb</td></tr>
+    <tr><td>2</td><td>`kade-api-to-db`</td><td>SA `sa-kade-api`</td><td>SA `sa-kade-db`</td><td>tcp:5432</td><td><St k="ok">new</St> replaces kade-allow-internal</td></tr>
+    <tr><td>3</td><td>`kade-icmp-internal`</td><td>`10.10.0.0/16`</td><td>all instances</td><td>icmp</td><td><St k="ok">new</St> ping for troubleshooting only</td></tr>
+    <tr><td>4</td><td>`kade-allow-icmp`</td><td>home and office IPs</td><td>all instances</td><td>icmp</td><td><St k="ok">kept</St></td></tr>
+    <tr><td>5</td><td>`kade-allow-ssh`</td><td>`0.0.0.0/0`</td><td>all instances</td><td>tcp:22</td><td><St k="plan">kept until <Ch n="6">chapter 6</Ch></St></td></tr>
+    <tr><td>6</td><td>`kade-allow-web`, `kade-allow-internal`, `kade-allow-lb`</td><td>-</td><td><St k="bad">disabled, then deleted</St></td></tr>
+  </tbody>
+</Table>
+
+The order of work, following section 09:
+
+- **1. Identities.** Create `sa-kade-api` and `sa-kade-db`. Stop, change and start one API VM at a time, so the load balancer keeps serving from the other one. Then do kade-db in a short maintenance window.
+- **2. Add.** Create rules 1 to 3, with logging on.
+- **3. Verify.** The shop still loads through the load balancer, kade-api still reaches kade-db, and `get-effective-firewalls` on each VM shows the new rules.
+- **4. Disable** `kade-allow-web`, `kade-allow-internal` and `kade-allow-lb`. Watch for a few days.
+- **5. Delete** the three disabled rules.
+
+Port 22 stays open to everyone for now. Removing it before <Ch n="6">chapter 6</Ch> would lock the team out, since IAP is the replacement.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 3 are read-only. Commands 4 to 7 change the project.
+
+<TryIt n={1} title="List rules with the columns that matter">
+
+- **What it shows:** Every rule with direction, priority, sources, ports and targets, including service account targets.
+- **What to look for:** `0.0.0.0/0` on anything but the load balancer path, and rules with no target (every VM).
+
+```sh
+gcloud compute firewall-rules list --filter="network~kade-vpc" \
+  --format="table(name,direction,priority,sourceRanges.list(),sourceServiceAccounts.list(),
+    allowed[].map().firewall_rule().list(),targetTags.list(),targetServiceAccounts.list(),disabled)"
+```
+
+</TryIt>
+
+<TryIt n={2} title="See every rule that applies to one VM">
+
+- **What it shows:** The rules GCP actually applies to kade-db, already resolved and in order. <Ch n="5.2">Chapter 5.2</Ch> explains the extra layers it can include.
+- **What to look for:** Any allow that should not be there. If your reading of the rules disagrees with this output, the output is right.
+
+```sh
+gcloud compute instances network-interfaces get-effective-firewalls kade-db \
+  --network-interface=nic0 --zone=asia-southeast1-b
+```
+
+</TryIt>
+
+<TryIt n={3} title="See which service account and tags a VM has">
+
+- **What it shows:** The identity and tags that firewall targets match against.
+- **What to look for:** `...-compute@developer.gserviceaccount.com` means the default service account (finding 9).
+
+```sh
+gcloud compute instances describe kade-db --zone=asia-southeast1-b \
+  --format="value(serviceAccounts[0].email,tags.items)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Create a rule between two identities (changes the project)">
+
+- **What it shows:** Rule E: only VMs running as sa-kade-api reach VMs running as sa-kade-db on 5432, with logging on.
+- **What to look for:** The rule in command 1, and in command 2's output for kade-db.
+
+```sh
+gcloud compute firewall-rules create kade-api-to-db \
+  --network=kade-vpc --direction=INGRESS --priority=1000 --action=ALLOW \
+  --rules=tcp:5432 \
+  --source-service-accounts=sa-kade-api@kade-prod.iam.gserviceaccount.com \
+  --target-service-accounts=sa-kade-db@kade-prod.iam.gserviceaccount.com \
+  --enable-logging
+```
+
+</TryIt>
+
+<TryIt n={5} title="Disable a rule, and enable it again (changes the project)">
+
+- **What it shows:** Switches a rule off without losing it.
+- **What to look for:** `DISABLED True` in command 1. If anything breaks, run the second line.
+
+```sh
+gcloud compute firewall-rules update kade-allow-internal --disabled
+gcloud compute firewall-rules update kade-allow-internal --no-disabled
+```
+
+</TryIt>
+
+<TryIt n={6} title="Change a VM's service account (changes the project)">
+
+- **What it shows:** Moves kade-api-1 to its own identity. The VM must be stopped.
+- **What to look for:** Command 3 shows the new email. Do one API VM at a time so the other keeps serving.
+
+```sh
+gcloud compute instances stop kade-api-1 --zone=asia-southeast1-a
+gcloud compute instances set-service-account kade-api-1 --zone=asia-southeast1-a \
+  --service-account=sa-kade-api@kade-prod.iam.gserviceaccount.com \
+  --scopes=cloud-platform
+gcloud compute instances start kade-api-1 --zone=asia-southeast1-a
+```
+
+</TryIt>
+
+<TryIt n={7} title="Delete a rule (changes the project)">
+
+- **What it shows:** Removes a rule for good, after it has been disabled and watched.
+- **What to look for:** Gone from command 1. There is no undo; keep the command 1 output from before as a record.
+
+```sh
+gcloud compute firewall-rules delete kade-allow-web kade-allow-internal kade-allow-lb
+```
+
+</TryIt>

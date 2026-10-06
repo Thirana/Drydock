@@ -1,0 +1,1864 @@
+{
+ "PKTWALK": [
+  {
+   "h": "1 · The app sends",
+   "t": "The Node app writes the query to its database socket. The kernel builds an IP packet. The destination is not inside the VM's /32, so the route table says: send it to the gateway.",
+   "f": [
+    [
+     "Inner packet (TCP)",
+     "10.10.1.10:41822 → 10.10.2.5:5432",
+     "blue"
+    ],
+    [
+     "Route chosen",
+     "default via 10.10.1.1",
+     "blue"
+    ]
+   ]
+  },
+  {
+   "h": "2 · The frame",
+   "t": "The OS wraps the packet in an Ethernet frame for the gateway. It got the gateway's MAC from an ARP reply that the data plane made up. Nothing was broadcast.",
+   "f": [
+    [
+     "Frame",
+     "42:01:0a:0a:01:0a → 42:01:0a:0a:01:01",
+     "cyan"
+    ],
+    [
+     "Inner packet",
+     "10.10.1.10 → 10.10.2.5 (unchanged)",
+     "blue"
+    ]
+   ]
+  },
+  {
+   "h": "3 · Data plane on host A",
+   "t": "The data plane takes the frame from the vNIC and drops the MAC header: it routes on IP only. It checks the egress rules for kade-api-1, records the connection, and looks up where 10.10.2.5 lives. The answer was pushed to it long before this packet.",
+   "f": [
+    [
+     "Egress firewall",
+     "implied \"allow all egress\" → allowed",
+     "orange"
+    ],
+    [
+     "Connection",
+     "recorded, so the reply can come back",
+     "orange"
+    ],
+    [
+     "Lookup",
+     "10.10.2.5 → physical host B",
+     "purple"
+    ]
+   ]
+  },
+  {
+   "h": "4 · Across Google's network",
+   "t": "The packet is wrapped in Google's own outer envelope, addressed from host A to host B, and sent across Google's physical network. Your packet is inside, unchanged. Neither VM ever sees the outer envelope.",
+   "f": [
+    [
+     "Outer envelope",
+     "host A → host B (Google's addresses, hidden from you)",
+     "purple"
+    ],
+    [
+     "Inner packet",
+     "10.10.1.10:41822 → 10.10.2.5:5432 (unchanged)",
+     "blue"
+    ]
+   ]
+  },
+  {
+   "h": "5 · Data plane on host B",
+   "t": "Host B unwraps the packet and checks the ingress rules for kade-db. kade-allow-internal allows everything from 10.10.0.0/16, so it passes. This is finding 4 from chapter 0: any VM in kade-vpc would pass here, on any port.",
+   "f": [
+    [
+     "Ingress firewall",
+     "kade-allow-internal (10.10.0.0/16, all) → allowed",
+     "orange"
+    ],
+    [
+     "Finding 4",
+     "too broad; fixed in chapter 5",
+     "red"
+    ]
+   ]
+  },
+  {
+   "h": "6 · Delivered",
+   "t": "The data plane hands kade-db a normal-looking frame, as if it came from its own gateway. kade-db sees the real source IP and port. Its reply goes back the same way, and host A lets it in because the connection was recorded in step 3.",
+   "f": [
+    [
+     "Frame",
+     "42:01:0a:0a:02:01 → 42:01:0a:0a:02:05",
+     "cyan"
+    ],
+    [
+     "kade-db sees",
+     "from 10.10.1.10:41822 to 10.10.2.5:5432",
+     "green"
+    ],
+    [
+     "Reply",
+     "allowed by the recorded connection, no rule needed",
+     "green"
+    ]
+   ]
+  }
+ ],
+ "SCOPE": [
+  [
+   "kade-vpc",
+   "VPC network",
+   "g",
+   "One object for the whole planet. Subnets in any region belong to it."
+  ],
+  [
+   "kade-allow-ssh",
+   "Firewall rule",
+   "g",
+   "Rules belong to the VPC, so they are global. Every host's data plane loads the ones it needs."
+  ],
+  [
+   "0.0.0.0/0 default route",
+   "Route",
+   "g",
+   "Routes belong to the VPC network, so they are global too."
+  ],
+  [
+   "sn-app",
+   "Subnet",
+   "r",
+   "One region, stretched over all its zones."
+  ],
+  [
+   "kade-api-1",
+   "VM",
+   "z",
+   "It runs on one physical host in one zone."
+  ],
+  [
+   "kade-api-1's boot disk",
+   "Zonal persistent disk",
+   "z",
+   "It lives in the same zone as the VM that uses it."
+  ],
+  [
+   "kade-router",
+   "Cloud Router",
+   "r",
+   "Cloud Router and the Cloud NAT on it are set up per region."
+  ],
+  [
+   "34.120.88.10",
+   "Load balancer IP",
+   "g",
+   "A global external IP, announced from Google's edge all over the world."
+  ],
+  [
+   "34.87.200.7",
+   "Cloud NAT IP",
+   "r",
+   "Regional external IPs are used by VMs, Cloud NAT and regional load balancers."
+  ],
+  [
+   "kade-api (Cloud Run)",
+   "Cloud Run service",
+   "r",
+   "Deployed to one region; Google runs it across that region's zones."
+  ],
+  [
+   "kade-havpn",
+   "HA VPN gateway",
+   "r",
+   "Set up per region, with two interfaces for redundancy."
+  ]
+ ],
+ "IPFATE": {
+  "ei": {
+   "ss": [
+    "ok",
+    "Same address.",
+    "Ephemeral internal addresses stay with the VM across stop and start. This is why kade-db has kept 10.10.2.5 so far."
+   ],
+   "del": [
+    "bad",
+    "Released.",
+    "The address goes back to the subnet and the next new VM may get it."
+   ],
+   "rec": [
+    "bad",
+    "Probably a different address.",
+    "The new VM gets the next free address in the subnet. Anything hardcoded to the old one breaks."
+   ],
+   "rm": [
+    "plan",
+    "Not possible.",
+    "A network card always has a primary internal address. You can change it only by recreating the card or the VM."
+   ]
+  },
+  "si": {
+   "ss": [
+    "ok",
+    "Same address.",
+    "Nothing changes; the reservation stays attached."
+   ],
+   "del": [
+    "ok",
+    "Kept.",
+    "The reservation stays in the project with status RESERVED, ready for the next VM. Internal reservations are free."
+   ],
+   "rec": [
+    "ok",
+    "Same address, if you ask for it.",
+    "Create the new VM with --private-network-ip set to the reserved address or its name."
+   ],
+   "rm": [
+    "ok",
+    "Kept.",
+    "It goes back to RESERVED and can be given to another VM."
+   ]
+  },
+  "ee": {
+   "ss": [
+    "bad",
+    "New address.",
+    "The address is released when the VM stops, and a new one is picked when it starts. This is the outage at the top of this chapter."
+   ],
+   "del": [
+    "bad",
+    "Gone for good.",
+    "There is no way to get the same address back."
+   ],
+   "rec": [
+    "bad",
+    "New address.",
+    "A rebuilt VM gets a fresh address from Google's pool."
+   ],
+   "rm": [
+    "bad",
+    "Gone for good.",
+    "Removing the access config releases the address immediately."
+   ]
+  },
+  "se": {
+   "ss": [
+    "ok",
+    "Same address.",
+    "The address stays attached, and still counts as in use while the VM is stopped."
+   ],
+   "del": [
+    "warn",
+    "Kept, and now billed as idle.",
+    "The reservation returns to RESERVED. Reattach it or release it; an idle static address costs more than one in use."
+   ],
+   "rec": [
+    "ok",
+    "Same address, if you ask for it.",
+    "Attach the reserved address to the new VM with --address."
+   ],
+   "rm": [
+    "warn",
+    "Kept, and now billed as idle.",
+    "It returns to RESERVED. Give it to something or release it."
+   ]
+  }
+ },
+ "QUERYBOOK": [
+  [
+   "Which requests failed in the last hour?",
+   "resource.type=\"http_load_balancer\"\nhttpRequest.status>=500",
+   "Every 5xx at the front door.",
+   "Group mentally by jsonPayload.statusDetails: backend errors, timeouts, or no backend."
+  ],
+  [
+   "Who produced the errors? (Log Analytics SQL)",
+   "SELECT JSON_VALUE(json_payload.statusDetails) AS who, COUNT(*) AS n\nFROM `kade-prod.global._Default._AllLogs`\nWHERE resource.type = \"http_load_balancer\"\n  AND http_request.status >= 500\n  AND timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)\nGROUP BY who ORDER BY n DESC",
+   "A count of errors by who produced them.",
+   "Mostly response_sent_by_backend: an app problem. failed_to_pick_backend or backend_timeout: a platform problem."
+  ],
+  [
+   "Follow one request everywhere (by CF-Ray)",
+   "jsonPayload.cf_ray=\"8c1a2b3c4d5e6f70-CMB\"\nOR httpRequest.requestUrl:\"8c1a2b3c4d5e6f70\"",
+   "Every app line kade-api printed for that request.",
+   "Then take the trace ID from one of them to find the load balancer and Cloud Run entries."
+  ],
+  [
+   "Which Cloud Armor rule blocked this?",
+   "resource.type=\"http_load_balancer\"\njsonPayload.enforcedSecurityPolicy.outcome=\"DENY\"",
+   "Every request Cloud Armor refused.",
+   "enforcedSecurityPolicy.priority names the rule; preconfiguredExprIds names the exact WAF signature, for tuning false positives."
+  ],
+  [
+   "Which requests were slow?",
+   "resource.type=\"http_load_balancer\"\nhttpRequest.latency>\"2s\"",
+   "Requests that took more than 2 seconds end to end.",
+   "Check if they share a URL (one slow endpoint) or a time (the database or PayGate was slow then)."
+  ],
+  [
+   "Is the firewall blocking something to kade-worker?",
+   "logName:\"compute.googleapis.com%2Ffirewall\"\njsonPayload.disposition=\"DENIED\"\njsonPayload.connection.dest_ip=\"10.10.1.20\"",
+   "Denied connections to kade-worker, with the rule that denied them.",
+   "Needs logging on the rule; implied denies only show if the deny-all-log rule exists."
+  ],
+  [
+   "Are PayGate calls dropped at NAT?",
+   "resource.type=\"nat_gateway\"\njsonPayload.allocation_status=\"DROPPED\"",
+   "Connections Cloud NAT could not translate.",
+   "OUT_OF_RESOURCES: ports ran out (chapter 7, section 05)."
+  ],
+  [
+   "Who talks to PayGate? (flow logs)",
+   "logName:\"vpc_flows\"\njsonPayload.connection.dest_ip=\"192.0.2.10\"",
+   "Sampled connections to PayGate, with source instance or Cloud Run service.",
+   "Unexpected sources mean something else is calling the payment API."
+  ],
+  [
+   "Who changed a firewall rule?",
+   "logName:\"cloudaudit.googleapis.com%2Factivity\"\nprotoPayload.methodName:\"compute.firewalls\"",
+   "Every create, update and delete of firewall rules, with who did it.",
+   "Admin Activity audit logs are always on and free."
+  ]
+ ],
+ "INCIDENTS": {
+  "Site down for everyone": [
+   [
+    "Is it only us?",
+    "Uptime check results by region; Cloudflare status page",
+    "All regions failing: likely the whole front door. One region: a local internet problem, usually not yours.",
+    "If all regions fail, go to step 2."
+   ],
+   [
+    "Does Cloudflare reach the origin?",
+    "curl -sI https://api.kade.lk/v1/health  (look for a 52x code)",
+    "A 52x page means Cloudflare is up but the origin leg failed. Read the code with chapter 13's error decoder.",
+    "No 52x but nothing loads: check DNS (dig +short api.kade.lk) and Cloudflare. A 52x: step 3."
+   ],
+   [
+    "What does the load balancer say?",
+    "Logs: resource.type=\"http_load_balancer\" httpRequest.status>=500, read statusDetails",
+    "failed_to_pick_backend: no backend. denied_by_security_policy: Cloud Armor. Nothing logged at all: requests are not reaching the LB (origin lock, certificate, forwarding rule).",
+    "No backend: step 4."
+   ],
+   [
+    "Is kade-api serving?",
+    "gcloud run revisions list --service=kade-api --region=asia-southeast1",
+    "The latest revision not ready, or failing to start, means a bad deploy.",
+    "Roll back: gcloud run services update-traffic kade-api --to-revisions=LAST_GOOD_REVISION_NAME=100"
+   ]
+  ],
+  "Many 502 / 503 errors": [
+   [
+    "Who produced them?",
+    "The \"Who produced the errors?\" query (16.1 cookbook)",
+    "response_sent_by_backend: the app returned them. failed_to_pick_backend or backend_timeout: the platform.",
+    "App: step 2. Platform: step 3."
+   ],
+   [
+    "What does the app say?",
+    "Cloud Run app logs, severity>=ERROR, around the same minutes",
+    "An exception, or a dependency (database, PayGate) refusing or timing out.",
+    "A dependency: step 4."
+   ],
+   [
+    "Is Cloud Run at its limit?",
+    "Dashboard: instance count against max instances",
+    "Pinned at max: requests queue and some get 503.",
+    "Raise max instances or find what made requests slow."
+   ],
+   [
+    "Is the database or PayGate the cause?",
+    "Dashboard: Cloud SQL connections and NAT drops",
+    "Connections at max: pool settings or a leak. NAT drops: ports (chapter 7).",
+    "Fix the dependency; the 5xx follow it down."
+   ]
+  ],
+  "Slow for everyone": [
+   [
+    "Is it slow at the LB, or inside the app?",
+    "Dashboard: total latency vs backend latency",
+    "Both high: the app is slow. Total high but backend normal: the problem is before the backend (Cloudflare, TLS, network).",
+    "Inside the app: step 2."
+   ],
+   [
+    "Which endpoint?",
+    "\"Which requests were slow?\" query, grouped by URL",
+    "One endpoint: a slow query or call. All endpoints: something shared.",
+    "Shared: step 3."
+   ],
+   [
+    "Is a dependency slow?",
+    "Cloud SQL query insights; app logs with timings around PayGate calls",
+    "A slow query, or a dependency taking seconds.",
+    "Fix or cache that call."
+   ]
+  ],
+  "Payments failing": [
+   [
+    "Is it all payments or some?",
+    "App logs for PayGate calls: errors by message",
+    "\"Connection refused\" or \"403\" from PayGate: the allow-list. Timeouts: the network or PayGate.",
+    "Some failing: step 2."
+   ],
+   [
+    "Are NAT ports running out?",
+    "NAT drops query (16.1 cookbook); dashboard NAT panel",
+    "OUT_OF_RESOURCES during busy minutes: ports per VM too low (chapter 7).",
+    "Raise min ports or turn on dynamic port allocation; reuse connections."
+   ],
+   [
+    "Is traffic leaving from the right IP?",
+    "From kade-worker: curl -s ifconfig.me  ·  Connectivity Test Cloud Run → PayGate",
+    "Anything other than 34.87.200.7 means a path skips NAT (an external IP, or Cloud Run egress not set to all-traffic).",
+    "Fix the path; PayGate only accepts 34.87.200.7."
+   ]
+  ],
+  "One feature returns 403": [
+   [
+    "Who said 403?",
+    "Load balancer logs for that URL: statusDetails",
+    "denied_by_security_policy: Cloud Armor. response_sent_by_backend: the app's own permission check.",
+    "Cloud Armor: step 2."
+   ],
+   [
+    "Which rule?",
+    "\"Which Cloud Armor rule blocked this?\" query",
+    "A preconfigured WAF signature on a legitimate request is a false positive.",
+    "Exclude that signature for that path, or put the rule in preview while tuning."
+   ]
+  ],
+  "VMs keep being recreated": [
+   [
+    "Is the group stuck below its size?",
+    "gcloud compute instance-groups managed list-instances kade-media-mig --region=asia-southeast1",
+    "VMs cycling through CREATING, RECREATING again and again: autohealing is replacing them.",
+    "Step 2."
+   ],
+   [
+    "Why does autohealing reject them?",
+    "Logs: protoPayload.methodName=\"compute.instances.repair.recreateInstance\", then a new VM's serial output",
+    "Recreated within minutes of starting: the initial delay is shorter than startup (a boot loop). Recreated after running a while: the app really breaks.",
+    "Boot loop: step 3. App breaks: the app logs (Ops Agent)."
+   ],
+   [
+    "Can the health check reach the app?",
+    "Connectivity Test from 35.191.0.1 to a VM on 8080; curl localhost:8080/healthz on the VM over IAP",
+    "Firewall step DROPPED: the rule for Google's ranges targets the wrong service account. Local curl fails: the app does not start.",
+    "Raise the initial delay, fix the rule, or roll back to the previous template (chapter 12.2, command 9)."
+   ]
+  ],
+  "Office cannot reach GCP": [
+   [
+    "Are the tunnels and BGP up?",
+    "gcloud compute vpn-tunnels list; gcloud compute routers get-status kade-vpn-router",
+    "Tunnel not ESTABLISHED or BGP down: the VPN itself.",
+    "All up: step 2."
+   ],
+   [
+    "Would the packet be allowed?",
+    "Connectivity Test from the office IP to the destination",
+    "DROPPED at a firewall step: a missing rule. At a route step: an advertisement missing (chapter 15).",
+    "Fix the named step."
+   ],
+   [
+    "Do big transfers hang?",
+    "ping -M do -s 1432 from kade-worker to the office",
+    "Small pings work, big ones fail: MTU (chapter 15 section 06).",
+    "Clamp MSS on the office router."
+   ]
+  ]
+ },
+ "CONNTEST": [
+  {
+   "k": "kade-worker → Cloud SQL",
+   "res": [
+    "REACHABLE",
+    "green"
+   ],
+   "steps": [
+    [
+     "Start",
+     "VM kade-worker 10.10.1.20 in sn-app",
+     "ok"
+    ],
+    [
+     "Egress firewall",
+     "implied allow egress (65535)",
+     "ok"
+    ],
+    [
+     "Route",
+     "10.10.32.0/20 via peering servicenetworking-googleapis-com",
+     "ok"
+    ],
+    [
+     "Forward",
+     "into Google's service network",
+     "ok"
+    ],
+    [
+     "Deliver",
+     "Cloud SQL kade-sql 10.10.32.3:5432",
+     "ok"
+    ]
+   ],
+   "take": "Every check passes, and the test names the exact route it used. Saved, it becomes a one-click check after any change to routes, peering or firewall."
+  },
+  {
+   "k": "Warehouse → kade-worker, no rule",
+   "res": [
+    "DROPPED",
+    "red"
+   ],
+   "steps": [
+    [
+     "Start",
+     "on-premises 172.16.2.31, arriving over kade-tunnel-0",
+     "ok"
+    ],
+    [
+     "Route",
+     "subnet route 10.10.1.0/24 (sn-app)",
+     "ok"
+    ],
+    [
+     "Ingress firewall",
+     "no allow rule matches; implied deny ingress (65535)",
+     "bad"
+    ],
+    [
+     "Deliver",
+     "not reached",
+     "skip"
+    ]
+   ],
+   "take": "The test stops at the exact step and names the cause: the implied deny. Without logging or a real packet, you know which rule to add (chapter 15's kade-warehouse-to-inventory)."
+  },
+  {
+   "k": "Cloud Run → PayGate",
+   "res": [
+    "REACHABLE (to Google's edge)",
+    "green"
+   ],
+   "steps": [
+    [
+     "Start",
+     "Cloud Run kade-api, Direct VPC egress from sn-run",
+     "ok"
+    ],
+    [
+     "Egress firewall",
+     "implied allow egress (65535)",
+     "ok"
+    ],
+    [
+     "Route",
+     "0.0.0.0/0 → default-internet-gateway",
+     "ok"
+    ],
+    [
+     "NAT",
+     "Cloud NAT kade-nat, source 34.87.200.7",
+     "ok"
+    ],
+    [
+     "Deliver",
+     "to the internet: 192.0.2.10:443",
+     "edge"
+    ]
+   ],
+   "take": "For internet destinations the test can only follow the path to the edge of Google's network. It confirms the route and the NAT IP; whether PayGate answers is up to PayGate."
+  }
+ ],
+ "CONSTRAINTS": {
+  "VMs and IPs": [
+   [
+    "compute.vmExternalIpAccess",
+    "list",
+    "VMs with external IPs, except those listed",
+    "3, 6.2",
+    "deny all on production"
+   ],
+   [
+    "compute.vmCanIpForward",
+    "list",
+    "VMs that can forward packets (routers, NAT VMs)",
+    "3, 4",
+    "deny all"
+   ],
+   [
+    "compute.requireOsLogin",
+    "boolean",
+    "VMs without OS Login",
+    "6.2",
+    "enforced on the org"
+   ],
+   [
+    "compute.requireShieldedVm",
+    "boolean",
+    "VMs without Shielded VM features",
+    "12.2",
+    "enforced on production"
+   ],
+   [
+    "compute.disableSerialPortAccess",
+    "boolean",
+    "Serial console access. Note: this also removes the break-glass path from chapter 6.1",
+    "6.1",
+    "not set: Kadé keeps break-glass"
+   ]
+  ],
+  "Networks": [
+   [
+    "compute.skipDefaultNetworkCreation",
+    "boolean",
+    "The default network in new projects",
+    "2",
+    "enforced on the org"
+   ],
+   [
+    "compute.restrictVpcPeering",
+    "list",
+    "Peering with networks not on the list. Private services access (chapter 9) also uses peering: test in dry run before enforcing",
+    "9, 14",
+    "not set yet"
+   ],
+   [
+    "compute.restrictSharedVpcHostProjects",
+    "list",
+    "Using a Shared VPC host that is not approved",
+    "14",
+    "not needed: no Shared VPC"
+   ],
+   [
+    "compute.restrictVpnPeerIPs",
+    "list",
+    "VPN tunnels to any peer IP not listed",
+    "15",
+    "only 198.51.100.20"
+   ],
+   [
+    "compute.restrictLoadBalancerCreationForTypes",
+    "list",
+    "Load balancer types not on the list",
+    "11",
+    "only external managed + internal"
+   ],
+   [
+    "gcp.resourceLocations",
+    "list",
+    "Resources outside the listed regions",
+    "2",
+    "asia-southeast1 only"
+   ]
+  ],
+  "Cloud Run": [
+   [
+    "run.allowedIngress",
+    "list",
+    "Services with an ingress setting not on the list, such as \"all\"",
+    "10, 12.1",
+    "internal, internal-and-cloud-load-balancing"
+   ],
+   [
+    "run.allowedVPCEgress",
+    "list",
+    "VPC egress settings not on the list",
+    "10",
+    "reviewed, not set yet"
+   ]
+  ],
+  "Cloud SQL": [
+   [
+    "sql.restrictPublicIp",
+    "boolean",
+    "Cloud SQL instances with a public IP",
+    "9",
+    "enforced on production"
+   ],
+   [
+    "sql.restrictAuthorizedNetworks",
+    "boolean",
+    "Authorized networks lists on Cloud SQL",
+    "9",
+    "enforced on production"
+   ]
+  ],
+  "Identity and data": [
+   [
+    "iam.disableServiceAccountKeyCreation",
+    "boolean",
+    "Downloadable service account key files",
+    "17",
+    "enforced on the org"
+   ],
+   [
+    "iam.allowedPolicyMemberDomains",
+    "list",
+    "IAM grants to identities outside the listed organizations",
+    "6, 17",
+    "kade.lk only"
+   ],
+   [
+    "storage.publicAccessPrevention",
+    "boolean",
+    "Public buckets and objects",
+    "9",
+    "enforced, except the static assets bucket"
+   ]
+  ]
+ },
+ "GUARD_LAYERS": [
+  "Org policy",
+  "Hierarchical firewall",
+  "IAM role",
+  "Detect (alert / SCC)"
+ ],
+ "GUARDRAILS": {
+  "Give a VM an external IP": [
+   [
+    "block",
+    "compute.vmExternalIpAccess refuses it"
+   ],
+   [
+    "skip",
+    "not a firewall matter"
+   ],
+   [
+    "skip",
+    "would be allowed for a Network Admin"
+   ],
+   [
+    "skip",
+    "not reached"
+   ]
+  ],
+  "Open SSH to 0.0.0.0/0 with a VPC rule": [
+   [
+    "skip",
+    "no org constraint for rule contents"
+   ],
+   [
+    "block",
+    "the folder policy denies 22 from the internet before VPC rules are checked (chapter 5.2)"
+   ],
+   [
+    "pass",
+    "Security Admin may create the rule"
+   ],
+   [
+    "note",
+    "the rule exists but does nothing; the change alert fires, SCC reports OPEN_SSH_PORT"
+   ]
+  ],
+  "Open port 9100 to 0.0.0.0/0 for \"monitoring\"": [
+   [
+    "skip",
+    "no constraint for this"
+   ],
+   [
+    "skip",
+    "the folder policy only covers 22 and 3389"
+   ],
+   [
+    "pass",
+    "a Security Admin can do it"
+   ],
+   [
+    "detect",
+    "the network-change alert fires in minutes; SCC reports OPEN_FIREWALL"
+   ]
+  ],
+  "Deploy Cloud Run with ingress all": [
+   [
+    "block",
+    "run.allowedIngress refuses the value"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "not reached"
+   ]
+  ],
+  "Turn on a public IP for Cloud SQL": [
+   [
+    "block",
+    "sql.restrictPublicIp refuses it"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "not reached"
+   ]
+  ],
+  "Create a new project with the default network": [
+   [
+    "block",
+    "compute.skipDefaultNetworkCreation: the project starts empty"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "not reached"
+   ]
+  ],
+  "A developer edits a firewall rule": [
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "block",
+    "Developers hold Network Viewer: permission denied"
+   ],
+   [
+    "note",
+    "the denied attempt is in the audit log"
+   ]
+  ],
+  "Create a service account key file": [
+   [
+    "block",
+    "iam.disableServiceAccountKeyCreation refuses it"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "not reached"
+   ]
+  ],
+  "Copy a bucket to a personal project": [
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "skip",
+    "-"
+   ],
+   [
+    "pass",
+    "the stolen credentials can read the bucket"
+   ],
+   [
+    "vpcsc",
+    "VPC Service Controls (enforced) refuses: the destination is outside the perimeter. In dry run, it is logged"
+   ]
+  ]
+ },
+ "CAP1": {
+  "h": 360,
+  "nodes": {
+   "shopper": [
+    16,
+    140,
+    "Shopper",
+    "203.0.113.99",
+    "cyan"
+   ],
+   "cfdns": [
+    174,
+    24,
+    "Cloudflare DNS",
+    "kade.lk zone",
+    "orange"
+   ],
+   "cf": [
+    174,
+    140,
+    "Cloudflare edge",
+    "Colombo",
+    "orange"
+   ],
+   "gfe": [
+    332,
+    140,
+    "Google LB",
+    "front end · Armor",
+    "purple"
+   ],
+   "bs": [
+    490,
+    140,
+    "Backend service",
+    "kade-media-backend",
+    "orange"
+   ],
+   "vm": [
+    660,
+    140,
+    "kade-media VM",
+    "10.10.1.31 · MIG",
+    "blue"
+   ],
+   "pdns": [
+    660,
+    268,
+    "Cloud DNS",
+    "private zone",
+    "purple"
+   ],
+   "sql": [
+    818,
+    40,
+    "Cloud SQL",
+    "10.10.32.3",
+    "green"
+   ],
+   "gcs": [
+    818,
+    240,
+    "Cloud Storage",
+    "original photos",
+    "purple"
+   ]
+  },
+  "zones": [
+   [
+    646,
+    112,
+    154,
+    236,
+    "kade-vpc · sn-app",
+    "blue"
+   ]
+  ],
+  "edges": [
+   [
+    "shopper",
+    "cfdns"
+   ],
+   [
+    "shopper",
+    "cf"
+   ],
+   [
+    "cf",
+    "gfe"
+   ],
+   [
+    "gfe",
+    "bs"
+   ],
+   [
+    "bs",
+    "vm"
+   ],
+   [
+    "vm",
+    "pdns"
+   ],
+   [
+    "vm",
+    "sql"
+   ],
+   [
+    "vm",
+    "gcs"
+   ]
+  ],
+  "req": [
+   {
+    "e": [
+     "shopper",
+     "cfdns"
+    ],
+    "t": "Find www.kade.lk",
+    "lab": "DNS",
+    "what": "The phone asks DNS for <code>www.kade.lk</code>. Cloudflare is authoritative, and the record is <b>orange</b>, so the answer is a Cloudflare address, not Kadé's load balancer.",
+    "dec": "Cloudflare holds the zone; proxied (orange) record",
+    "ch": [
+     "13"
+    ],
+    "pkt": "UDP 53 (or DNS over HTTPS)\nQ: www.kade.lk A?\nA: 104.21.48.12   (Cloudflare)",
+    "log": "Cloudflare DNS analytics"
+   },
+   {
+    "e": [
+     "shopper",
+     "cf"
+    ],
+    "t": "Edge leg to Cloudflare",
+    "lab": "TLS 1",
+    "what": "The phone opens TLS to Cloudflare's Colombo edge, which presents its Universal SSL certificate. Cloudflare checks its WAF and bot rules, assigns a <code>CF-Ray</code> ID, and looks in its cache: this size has never been asked for, so it is a <b>miss</b>.",
+    "dec": "Edge certificate; Always Use HTTPS; minimum TLS 1.2; Cache Rules",
+    "ch": [
+     "13"
+    ],
+    "pkt": "203.0.113.99:51022 → 104.21.48.12:443\nTLS 1.3 · SNI www.kade.lk\nGET /media/rice-640w.jpg",
+    "log": "Cloudflare analytics (CF-Ray 8c1a…-CMB)"
+   },
+   {
+    "e": [
+     "cf",
+     "gfe"
+    ],
+    "t": "Origin leg and Cloud Armor",
+    "lab": "TLS 2",
+    "what": "Cloudflare opens its <b>own</b> connection to <code>34.120.88.10</code>, checks Google's certificate (Full strict), and adds <code>CF-Connecting-IP</code> and the secret <code>x-kade-edge</code> header. Google's front end ends TLS at the target proxy. Cloud Armor checks: a Cloudflare address, the right header, no WAF match. Allowed.",
+    "dec": "SSL/TLS mode Full (strict); kade-https-proxy cert map and kade-tls; kade-edge-policy origin lock",
+    "ch": [
+     "12.1",
+     "13"
+    ],
+    "pkt": "104.23.211.40:30211 → 34.120.88.10:443\nTLS 1.3 · Google-managed cert *.kade.lk\nCF-Connecting-IP: 203.0.113.99\nx-kade-edge: (secret)",
+    "log": "LB log: enforcedSecurityPolicy ACCEPT"
+   },
+   {
+    "e": [
+     "gfe",
+     "bs"
+    ],
+    "t": "URL map picks the backend",
+    "lab": "/media/*",
+    "what": "With the request decrypted, the URL map reads host <code>www.kade.lk</code> → path matcher <code>web</code> → longest path <code>/media/*</code> → <code>kade-media-backend</code>. Cloud CDN on that backend service also misses.",
+    "dec": "kade-url-map host rule and path rule",
+    "ch": [
+     "12.1",
+     "12.2"
+    ],
+    "pkt": "Host: www.kade.lk\nPath: /media/rice-640w.jpg\n→ backend service kade-media-backend",
+    "log": "LB log: backend_service_name kade-media-backend"
+   },
+   {
+    "e": [
+     "bs",
+     "vm"
+    ],
+    "t": "To a healthy VM, through the firewall",
+    "lab": "→ :8080",
+    "what": "The backend service picks a <b>healthy</b> VM with spare capacity (RATE 80 per VM) and opens a <b>new</b> connection from Google's front end to port 8080 on its named port. The VM has no external IP; the packet arrives on its internal IP. kade-vpc's firewall checks: source <code>35.191.0.0/16</code>, target service account <code>sa-kade-media</code>, tcp:8080. Allowed by <code>kade-lb-to-media</code>.",
+    "dec": "Health check kade-media-hc; balancing mode; firewall rule by service account",
+    "ch": [
+     "5.1",
+     "12.1",
+     "12.2"
+    ],
+    "pkt": "35.191.8.20:44102 → 10.10.1.31:8080\nHTTP (inside Google's network)\nX-Forwarded-For: 203.0.113.99, 104.23.211.40, 34.120.88.10",
+    "log": "Firewall rule log (kade-lb-to-media ALLOWED); VPC Flow Logs on sn-app"
+   },
+   {
+    "e": [
+     "vm",
+     "pdns"
+    ],
+    "t": "Find the database",
+    "lab": "db.kade.internal?",
+    "what": "kade-media connects to <code>db.kade.internal</code>. The VM asks the metadata server at <code>169.254.169.254</code>, which walks the resolution order: the private zone <code>kade-internal</code> matches and answers <code>10.10.32.3</code>.",
+    "dec": "Private zone kade-internal, visible to kade-vpc",
+    "ch": [
+     "8"
+    ],
+    "pkt": "10.10.1.31 → 169.254.169.254:53\nQ: db.kade.internal A?\nA: 10.10.32.3 (TTL 300)",
+    "log": "Cloud DNS query logs (if the server policy logs)"
+   },
+   {
+    "e": [
+     "vm",
+     "sql"
+    ],
+    "t": "Query Cloud SQL",
+    "lab": "5432 TLS",
+    "what": "The VM connects to <code>10.10.32.3:5432</code>. The route for <code>10.10.32.0/20</code> comes from the private services access peering. Egress is allowed by the implied rule; Cloud SQL lives in Google's network, so no ingress rule is needed on Kadé's side. The connection is TLS, because the instance accepts encrypted connections only.",
+    "dec": "PSA peering route; implied allow egress; Cloud SQL ENCRYPTED_ONLY",
+    "ch": [
+     "4",
+     "9"
+    ],
+    "pkt": "10.10.1.31:40112 → 10.10.32.3:5432\nTLS · SELECT … FROM photos WHERE sku='rice'",
+    "log": "VPC Flow Logs (sn-app); Cloud SQL PostgreSQL log"
+   },
+   {
+    "e": [
+     "vm",
+     "gcs"
+    ],
+    "t": "Read the original photo",
+    "lab": "PGA",
+    "what": "The VM calls <code>storage.googleapis.com</code>, which resolves to a public Google address. With no external IP, the VM uses <b>Private Google Access</b> on sn-app: the default route sends it to Google, which accepts it and keeps it on Google's network. The VM's service account has read access to the bucket; no key file.",
+    "dec": "PGA on sn-app (also enabled by Cloud NAT); default route; IAM on the bucket",
+    "ch": [
+     "4",
+     "7",
+     "9"
+    ],
+    "pkt": "10.10.1.31:52201 → 142.250.4.207:443\nTLS · GET /kade-originals/rice.jpg",
+    "log": "Cloud Storage Data Access audit logs (if enabled); VPC Flow Logs"
+   }
+  ],
+  "ret": [
+   {
+    "e": [
+     "gcs",
+     "vm"
+    ],
+    "t": "Original photo arrives",
+    "what": "Cloud Storage sends the bytes back. They match the connection the VM opened, so no rule is needed to let them in: the firewall is stateful.",
+    "dec": "Connection tracking",
+    "ch": [
+     "5.1"
+    ],
+    "pkt": "142.250.4.207:443 → 10.10.1.31:52201",
+    "log": "VPC Flow Logs (same flow)"
+   },
+   {
+    "e": [
+     "sql",
+     "vm"
+    ],
+    "t": "Database rows arrive",
+    "what": "Photo details come back over the same TLS connection. The VM resizes the image and adds a watermark.",
+    "dec": "Stateful connection",
+    "ch": [
+     "5.1",
+     "9"
+    ],
+    "pkt": "10.10.32.3:5432 → 10.10.1.31:40112",
+    "log": "App log line (with CF-Ray and trace ID)"
+   },
+   {
+    "e": [
+     "vm",
+     "bs"
+    ],
+    "t": "Answer to Google's front end",
+    "what": "The VM replies on the connection Google's front end opened. No egress rule is consulted for a reply. The response carries <code>Cache-Control: public, max-age=86400</code>, so both caches may keep it.",
+    "dec": "Stateful firewall; the app's Cache-Control header",
+    "ch": [
+     "5.1",
+     "13"
+    ],
+    "pkt": "10.10.1.31:8080 → 35.191.8.20:44102\n200 OK · image/jpeg · 48 KB",
+    "log": "Ops Agent: the VM's own access log"
+   },
+   {
+    "e": [
+     "bs",
+     "gfe"
+    ],
+    "t": "Cloud CDN keeps a copy",
+    "what": "Cloud CDN on kade-media-backend stores the image. The load balancer writes one log line: status 200, latency, <code>statusDetails: response_sent_by_backend</code>.",
+    "dec": "enableCDN on the backend service; CACHE_ALL_STATIC",
+    "ch": [
+     "12.1",
+     "16.1"
+    ],
+    "pkt": "(inside Google)",
+    "log": "LB log entry, 100% sample"
+   },
+   {
+    "e": [
+     "gfe",
+     "cf"
+    ],
+    "t": "Back over the origin leg",
+    "what": "The response goes back to Cloudflare over TLS 2. Cloudflare's Cache Rule allows <code>/media/*</code>, so it keeps a copy too.",
+    "dec": "Cloudflare Cache Rules",
+    "ch": [
+     "13"
+    ],
+    "pkt": "34.120.88.10:443 → 104.23.211.40:30211",
+    "log": "Cloudflare analytics"
+   },
+   {
+    "e": [
+     "cf",
+     "shopper"
+    ],
+    "t": "The shopper sees the photo",
+    "what": "Cloudflare answers over TLS 1. Headers show <code>server: cloudflare</code> and <code>cf-cache-status: MISS</code>. The next shopper in Colombo gets <b>HIT</b>, answered in milliseconds without touching Google at all.",
+    "dec": "-",
+    "ch": [
+     "13"
+    ],
+    "pkt": "104.21.48.12:443 → 203.0.113.99:51022\ncf-cache-status: MISS · cf-ray: 8c1a…-CMB",
+    "log": "Uptime check would see the same path (ch 16.2)"
+   }
+  ],
+  "breaks": [
+   {
+    "id": "grey",
+    "label": "www set to grey (DNS only)",
+    "at": 2,
+    "what": "DNS now returns <code>34.120.88.10</code> directly, so the shopper connects to Google without Cloudflare. No <code>x-kade-edge</code> header, and the source is not a Cloudflare address.",
+    "sees": "403 Forbidden",
+    "log": "LB log: statusDetails denied_by_security_policy · enforcedSecurityPolicy.priority 2147483647 (default deny)",
+    "fix": "Set the record back to orange. Every record pointing at the load balancer must be proxied.",
+    "ch": [
+     "13"
+    ]
+   },
+   {
+    "id": "flex",
+    "label": "SSL/TLS mode Flexible",
+    "at": 2,
+    "what": "Cloudflare talks plain HTTP to port 80. Kadé's HTTP forwarding rule answers with a 301 to https://, Cloudflare passes it on, the browser retries… forever.",
+    "sees": "ERR_TOO_MANY_REDIRECTS",
+    "log": "LB log: many 301s on kade-http-rule for the same URL",
+    "fix": "Set the mode to Full (strict).",
+    "ch": [
+     "13"
+    ]
+   },
+   {
+    "id": "cfrange",
+    "label": "New Cloudflare range not in the allow-list",
+    "at": 2,
+    "what": "Cloudflare starts using a new edge range. Requests from it fail the origin lock; requests from other edges still work.",
+    "sees": "Random 403s for some shoppers",
+    "log": "LB log: denied_by_security_policy with remoteIp in an unlisted Cloudflare range",
+    "fix": "Update the Cloudflare ranges in kade-edge-policy (or use the named list with Cloud Armor Enterprise).",
+    "ch": [
+     "13"
+    ]
+   },
+   {
+    "id": "hcfw",
+    "label": "Health-check firewall rule deleted",
+    "at": 4,
+    "what": "A clean-up removed <code>kade-lb-to-media</code>. Health checks from <code>35.191.0.0/16</code> are dropped, every VM is marked unhealthy, and autohealing starts recreating VMs that were fine.",
+    "sees": "502 Bad Gateway on all photos",
+    "log": "LB log: statusDetails failed_to_pick_backend · system event compute.instances.repair.recreateInstance",
+    "fix": "Recreate the rule: tcp:8080 from Google's ranges to sa-kade-media.",
+    "ch": [
+     "5.1",
+     "12.1",
+     "12.2"
+    ]
+   },
+   {
+    "id": "boot",
+    "label": "Autohealing initial delay 0",
+    "at": 4,
+    "what": "During a sale the group scales out. New VMs are judged before the app has started and are recreated in a loop, so the group never reaches its size.",
+    "sees": "Slow photos, then 502s at peak",
+    "log": "instance_group/size below target · repeated recreateInstance events",
+    "fix": "Set the initial delay above the slowest startup (180 s).",
+    "ch": [
+     "12.2"
+    ]
+   },
+   {
+    "id": "zone",
+    "label": "Private zone not visible to kade-vpc",
+    "at": 5,
+    "what": "The private zone <code>kade-internal</code> lost its kade-vpc authorization. <code>db.kade.internal</code> falls through to public DNS, which has no such name.",
+    "sees": "500 errors on every photo",
+    "log": "App log: getaddrinfo ENOTFOUND db.kade.internal · DNS query log NXDOMAIN",
+    "fix": "Authorize kade-vpc on the zone again.",
+    "ch": [
+     "8"
+    ]
+   },
+   {
+    "id": "pga",
+    "label": "sn-app loses Private Google Access",
+    "at": 7,
+    "what": "sn-app was removed from Cloud NAT (which had turned PGA on) and nobody turned PGA on by hand. The VM has no external IP, so Cloud Storage is unreachable.",
+    "sees": "504 after a long wait on new photo sizes; cached sizes still work",
+    "log": "App log: timeout to storage.googleapis.com · flow logs: SYNs with no reply",
+    "fix": "Turn on Private Google Access on sn-app.",
+    "ch": [
+     "7",
+     "9"
+    ]
+   }
+  ]
+ },
+ "CAP2": {
+  "h": 360,
+  "nodes": {
+   "shopper": [
+    16,
+    140,
+    "Shopper",
+    "203.0.113.99",
+    "cyan"
+   ],
+   "cf": [
+    174,
+    140,
+    "Cloudflare edge",
+    "Colombo",
+    "orange"
+   ],
+   "gfe": [
+    332,
+    140,
+    "Google LB",
+    "front end · Armor",
+    "purple"
+   ],
+   "run": [
+    490,
+    140,
+    "Cloud Run",
+    "kade-api",
+    "blue"
+   ],
+   "egr": [
+    660,
+    140,
+    "VPC egress",
+    "sn-run 10.10.3.17",
+    "blue"
+   ],
+   "pdns": [
+    660,
+    268,
+    "Cloud DNS",
+    "private zone",
+    "purple"
+   ],
+   "sql": [
+    818,
+    24,
+    "Cloud SQL",
+    "10.10.32.3",
+    "green"
+   ],
+   "nat": [
+    818,
+    160,
+    "Cloud NAT",
+    "34.87.200.7",
+    "blue"
+   ],
+   "pay": [
+    818,
+    276,
+    "PayGate",
+    "api.paygate.lk",
+    "cyan"
+   ]
+  },
+  "zones": [
+   [
+    646,
+    112,
+    154,
+    236,
+    "kade-vpc · sn-run",
+    "blue"
+   ]
+  ],
+  "edges": [
+   [
+    "shopper",
+    "cf"
+   ],
+   [
+    "cf",
+    "gfe"
+   ],
+   [
+    "gfe",
+    "run"
+   ],
+   [
+    "run",
+    "egr"
+   ],
+   [
+    "egr",
+    "pdns"
+   ],
+   [
+    "egr",
+    "sql"
+   ],
+   [
+    "egr",
+    "nat"
+   ],
+   [
+    "nat",
+    "pay"
+   ]
+  ],
+  "req": [
+   {
+    "e": [
+     "shopper",
+     "cf"
+    ],
+    "t": "To Cloudflare",
+    "lab": "TLS 1",
+    "what": "DNS and the edge leg work as in chapter 18.1. Differences: a Cache Rule <b>bypasses</b> cache for <code>api.kade.lk</code>, and Cloudflare's own rate limit on checkout runs here, keyed on the real shopper.",
+    "dec": "Orange record; Cache Rule bypass for the API; Cloudflare rate limiting",
+    "ch": [
+     "13"
+    ],
+    "pkt": "203.0.113.99:51310 → 104.21.48.12:443\nPOST /v1/checkout · JSON body",
+    "log": "Cloudflare analytics (CF-Ray 8c1b…-CMB)"
+   },
+   {
+    "e": [
+     "cf",
+     "gfe"
+    ],
+    "t": "Origin leg and Cloud Armor",
+    "lab": "TLS 2",
+    "what": "Full (strict) TLS to <code>34.120.88.10</code>; the origin lock passes (Cloudflare address + secret header). The login rate-limit rule does not match this path, and the WAF rules find nothing.",
+    "dec": "kade-edge-policy: origin lock, WAF, rate limit keyed on CF-Connecting-IP",
+    "ch": [
+     "12.1",
+     "13"
+    ],
+    "pkt": "104.23.211.40:30512 → 34.120.88.10:443\nCF-Connecting-IP: 203.0.113.99",
+    "log": "LB log: enforcedSecurityPolicy ACCEPT"
+   },
+   {
+    "e": [
+     "gfe",
+     "run"
+    ],
+    "t": "To Cloud Run, through the serverless NEG",
+    "lab": "serverless NEG",
+    "what": "The URL map sends <code>api.kade.lk</code> to <code>kade-api-backend</code>, whose backend is a <b>serverless NEG</b>. There is no health check and no firewall rule: Cloud Run is not in kade-vpc. Instead, Cloud Run's <b>ingress</b> setting checks that the request came through a load balancer. It did.",
+    "dec": "kade-url-map; serverless NEG kade-api-neg; ingress internal-and-cloud-load-balancing",
+    "ch": [
+     "10",
+     "12.1"
+    ],
+    "pkt": "Google front end → Cloud Run (inside Google, not in the VPC)\nX-Forwarded-For: 203.0.113.99, 104.23.211.40, 34.120.88.10",
+    "log": "LB log; Cloud Run request log (not in VPC Flow Logs)"
+   },
+   {
+    "e": [
+     "run",
+     "egr"
+    ],
+    "t": "kade-api runs, and starts calling out",
+    "lab": "Direct VPC egress",
+    "what": "An instance of kade-api handles the request and logs a JSON line with the CF-Ray and trace ID. Every call it makes now leaves through <b>Direct VPC egress</b> into sn-run, because egress is <code>all-traffic</code>: it gets an address like <code>10.10.3.17</code> and follows kade-vpc's routes and firewall.",
+    "dec": "Direct VPC egress into sn-run, all-traffic",
+    "ch": [
+     "10",
+     "16.1"
+    ],
+    "pkt": "instance source address: 10.10.3.17 (from sn-run)",
+    "log": "Cloud Run app log (JSON, cf_ray, trace)"
+   },
+   {
+    "e": [
+     "egr",
+     "pdns"
+    ],
+    "t": "Two lookups",
+    "lab": "DNS",
+    "what": "<code>db.kade.internal</code> is answered by the private zone (<code>10.10.32.3</code>). <code>api.paygate.lk</code> matches no private zone and is looked up on the internet (<code>192.0.2.10</code>).",
+    "dec": "Resolution order: private zone, then public DNS",
+    "ch": [
+     "8",
+     "10"
+    ],
+    "pkt": "db.kade.internal → 10.10.32.3\napi.paygate.lk → 192.0.2.10",
+    "log": "Cloud DNS query logs (if enabled)"
+   },
+   {
+    "e": [
+     "egr",
+     "sql"
+    ],
+    "t": "Reserve stock, create the order",
+    "lab": "5432 TLS",
+    "what": "Over the private services access peering to Cloud SQL, encrypted. The order is saved as \"pending payment\" before PayGate is called, so a crash later cannot lose it.",
+    "dec": "PSA peering route; ENCRYPTED_ONLY; connector or Auth Proxy",
+    "ch": [
+     "9"
+    ],
+    "pkt": "10.10.3.17:41022 → 10.10.32.3:5432 · TLS",
+    "log": "VPC Flow Logs on sn-run; Cloud SQL log"
+   },
+   {
+    "e": [
+     "egr",
+     "nat"
+    ],
+    "t": "Out through Cloud NAT",
+    "lab": "0.0.0.0/0",
+    "what": "<code>192.0.2.10</code> matches only the default route, next hop the internet gateway. Cloud NAT covers sn-run, so the source is rewritten to <code>34.87.200.7</code> and one of the instance's reserved ports. The NAT keeps a record so the reply can come back.",
+    "dec": "Default route; kade-nat covers sn-run; port allocation",
+    "ch": [
+     "4",
+     "7",
+     "10"
+    ],
+    "pkt": "before NAT: 10.10.3.17:51220 → 192.0.2.10:443\nafter NAT:  34.87.200.7:41877 → 192.0.2.10:443",
+    "log": "NAT logs only on errors; VPC Flow Logs show the inside address"
+   },
+   {
+    "e": [
+     "nat",
+     "pay"
+    ],
+    "t": "PayGate checks its allow-list",
+    "lab": "allow-listed",
+    "what": "PayGate sees the request from <code>34.87.200.7</code>, which is on its allow-list, and charges the card.",
+    "dec": "Fixed NAT IP, given to PayGate before go-live",
+    "ch": [
+     "7"
+    ],
+    "pkt": "34.87.200.7:41877 → 192.0.2.10:443 · TLS\nPOST /v2/charges",
+    "log": "PayGate's own logs; kade-api app log with PayGate's reference"
+   }
+  ],
+  "ret": [
+   {
+    "e": [
+     "pay",
+     "nat"
+    ],
+    "t": "Approval comes back",
+    "what": "PayGate answers <code>34.87.200.7:41877</code>. Cloud NAT finds the record and rewrites the destination back to <code>10.10.3.17:51220</code>. A packet from the internet with no matching record would be dropped.",
+    "dec": "NAT connection table (stateful)",
+    "ch": [
+     "7"
+    ],
+    "pkt": "192.0.2.10:443 → 34.87.200.7:41877\nrewritten to → 10.10.3.17:51220",
+    "log": "-"
+   },
+   {
+    "e": [
+     "nat",
+     "egr"
+    ],
+    "t": "Back to the instance",
+    "what": "The reply reaches the Cloud Run instance that made the call. No firewall rule is needed for replies.",
+    "dec": "Stateful firewall",
+    "ch": [
+     "5.1"
+    ],
+    "pkt": "→ 10.10.3.17:51220",
+    "log": "VPC Flow Logs (same flow)"
+   },
+   {
+    "e": [
+     "egr",
+     "sql"
+    ],
+    "t": "Order marked paid",
+    "what": "kade-api updates the order from \"pending payment\" to \"paid\" over the open database connection.",
+    "dec": "-",
+    "ch": [
+     "9"
+    ],
+    "pkt": "10.10.3.17:41022 → 10.10.32.3:5432 · UPDATE orders …",
+    "log": "Cloud SQL log"
+   },
+   {
+    "e": [
+     "run",
+     "gfe"
+    ],
+    "t": "200 OK to Google's front end",
+    "what": "kade-api answers. Cloud Run writes its request log with latency; the response carries <code>Cache-Control: no-store</code>.",
+    "dec": "App response; no caching for the API",
+    "ch": [
+     "13",
+     "16.1"
+    ],
+    "pkt": "200 OK · {\"order\":\"K-24811\",\"status\":\"paid\"}",
+    "log": "Cloud Run request log; LB log statusDetails response_sent_by_backend"
+   },
+   {
+    "e": [
+     "gfe",
+     "cf"
+    ],
+    "t": "Back over the origin leg",
+    "what": "The load balancer returns the response to Cloudflare. Nothing is cached, by the bypass rule and the header.",
+    "dec": "Cache bypass",
+    "ch": [
+     "13"
+    ],
+    "pkt": "34.120.88.10:443 → 104.23.211.40:30512",
+    "log": "Cloudflare analytics"
+   },
+   {
+    "e": [
+     "cf",
+     "shopper"
+    ],
+    "t": "The shopper sees \"Payment successful\"",
+    "what": "Headers show <code>cf-cache-status: DYNAMIC</code>. The whole trip, two TLS legs, a database write, a payment provider and back, took about 900 ms, mostly PayGate.",
+    "dec": "-",
+    "ch": [
+     "13"
+    ],
+    "pkt": "104.21.48.12:443 → 203.0.113.99:51310\ncf-cache-status: DYNAMIC",
+    "log": "p95 latency panel on the dashboard (ch 16.2)"
+   }
+  ],
+  "breaks": [
+   {
+    "id": "ratekey",
+    "label": "Rate limit keyed on IP, not CF-Connecting-IP",
+    "at": 1,
+    "what": "Cloud Armor counts requests per source IP, which is a handful of Cloudflare edges. One busy edge hits the limit and blocks everyone behind it.",
+    "sees": "429 Too Many Requests for many shoppers at once",
+    "log": "LB log: enforcedSecurityPolicy outcome DENY, priority 100, the same few remoteIp values",
+    "fix": "Key the rule on the CF-Connecting-IP header.",
+    "ch": [
+     "13"
+    ]
+   },
+   {
+    "id": "ingint",
+    "label": "Cloud Run ingress set to internal",
+    "at": 2,
+    "what": "\"internal\" accepts traffic from the VPC only, not from the load balancer. Every request from the front end is refused.",
+    "sees": "404 on the whole API",
+    "log": "LB log: 404 with response_sent_by_backend; no Cloud Run app log for those requests",
+    "fix": "Set ingress to internal-and-cloud-load-balancing.",
+    "ch": [
+     "10"
+    ]
+   },
+   {
+    "id": "maxinst",
+    "label": "Cloud Run at max instances",
+    "at": 2,
+    "what": "A sale pushes traffic past what max instances can serve. Requests queue, then are refused.",
+    "sees": "429 or 503 during the peak",
+    "log": "container/instance_count flat at max · Cloud Run request log 429",
+    "fix": "Raise max instances, and check NAT ports and database connections can take the larger size.",
+    "ch": [
+     "10",
+     "16.2"
+    ]
+   },
+   {
+    "id": "sqltls",
+    "label": "App connects to Cloud SQL without TLS",
+    "at": 5,
+    "what": "A new release changed the database driver settings. Cloud SQL accepts encrypted connections only, so it refuses.",
+    "sees": "500 on checkout",
+    "log": "App log: \"SSL is required\" · Cloud SQL log: connection rejected",
+    "fix": "Use the Cloud SQL connector or turn TLS back on in the driver.",
+    "ch": [
+     "9"
+    ]
+   },
+   {
+    "id": "nonat",
+    "label": "sn-run removed from Cloud NAT",
+    "at": 6,
+    "what": "Traffic to PayGate enters sn-run and matches the default route, but no NAT covers the subnet and the instance has no external IP. Nothing leaves.",
+    "sees": "Checkout spins, then fails after the timeout",
+    "log": "App log: timeout to api.paygate.lk · flow logs: SYN with no reply · no NAT log at all",
+    "fix": "Add sn-run back to kade-nat.",
+    "ch": [
+     "7",
+     "10"
+    ]
+   },
+   {
+    "id": "ports",
+    "label": "NAT ports run out during a sale",
+    "at": 6,
+    "what": "Each instance holds its reserved ports. Many short connections to the same PayGate IP and port use them all up; new ones are dropped.",
+    "sees": "Some payments fail at peak, others work",
+    "log": "NAT log: allocation_status DROPPED, OUT_OF_RESOURCES",
+    "fix": "Reuse connections in the app; raise min ports or turn on dynamic port allocation.",
+    "ch": [
+     "7"
+    ]
+   },
+   {
+    "id": "priv",
+    "label": "Cloud Run egress private-ranges-only",
+    "at": 7,
+    "what": "Only private addresses go through the VPC. The call to PayGate skips Cloud NAT and leaves from a random Google address, which PayGate does not know.",
+    "sees": "\"Payment declined\" for everyone",
+    "log": "App log: 403 from PayGate · no flow log entries to 192.0.2.10",
+    "fix": "Set egress to all-traffic.",
+    "ch": [
+     "10"
+    ]
+   }
+  ]
+ },
+ "QUIZ1": [
+  {
+   "q": "Google's front end sees the client as 104.23.211.40. What is that address?",
+   "o": [
+    "The shopper",
+    "A Cloudflare edge",
+    "Google's health checker",
+    "The VM"
+   ],
+   "a": 1,
+   "why": "With an orange record, Cloudflare opens its own connection to the origin. The shopper's address travels in CF-Connecting-IP.",
+   "ch": "13"
+  },
+  {
+   "q": "Every photo request fails with 502 and the LB log says failed_to_pick_backend. What do you check first?",
+   "o": [
+    "Cloudflare's SSL mode",
+    "The health check and its firewall rule",
+    "The private DNS zone",
+    "Cloud NAT"
+   ],
+   "a": 1,
+   "why": "No healthy backend means health checks are failing. The most common cause is the firewall rule for 35.191.0.0/16 and 130.211.0.0/22.",
+   "ch": "12.1"
+  },
+  {
+   "q": "Why does kade-media need no firewall rule to receive Cloud SQL's replies?",
+   "o": [
+    "Cloud SQL is in the same subnet",
+    "The firewall is stateful: replies to an allowed connection pass",
+    "Private Google Access allows it",
+    "The implied allow ingress rule"
+   ],
+   "a": 1,
+   "why": "A connection the VM opened is tracked, and its replies are let in automatically. There is no implied allow ingress.",
+   "ch": "5.1"
+  },
+  {
+   "q": "kade-media has no external IP. How does it read from Cloud Storage?",
+   "o": [
+    "Through Cloud NAT's IP",
+    "Through Private Google Access on sn-app",
+    "Through the load balancer",
+    "It cannot"
+   ],
+   "a": 1,
+   "why": "Private Google Access lets VMs without external IPs reach Google APIs over Google's network. Cloud NAT turns it on, but Google API traffic does not use NAT ports.",
+   "ch": "9"
+  },
+  {
+   "q": "A visitor gets ERR_TOO_MANY_REDIRECTS. Which setting do you check?",
+   "o": [
+    "Cloud Armor priority",
+    "Cloudflare SSL/TLS mode",
+    "The URL map default service",
+    "MIG max surge"
+   ],
+   "a": 1,
+   "why": "Flexible mode sends HTTP to the origin, which redirects to HTTPS, which Cloudflare fetches over HTTP again. Use Full (strict).",
+   "ch": "13"
+  },
+  {
+   "q": "Which log shows that the load balancer, not the app, produced an error?",
+   "o": [
+    "VPC Flow Logs",
+    "LB log statusDetails",
+    "Cloud DNS query log",
+    "Admin Activity audit log"
+   ],
+   "a": 1,
+   "why": "statusDetails says who answered: response_sent_by_backend means the app; failed_to_pick_backend or denied_by_security_policy mean the platform.",
+   "ch": "16.1"
+  }
+ ],
+ "QUIZ2": [
+  {
+   "q": "PayGate rejects Kadé's calls after a deploy. The Cloud Run service shows egress private-ranges-only. Why does that matter?",
+   "o": [
+    "DNS stops working",
+    "Internet traffic skips Cloud NAT and leaves from a random Google IP",
+    "Cloud SQL becomes unreachable",
+    "The load balancer cannot reach Cloud Run"
+   ],
+   "a": 1,
+   "why": "Only all-traffic sends internet-bound calls through the VPC and Cloud NAT, which gives the fixed 34.87.200.7.",
+   "ch": "10"
+  },
+  {
+   "q": "Why do VPC Flow Logs never show the shopper's request reaching kade-api?",
+   "o": [
+    "Flow logs are off by default",
+    "The LB to Cloud Run hop does not pass through kade-vpc",
+    "Cloud Run blocks logging",
+    "Flow logs only record UDP"
+   ],
+   "a": 1,
+   "why": "Cloud Run is outside the VPC; only its outgoing calls through Direct VPC egress enter sn-run. Use LB and Cloud Run logs for shopper traffic.",
+   "ch": "16.1"
+  },
+  {
+   "q": "Some payments fail only at peak, and the NAT log shows OUT_OF_RESOURCES. What is the first fix to try?",
+   "o": [
+    "Add a second VPC",
+    "Reuse connections to PayGate in the app",
+    "Change the SSL mode",
+    "Delete the default route"
+   ],
+   "a": 1,
+   "why": "Each connection to the same destination needs its own NAT port. Reusing connections cuts the number needed; then consider dynamic port allocation.",
+   "ch": "7"
+  },
+  {
+   "q": "What lets Cloud Run accept requests from the load balancer but not from its run.app address?",
+   "o": [
+    "A firewall rule",
+    "Ingress internal-and-cloud-load-balancing",
+    "Cloud Armor",
+    "IAP"
+   ],
+   "a": 1,
+   "why": "Cloud Run is not in the VPC, so firewall rules do not apply. Its ingress setting is the gate.",
+   "ch": "10"
+  },
+  {
+   "q": "Which control stops a developer re-adding an external IP to a VM next month?",
+   "o": [
+    "A Cloud Armor rule",
+    "The organization policy compute.vmExternalIpAccess",
+    "Cloud NAT",
+    "A private DNS zone"
+   ],
+   "a": 1,
+   "why": "Org policies refuse the change itself, for everyone, in every project under the folder.",
+   "ch": "17"
+  },
+  {
+   "q": "Cloud Armor rate-limits by source IP and many shoppers get 429. Why?",
+   "o": [
+    "Too many Cloud Run instances",
+    "All requests come from a few Cloudflare edge IPs",
+    "Cloud SQL is slow",
+    "The URL map is wrong"
+   ],
+   "a": 1,
+   "why": "Behind Cloudflare, the source IP is Cloudflare's. Key the rate limit on the CF-Connecting-IP header.",
+   "ch": "13"
+  }
+ ]
+}

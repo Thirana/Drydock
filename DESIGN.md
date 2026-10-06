@@ -219,7 +219,8 @@ Four hues for the parts of a network drawing. They came from the course notes' o
 - **GCP legend - where it lives:** teal your VPC (subnets, VMs, routes, NAT); plum run by Google, outside your VPC (load balancer front ends, Cloud Run, Cloud SQL, IAP); amber firewall and access rules; green allowed traffic and replies. Networks outside GCP (shoppers, home, office, Cloudflare) are drawn in ink.
 - A figure that means something else by a hue (packet layers, for instance) passes its own `labels` to the key instead of the course legend.
 - Each hue has a soft fill, `color-mix(in oklab, <hue> 10%, ground)`, used only inside a box of that hue.
-- Host bits and "notice this" inside a widget use the existing **Highlighter** (mark). A dropped packet, refused connection, failing check or a problem uses **Fault Red**. There is no "info" or "success" hue.
+- Host bits and "notice this" inside a widget use the existing **Highlighter** (mark), and so does a box that is a warning (a dry run, a draining VM, an exception). A dropped packet, refused connection, failing check or a problem uses **Fault Red**. There is no "info" or "success" hue.
+- **Selection inside a drawing** uses Current-Move Blue, as it does everywhere else: the hop a step-through is describing, the link or part a tab has picked (`.n.cur`, `.w.cur`). Parts a request never reached fade to 40% (`.off`).
 
 Values were chosen together, not one by one: in both themes every hue's stroke clears 3:1 on the ground, and every pair of hues, blue and red stays apart under deuteranopia, protanopia and tritanopia simulation (minimum OKLab distance about 6). Re-run that check before changing any one of them.
 
@@ -344,6 +345,7 @@ Text never crosses a box edge (`src/lib/architecture/text-fit.ts`). A box's sub-
 - **Try it yourself / Commands in this chapter:** one item per command, numbered in the gutter like the sections: a bold title (what it shows), plain bullets (steps when there is more than one command or none, what to look for, where it runs, the section it goes with), then the command in a Command Block. Never a table.
 - **Commands and output:** commands use the Command Block; printed output sits in a hairline frame on the page ground, mono 13px body ink, so the two never look alike.
 - **Widgets:** a hairline frame with 24px inside, inputs 44px tall in mono with a strong-hairline border (red with a plain sentence when the value cannot be used), results in an `aria-live` region, outcomes as one ink sentence. Bit cells: teal-soft for network bits, highlighter for host bits, ink 1s and muted 0s.
+- **Case explorer (GCP widgets):** most GCP widgets are one tool - cases as choices, an optional "What if" row, the drawing, a one-line result (a drawn tick in ink when it works, "!" for a warning, a cross in red only when something is stopped or lost), the takeaway in body ink, and the config folded under "Show as config". Drawn 960 units wide, so these frames take the full column, like tables; text-only widgets keep the 760px measure.
 
 ### Commands
 Commands wrap inside their block instead of scrolling: long lines take a hanging indent of 2ch, flags (`--region=…`) stay whole and move to the next line together, and only a flag too long for the line breaks mid-token. The text is unchanged, so copying yields the original command.

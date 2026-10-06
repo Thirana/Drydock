@@ -1,0 +1,297 @@
+import { PgaEx, PrivOverview, PsaEx, PscEx, SqlCutover } from "@/components/learn/widgets/gcp/private";
+
+<Box kind="problem" title="The problem">
+
+Finding 7 from <Ch n="0">chapter 0</Ch>: the database is a VM, kade-db, that you patch and back up by hand. Kadé wants to move it to Cloud SQL, `kade-sql`. The quick way is a public IP plus an "authorized networks" list of office and home IPs. That puts the database on the internet, protected by a list someone has to keep up to date.
+
+kade-worker also needs to upload nightly backups to Cloud Storage, and it has no external IP. Both need a private path to something that lives outside kade-vpc.
+
+</Box>
+
+## The tension, and three private paths
+
+<Recalls><Recall n="2">Private and public addresses</Recall></Recalls>
+
+A VM with an external IP reaches Google's APIs the normal way: `storage.googleapis.com` is a public endpoint, like any website. Remove the external IP (<Ch n="6.2">chapter 6.2</Ch>) and the VM loses that path, because those APIs are on the public internet too. Removing external IPs improves security but breaks the VM's access to the services it needs. GCP fixes this with three different mechanisms, which people constantly mix up:
+
+<PrivOverview />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Mechanism</th><th>Reaches</th><th>What it is</th><th>Kadé's use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Private Google Access** (PGA)</td><td>Google APIs: Cloud Storage, Secret Manager, Logging…</td><td>A setting on a subnet</td><td>kade-worker's backups to Cloud Storage</td></tr>
+    <tr><td>2</td><td>**Private services access** (PSA)</td><td>Managed services that run in Google's own network: Cloud SQL, Memorystore</td><td>A VPC peering to Google's network, using an IP range you hand over</td><td>Cloud SQL `kade-sql` at `10.10.32.3`</td></tr>
+    <tr><td>3</td><td>**Private Service Connect** (PSC)</td><td>Google APIs, Cloud SQL, or a service another company publishes</td><td>An endpoint: one internal IP in your VPC that forwards to the service</td><td>Not needed yet; `10.10.200.0/24` is kept for it</td></tr>
+  </tbody>
+</Table>
+
+## Private Google Access
+
+PGA is not something you create. It is a **setting on a subnet** (`privateIpGoogleAccess`, <Ch n="2">chapter 2</Ch>). When it is on, VMs in that subnet without an external IP may send traffic to Google APIs, and Google keeps that traffic on its own network. VMs with an external IP ignore the setting; they already have a way out.
+
+What decides the path is two things you already know: **DNS** (<Ch n="8">chapter 8</Ch>), which picks the address, and **routes** (<Ch n="4">chapter 4</Ch>), which pick the next hop. There are three ways to set those up. Each tab follows one call from kade-worker; the "what if" buttons break one piece at a time.
+
+<PgaEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Default domains</th><th>`private.googleapis.com`</th><th>`restricted.googleapis.com`</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Addresses</td><td>Google's normal public addresses</td><td>`199.36.153.8/30`</td><td>`199.36.153.4/30`</td></tr>
+    <tr><td>2</td><td>DNS change needed</td><td>None</td><td>Yes: private zone or response policy (<Ch n="8">chapter 8</Ch>)</td><td>Yes, same</td></tr>
+    <tr><td>3</td><td>Route needed</td><td>The default route to the internet gateway</td><td>The default route, or a specific route for `199.36.153.8/30`</td><td>The default route, or a specific route for `199.36.153.4/30`</td></tr>
+    <tr><td>4</td><td>APIs reachable</td><td>All</td><td>Most Google APIs</td><td>Only APIs that support VPC Service Controls</td></tr>
+    <tr><td>5</td><td>Good for</td><td>Most setups. Kadé's choice</td><td>Networks with no default route</td><td>Projects inside a VPC Service Controls perimeter (<Ch n="17">chapter 17</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Two things already turned it on.** Cloud NAT enables PGA automatically on every subnet range it covers (<Ch n="7">chapter 7</Ch>), so sn-app, sn-data and sn-run already have it. And Cloud Run with `all-traffic` egress (<Ch n="10">chapter 10</Ch>) reaches Google APIs through it.
+
+</Note>
+
+## Private services access
+
+Cloud SQL, Memorystore and similar services do not run in your project. They run in a project and network Google manages for you, which you cannot see. Your VPC and that network are separate worlds with no route between them (<Ch n="2">chapter 2</Ch> section 01). A public IP sidesteps the gap by putting the database on the internet, which is exactly what Kadé wants to avoid.
+
+Private services access joins the two networks with **VPC peering**, and the service gets a private IP from a range you set aside. Two steps, done once per VPC:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>What it creates</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Allocate a range</td><td>An internal address range with purpose `VPC_PEERING`. Google hands managed services their IPs from it</td><td>`kade-psa-range` = `10.10.32.0/20` (<Ch n="0">chapter 0</Ch> plan)</td></tr>
+    <tr><td>2</td><td>Create the private connection</td><td>A VPC peering named `servicenetworking-googleapis-com`, made through the Service Networking API</td><td>Between kade-vpc and Google's service network</td></tr>
+  </tbody>
+</Table>
+
+<Caption>After that, any Cloud SQL instance created with private IP on kade-vpc gets an address from the range, reachable from kade-vpc over the peering. No public IP, no authorized networks list.</Caption>
+
+Because it is real VPC peering, it follows peering's rules. The tabs show who can and cannot reach kade-sql:
+
+<PsaEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Peering rule</th><th>Consequence</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Not transitive**</td><td>A VPC peered to kade-vpc (like kade-staging in <Ch n="14">chapter 14</Ch>) cannot reach kade-sql through kade-vpc. No firewall rule fixes it; the routes simply do not pass along</td></tr>
+    <tr><td>2</td><td>**No overlapping ranges**</td><td>The allocated range must not overlap any subnet or any other network you connect. This is why it is in the <Ch n="0">chapter 0</Ch> plan</td></tr>
+    <tr><td>3</td><td>**Size it once**</td><td>Google asks for at least a `/24`; services in several regions take more. Adding a second range later is possible but needs the connection updated. Kadé's `/20` leaves room</td></tr>
+    <tr><td>4</td><td>**Custom routes are not shared by default**</td><td>Google's network only learns your subnet routes. Routes to the office (VPN) must be exported on the peering explicitly (Tab C)</td></tr>
+  </tbody>
+</Table>
+
+<Key title={"\"The peering exists, but the database does not use it\""}>
+
+A project can have a working PSA connection while a Cloud SQL instance still runs on a public IP only. The peering is per VPC; whether an instance uses it is a setting on the instance. Before a migration, check both: the connection and its allocated ranges, and the instance's own IP settings (commands 2 to 4). They are reported in different places and can disagree.
+
+</Key>
+
+## Private Service Connect
+
+PSC turns the model around. Instead of flagging a subnet or peering two networks, you create an **endpoint**: one internal IP inside your own VPC that forwards to a service somewhere else. Nothing is peered, so there is no transitivity problem, and each endpoint is a single IP with its own firewall rules and logs.
+
+<PscEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Target</th><th>Endpoint address</th><th>What you get</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Google APIs</td><td>A global internal IP **outside** your subnets, e.g. `10.10.200.2`</td><td>Your own address for Google APIs instead of PGA's shared ranges, with its own DNS names</td></tr>
+    <tr><td>2</td><td>A published service</td><td>An internal IP **from a subnet**, e.g. `10.10.1.50`</td><td>GCP's version of AWS PrivateLink: a vendor publishes a service, you consume it on an internal IP, and neither side is exposed to the internet</td></tr>
+    <tr><td>3</td><td>Cloud SQL</td><td>An internal IP from a subnet, in each VPC that needs it</td><td>Cloud SQL without the peering model, so several VPCs can each have their own endpoint</td></tr>
+  </tbody>
+</Table>
+
+## Choosing between them
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>PGA</th><th>PSA</th><th>PSC</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>What you create</td><td>Nothing: a subnet setting</td><td>A range and one peering per VPC</td><td>One endpoint per service per VPC</td></tr>
+    <tr><td>2</td><td>Address the VM uses</td><td>Google's addresses</td><td>An IP from your allocated range</td><td>An IP you choose in your VPC</td></tr>
+    <tr><td>3</td><td>Other peered VPCs</td><td>Use their own PGA</td><td><St k="bad">cannot reach it</St></td><td><St k="ok">each gets its own endpoint</St></td></tr>
+    <tr><td>4</td><td>Office over VPN</td><td>Needs extra DNS and route setup</td><td>Needs route export and advertising</td><td>Reaches the endpoint IP like any VPC address</td></tr>
+    <tr><td>5</td><td>Separate firewall and logs per service</td><td>No</td><td>Per range</td><td>Yes, per endpoint</td></tr>
+    <tr><td>6</td><td>Cost</td><td>Free</td><td>No charge for the connection</td><td>Endpoints and data processed are billed; check pricing</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>You want to…</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Let a VM without an external IP call Google APIs</td><td>PGA</td></tr>
+    <tr><td>2</td><td>Give Cloud SQL or Memorystore a private IP in one VPC</td><td>PSA</td></tr>
+    <tr><td>3</td><td>Reach Google APIs on your own controllable address</td><td>PSC (Google APIs)</td></tr>
+    <tr><td>4</td><td>Use another company's service privately</td><td>PSC (published service)</td></tr>
+    <tr><td>5</td><td>Reach one Cloud SQL instance from many VPCs</td><td>PSC (Cloud SQL)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The short version: PGA is a flag for Google APIs, PSA is a peering for managed services, PSC is an endpoint for anything.</Caption>
+
+<Box kind="exam" title="Exam angle">
+
+"VMs without external IPs must read from Cloud Storage" is Private Google Access on the subnet. "Cloud SQL must have no public IP" is private IP through private services access (allocate a range, create the private connection). "A second VPC peered to the first cannot reach Cloud SQL" is non-transitive peering; the answers are PSC or a direct connection, never a firewall rule.
+
+</Box>
+
+## Cloud SQL with private IP, in practice
+
+A private IP removes the database from the internet. A few more settings decide whether it is actually locked down:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>Kadé's value</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Public IP</td><td><St k="ok">off</St></td><td>With it on, the instance is reachable from the internet by anything on the authorized networks list</td></tr>
+    <tr><td>2</td><td>Authorized networks</td><td>empty</td><td>Only applies to the public IP. Private IP connections ignore it</td></tr>
+    <tr><td>3</td><td>SSL mode</td><td>`ENCRYPTED_ONLY`</td><td>**A private IP is not encryption.** Without this, the database accepts unencrypted connections, and passwords cross the network in clear text</td></tr>
+    <tr><td>4</td><td>How apps connect</td><td>Cloud SQL connector or Auth Proxy</td><td>Handles TLS and can use IAM database login, so the app holds no long-lived password</td></tr>
+    <tr><td>5</td><td>Firewall</td><td>no new ingress rule</td><td>kade-sql lives in Google's network, so kade-vpc's ingress rules never see it. Your **egress** rules still apply to traffic towards `10.10.32.0/20`</td></tr>
+  </tbody>
+</Table>
+
+## The move from kade-db to kade-sql
+
+Each step can be checked before the next one starts, and nothing shopper-facing changes until step 6:
+
+<SqlCutover />
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: finding 7">
+
+- **Database.** Cloud SQL `kade-sql`, PostgreSQL, regional (HA) in asia-southeast1, private IP `10.10.32.3` from `kade-psa-range`, no public IP, `ENCRYPTED_ONLY`, automatic backups on. No more patching or manual backups.
+- **Name.** `db.kade.internal` now points at `10.10.32.3` (<Ch n="8">chapter 8</Ch>), TTL back to 300 s.
+- **Retired.** The kade-db VM, its reserved address `kade-db-ip`, and the firewall rules `kade-api-to-db` and `kade-run-to-db`, which protected a VM that no longer exists. sn-data stays empty for now.
+- **Backups to Cloud Storage.** kade-worker uploads exports with PGA's default domains. No DNS change was needed.
+- **Decided against for now:** PSC for Cloud SQL (Kadé has one VPC that needs it; <Ch n="14">chapter 14</Ch> revisits it for staging), and `private.googleapis.com` (Kadé keeps its default route).
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 5 are read-only. Commands 6 to 9 change the project.
+
+<TryIt n={1} title="Check Private Google Access on each subnet">
+
+- **What it shows:** Whether PGA is on for every subnet in kade-vpc.
+- **What to look for:** `True` on every subnet with VMs that have no external IP.
+
+```sh
+gcloud compute networks subnets list --network=kade-vpc \
+  --format="table(name,region.basename(),ipCidrRange,privateIpGoogleAccess)"
+```
+
+</TryIt>
+
+<TryIt n={2} title="List the private services access connection">
+
+- **What it shows:** The peering to Google's service network and the ranges it uses.
+- **What to look for:** `servicenetworking-googleapis-com` with `kade-psa-range` in `reservedPeeringRanges`.
+
+```sh
+gcloud services vpc-peerings list --network=kade-vpc
+```
+
+</TryIt>
+
+<TryIt n={3} title="List ranges allocated for peering">
+
+- **What it shows:** Internal ranges with purpose `VPC_PEERING`, and their size.
+- **What to look for:** The same ranges as command 2. If they disagree, sort that out before creating anything.
+
+```sh
+gcloud compute addresses list --global --filter="purpose=VPC_PEERING" \
+  --format="table(name,address,prefixLength,network.basename())"
+```
+
+</TryIt>
+
+<TryIt n={4} title="See how a Cloud SQL instance is connected">
+
+- **What it shows:** Public IP on or off, the private network, authorized networks and SSL mode.
+- **What to look for:** `ipv4Enabled: false`, `privateNetwork` set to kade-vpc, no authorized networks, `sslMode: ENCRYPTED_ONLY`.
+
+```sh
+gcloud sql instances describe kade-sql --format="yaml(ipAddresses,settings.ipConfiguration)"
+```
+
+</TryIt>
+
+<TryIt n={5} title="Check the peering's route export settings">
+
+- **What it shows:** Whether kade-vpc shares its custom routes (such as VPN routes) with Google's service network.
+- **What to look for:** `exportCustomRoutes: true` once the office needs to reach kade-sql (<Ch n="15">chapter 15</Ch>).
+
+```sh
+gcloud compute networks peerings list --network=kade-vpc
+```
+
+</TryIt>
+
+<TryIt n={6} title="Turn on Private Google Access for a subnet (changes the project)">
+
+- **What it shows:** The setting for a subnet that Cloud NAT does not cover.
+- **What to look for:** `True` in command 1.
+
+```sh
+gcloud compute networks subnets update sn-data \
+  --region=asia-southeast1 --enable-private-ip-google-access
+```
+
+</TryIt>
+
+<TryIt n={7} title="Allocate the range and create the connection (changes the project)">
+
+- **What it shows:** The two one-time steps of private services access.
+- **What to look for:** Commands 2 and 3 both show `kade-psa-range`. Needs the Service Networking API enabled.
+
+```sh
+gcloud compute addresses create kade-psa-range --global \
+  --purpose=VPC_PEERING --addresses=10.10.32.0 --prefix-length=20 --network=kade-vpc
+gcloud services vpc-peerings connect --service=servicenetworking.googleapis.com \
+  --ranges=kade-psa-range --network=kade-vpc
+```
+
+</TryIt>
+
+<TryIt n={8} title="Create Cloud SQL with a private IP only (changes the project)">
+
+- **What it shows:** kade-sql on kade-vpc, from kade-psa-range, with no public IP and encrypted connections only.
+- **What to look for:** Command 4 shows the private address and no public one. Pick a machine size that suits your load.
+
+```sh
+gcloud sql instances create kade-sql --database-version=POSTGRES_16 \
+  --region=asia-southeast1 --availability-type=REGIONAL --tier=db-custom-2-7680 \
+  --network=kade-vpc --allocated-ip-range-name=kade-psa-range \
+  --no-assign-ip --ssl-mode=ENCRYPTED_ONLY
+```
+
+</TryIt>
+
+<TryIt n={9} title="Share VPN routes with Google's service network (changes the project)">
+
+- **What it shows:** Half of what the office needs to reach kade-sql (psaex tab C). The other half is the Cloud Router advertising `10.10.32.0/20` to the office (<Ch n="15">chapter 15</Ch>).
+- **What to look for:** `exportCustomRoutes: true` in command 5.
+
+```sh
+gcloud compute networks peerings update servicenetworking-googleapis-com \
+  --network=kade-vpc --export-custom-routes
+```
+
+</TryIt>

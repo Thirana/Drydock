@@ -2,6 +2,29 @@
 // the migration is done. A chapter is published when it has `Content`.
 import type { Course } from "@/lib/content/types";
 import Ch0 from "./chapters/00-kade-on-gcp.mdx";
+import Ch1 from "./chapters/01-the-mental-model-andromeda-no-layer-2.mdx";
+import Ch2 from "./chapters/02-vpc-networks-and-subnets.mdx";
+import Ch3 from "./chapters/03-ip-addressing.mdx";
+import Ch4 from "./chapters/04-routing.mdx";
+import Ch5_1 from "./chapters/05.1-firewall-vpc-firewall-rules.mdx";
+import Ch5_2 from "./chapters/05.2-firewall-firewall-policies.mdx";
+import Ch6_1 from "./chapters/06.1-admin-access-iap-tcp-forwarding.mdx";
+import Ch6_2 from "./chapters/06.2-admin-access-os-login-and-no-external-ips.mdx";
+import Ch7 from "./chapters/07-egress-and-cloud-nat.mdx";
+import Ch8 from "./chapters/08-dns-inside-gcp.mdx";
+import Ch9 from "./chapters/09-private-access-to-google-services.mdx";
+import Ch10 from "./chapters/10-serverless-networking-cloud-run.mdx";
+import Ch11 from "./chapters/11-load-balancing-the-family-and-how-to-choose.mdx";
+import Ch12_1 from "./chapters/12.1-load-balancing-inside-the-https-load-balancer.mdx";
+import Ch12_2 from "./chapters/12.2-load-balancing-vms-behind-the-load-balancer.mdx";
+import Ch13 from "./chapters/13-cloudflare-and-gcp.mdx";
+import Ch14 from "./chapters/14-a-second-vpc-briefly.mdx";
+import Ch15 from "./chapters/15-hybrid-vpn-and-interconnect.mdx";
+import Ch16_1 from "./chapters/16.1-observability-what-each-log-can-tell-you.mdx";
+import Ch16_2 from "./chapters/16.2-observability-monitoring-alerting-and-troubleshooting.mdx";
+import Ch17 from "./chapters/17-governance-keeping-it-fixed.mdx";
+import Ch18_1 from "./chapters/18.1-capstone-a-photo-through-a-vm-to-the-database.mdx";
+import Ch18_2 from "./chapters/18.2-capstone-a-payment-through-cloud-run-to-paygate.mdx";
 
 export const gcp: Course = {
   slug: "gcp",
@@ -40,6 +63,7 @@ export const gcp: Course = {
       lead: "The fundamentals course built a picture of a network out of cables, switches, ARP broadcasts and a router at the door. GCP keeps the addresses and the rules, but removes almost everything physical underneath. This chapter explains what replaces it, so the rest of the course makes sense.",
       part: "foundations",
       minutes: 16,
+      Content: Ch1,
     },
     {
       num: "2",
@@ -48,6 +72,7 @@ export const gcp: Course = {
       lead: "Chapter 1 showed that a subnet is not a place but a range of addresses and a set of rules. This chapter looks at the two objects you actually create, the VPC network and its subnets: what each one decides, what you can change later, and what you cannot.",
       part: "foundations",
       minutes: 15,
+      Content: Ch2,
     },
     {
       num: "3",
@@ -56,6 +81,7 @@ export const gcp: Course = {
       lead: "The fundamentals course covered what an IP address is, private and public ranges, and NAT. This chapter only covers what GCP adds on top: which addresses a VM really has, why its external IP is not on the VM at all, and how to stop an address from changing when you least expect it.",
       part: "foundations",
       minutes: 13,
+      Content: Ch3,
     },
     {
       num: "4",
@@ -64,6 +90,7 @@ export const gcp: Course = {
       lead: "The fundamentals course explained routing tables, longest prefix match and BGP on real routers. In GCP there is no router box (chapter 1), but there is still a routing table, and it decides where every packet leaving a VM goes. This chapter covers how that table is built, how GCP picks one route from it, and the patterns you can build with it.",
       part: "foundations",
       minutes: 14,
+      Content: Ch4,
     },
     {
       num: "5.1",
@@ -72,6 +99,7 @@ export const gcp: Course = {
       lead: "Chapter 1 showed that GCP's firewall lives in the data plane beside every VM. This chapter covers how its rules work: which traffic they judge, how they pick VMs, how priority settles conflicts, and the mistakes that make a rule look safe when it is not. Chapter 5.2 adds the policies that sit above these rules.",
       part: "controlling-access",
       minutes: 11,
+      Content: Ch5_1,
     },
     {
       num: "5.2",
@@ -80,6 +108,7 @@ export const gcp: Course = {
       lead: "Chapter 5.1 fixed Kadé's rules. This chapter is about keeping them fixed, sharing them across networks, and writing rules in terms of names and groups instead of raw IP lists. That is what firewall policies add on top of VPC firewall rules.",
       part: "controlling-access",
       minutes: 8,
+      Content: Ch5_2,
     },
     {
       num: "6.1",
@@ -88,6 +117,7 @@ export const gcp: Course = {
       lead: "Chapter 5.1 fixed who can reach the app and the database, but left port 22 open to the whole internet, because the team still needs a way in. This chapter replaces that open port with a path where access depends on who you are, not where you connect from.",
       part: "controlling-access",
       minutes: 10,
+      Content: Ch6_1,
     },
     {
       num: "6.2",
@@ -96,6 +126,7 @@ export const gcp: Course = {
       lead: "IAP decides who can reach a VM's SSH port. The VM still has to decide who may log in, and as which Linux user. This chapter moves that second decision to identities too, and then puts together everything a VM needs to work with no external IP at all.",
       part: "controlling-access",
       minutes: 7,
+      Content: Ch6_2,
     },
     {
       num: "7",
@@ -104,6 +135,7 @@ export const gcp: Course = {
       lead: "Chapter 6 made Kadé's VMs reachable for admin work without external IPs. This chapter covers the other direction: how a VM with no external IP reaches the internet, and how to make all of Kadé's outgoing traffic come from one fixed address that a partner can allow-list.",
       part: "leaving-and-reaching-privately",
       minutes: 12,
+      Content: Ch7,
     },
     {
       num: "8",
@@ -112,6 +144,7 @@ export const gcp: Course = {
       lead: "The fundamentals course covered how DNS works on the internet: resolvers, authoritative servers, records and TTLs. This chapter covers what GCP adds: names every VM gets for free, zones that only your VPC can see, and the order in which a VM's DNS questions get answered. That order explains most GCP DNS surprises.",
       part: "leaving-and-reaching-privately",
       minutes: 10,
+      Content: Ch8,
     },
     {
       num: "9",
@@ -120,6 +153,7 @@ export const gcp: Course = {
       lead: "Kadé's VMs have no external IPs, which is the strongest position a VM can be in. But Google's own services, from Cloud Storage to Cloud SQL, are not inside kade-vpc either. This chapter covers the three ways GCP gives private VMs a private path to them, and moves Kadé's database to Cloud SQL without ever giving it a public address.",
       part: "leaving-and-reaching-privately",
       minutes: 10,
+      Content: Ch9,
     },
     {
       num: "10",
@@ -128,6 +162,7 @@ export const gcp: Course = {
       lead: "Everything so far was about VMs, which sit inside the VPC. Cloud Run does not. This chapter covers how a Cloud Run service reaches private things and the internet through your VPC, and how to control who can reach the service itself. The two directions are set separately, and mixing them up is the most common Cloud Run networking mistake.",
       part: "leaving-and-reaching-privately",
       minutes: 10,
+      Content: Ch10,
     },
     {
       num: "11",
@@ -136,6 +171,7 @@ export const gcp: Course = {
       lead: "The fundamentals course (ch 33) explained what a load balancer does and put one in front of Kadé. GCP offers about ten kinds, with names that look random. They are not: each name is four separate choices. This chapter decodes the names, explains the one choice that really changes behaviour, and confirms which load balancer Kadé should have.",
       part: "the-front-door",
       minutes: 7,
+      Content: Ch11,
     },
     {
       num: "12.1",
@@ -144,6 +180,7 @@ export const gcp: Course = {
       lead: "Chapter 11 chose the global external Application Load Balancer for Kadé. It is not one object but a chain of five, and each link holds different settings. This chapter goes through the chain, then the settings that cause most real incidents: health checks, client IPs, certificates and Cloud Armor.",
       part: "the-front-door",
       minutes: 11,
+      Content: Ch12_1,
     },
     {
       num: "12.2",
@@ -152,6 +189,7 @@ export const gcp: Course = {
       lead: "Chapter 12.1 used Cloud Run as the backend, where Google creates, scales and heals instances for you. With VMs, you decide how many exist, how they are built, when they are replaced, and how a new version reaches them. A managed instance group (MIG) does that work for you, once you tell it the rules. This chapter covers those rules, and how the group plugs into the load balancer.",
       part: "the-front-door",
       minutes: 11,
+      Content: Ch12_2,
     },
     {
       num: "13",
@@ -160,6 +198,7 @@ export const gcp: Course = {
       lead: "Kadé puts Cloudflare in front of its Google Cloud load balancer, for DDoS protection, a web application firewall at the edge, and caching close to shoppers. That adds a second proxy, a second TLS connection, and a second DNS provider. This chapter covers each of those joins, how to make sure Cloudflare is the only way in, and how to read the errors when something between the two breaks.",
       part: "the-front-door",
       minutes: 12,
+      Content: Ch13,
     },
     {
       num: "14",
@@ -168,6 +207,7 @@ export const gcp: Course = {
       lead: "Most projects live happily in one VPC. When a second one appears, usually for staging, there are only a few ideas you must know so that nothing earlier in this course surprises you. This chapter covers exactly those, and points at the rest.",
       part: "growing-out",
       minutes: 8,
+      Content: Ch14,
     },
     {
       num: "15",
@@ -176,6 +216,7 @@ export const gcp: Course = {
       lead: "Kadé's office has its own network: staff laptops, warehouse scanners, a file server and a DNS server. This chapter joins that network to kade-vpc privately, so office devices reach GCP on internal IPs and GCP reaches the office back. It covers Cloud VPN in depth, because that is what a business Kadé's size uses, and Interconnect briefly, for when traffic grows.",
       part: "growing-out",
       minutes: 9,
+      Content: Ch15,
     },
     {
       num: "16.1",
@@ -184,6 +225,7 @@ export const gcp: Course = {
       lead: "Kadé's network is now built properly. The next problem is seeing it: when a shopper says \"checkout failed at 9:14\", you need to find that request and know which hop failed. GCP records something at almost every hop, but each log sees only its own part of the path, costs money, and is often off by default. This chapter maps every signal to the hop it sees, explains the ones that matter most, and ends with a query cookbook.",
       part: "running-it",
       minutes: 9,
+      Content: Ch16_1,
     },
     {
       num: "16.2",
@@ -192,6 +234,7 @@ export const gcp: Course = {
       lead: "Logs (chapter 16.1) tell you what happened to one request. Running a platform also needs the opposite view: is everything healthy right now, will someone be told when it is not, and once told, where do they look first? This chapter covers the few metrics worth watching, uptime checks, alerts people do not learn to ignore, Google's network troubleshooting tools, and a routine for the incidents Kadé is most likely to have.",
       part: "running-it",
       minutes: 7,
+      Content: Ch16_2,
     },
     {
       num: "17",
@@ -200,6 +243,7 @@ export const gcp: Course = {
       lead: "Chapters 2 to 16 fixed Kadé's network one problem at a time. Every one of those fixes can be undone in a minute by someone with enough access: an external IP added \"just to test\", a firewall rule opened for a demo, a database switched back to a public IP. Governance is the set of tools that make the safe setup the only possible setup, and tell you quickly when something changes anyway.",
       part: "running-it",
       minutes: 10,
+      Content: Ch17,
     },
     {
       num: "18.1",
@@ -208,6 +252,7 @@ export const gcp: Course = {
       lead: "This chapter follows one real request through everything the course built: from a shopper's phone, through Cloudflare and Google's load balancer, to a VM in a managed instance group that asks Cloud SQL and Cloud Storage for what it needs, and all the way back. At each hop you see what happens, which setting decides it, what the packet looks like, and which log records it. Then you break things on purpose.",
       part: "running-it",
       minutes: 2,
+      Content: Ch18_1,
     },
     {
       num: "18.2",
@@ -216,6 +261,7 @@ export const gcp: Course = {
       lead: "The second walk takes the other kind of backend and the other direction of travel: a checkout request handled by Cloud Run, which writes to Cloud SQL and calls an outside payment provider through Cloud NAT. Chapter 18.1 explained the shared front half in detail, so this walk moves quickly there and slows down where Cloud Run and outgoing traffic are different. The chapter ends with Kadé's whole network on one page.",
       part: "running-it",
       minutes: 3,
+      Content: Ch18_2,
     },
   ],
 };

@@ -11,6 +11,7 @@ export const ARROW_HUES = [
   "green",
   "amber",
   "fault",
+  "accent",
 ] as const;
 
 export type ArrowHue = (typeof ARROW_HUES)[number];

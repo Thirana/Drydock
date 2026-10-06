@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { Fragment, useId, type ReactNode } from "react";
 import { ToggleChip } from "@/components/ui/controls";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,27 @@ import { cn } from "@/lib/utils";
  * speaks the same vocabulary: outlined choices filled in ink, plain selects,
  * label/value lists, numbered steps and a one-sentence outcome.
  */
+
+const ENTITIES: Record<string, string> = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&nbsp;": "\u00a0", "&quot;": '"' };
+const decode = (s: string) => s.replace(/&(?:lt|gt|amp|nbsp|quot);/g, (e) => ENTITIES[e]);
+
+/** The notes' small strings use <b> and <code>; render just those, never raw HTML. */
+export function Rich({ text }: { text: string }) {
+  const parts = text.split(/(<b>.*?<\/b>|<code>.*?<\/code>)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("<b>") ? (
+          <b key={i} className="text-ink">{decode(p.slice(3, -4))}</b>
+        ) : p.startsWith("<code>") ? (
+          <code key={i} className="font-mono text-[0.92em]">{decode(p.slice(6, -7))}</code>
+        ) : (
+          <Fragment key={i}>{decode(p)}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
 
 /** Label and value pairs, values in mono. */
 export function KeyValues({

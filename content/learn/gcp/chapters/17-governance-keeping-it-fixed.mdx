@@ -1,0 +1,311 @@
+import { Constraints, DriftModel, GovHier, GovRollout, Guardrails, IacFlow, IamFlow, OrgPolEx, VpcScEx } from "@/components/learn/widgets/gcp/governance";
+
+<Box kind="problem" title="The problem">
+
+- Three people hold **Owner** on kade-prod, including a freelancer from last year. Owner can undo anything in this course.
+- Last week a developer gave a test VM an external IP and opened port 22 to "check something". Nobody noticed for four days.
+- New projects (kade-staging, <Ch n="14">chapter 14</Ch>) start with a default network and every risky default from <Ch n="2">chapter 2</Ch>.
+- There is no list of what the network should look like, so "is this right?" depends on memory.
+
+</Box>
+
+## Why fixes drift back, and the two answers
+
+A fix made by hand stays fixed only as long as nobody with access changes it. There are two kinds of answer, and a good setup uses both:
+
+<DriftModel />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Prevent</th><th>Detect</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Means</td><td>The risky change is refused when someone tries it</td><td>The change happens, and you find out quickly</td></tr>
+    <tr><td>2</td><td>Tools</td><td>Organization policies, hierarchical firewall policies, IAM roles, VPC Service Controls</td><td>Audit log alerts, Security Command Center, Cloud Asset Inventory, Firewall Insights</td></tr>
+    <tr><td>3</td><td>Strength</td><td>Nothing to clean up afterwards</td><td>Catches what prevention cannot express, and mistakes in the prevention itself</td></tr>
+    <tr><td>4</td><td>Risk</td><td>Too strict and it blocks real work; people look for ways around it</td><td>Too noisy and alerts get ignored (<Ch n="16.2">chapter 16.2</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## The resource hierarchy: where rules are set
+
+Every GCP resource sits in a project, projects sit in folders, folders in the organization. IAM permissions and policies set high up are **inherited** by everything below. That is what makes governance possible: set a rule once on the folder, and every current and future project in it follows (<Ch n="5.2">chapter 5.2</Ch> used this for hierarchical firewall policies).
+
+<GovHier />
+
+## Organization policies: how they work
+
+An organization policy sets a **constraint** on a node of the hierarchy: "VMs in here may not have external IPs", "Cloud SQL in here may not have a public IP". It does not grant or remove anyone's access. It limits what **anyone** can create or configure, including Owners.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind of constraint</th><th>Settings</th><th>Example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Boolean**</td><td>Enforced or not</td><td>`compute.skipDefaultNetworkCreation`: new projects get no default network</td></tr>
+    <tr><td>2</td><td>**List**</td><td>Allowed values, denied values, or deny all</td><td>`run.allowedIngress`: only `internal` and `internal-and-cloud-load-balancing`</td></tr>
+    <tr><td>3</td><td>**Custom**</td><td>Your own condition on a resource's fields, for supported resource types</td><td>For rules no built-in constraint expresses</td></tr>
+  </tbody>
+</Table>
+
+Four behaviours decide whether a policy does what you expect. Each tab shows one:
+
+<OrgPolEx />
+
+<Key title="Policies are not retroactive">
+
+Turning on "no external IPs" stops **new** ones. A VM that already has an external IP keeps it. Before enforcing a policy, find what already breaks it (section 08, Cloud Asset Inventory), fix those, and use dry run to see what would be refused. Otherwise you get a false sense of safety, or a surprise outage when an existing resource is next updated.
+
+</Key>
+
+## The constraints that protect a network
+
+These are the constraints that lock in this course's fixes. Pick an area; each card says what it blocks, which chapter's fix it protects, and Kadé's setting:
+
+<Constraints />
+
+<Note>
+
+**Constraint names change slowly.** Google is adding newer "managed" versions of some constraints with the same purpose. The console's Organization Policies page lists what exists today; search it by the purpose, such as "external IP", if a name here is not found.
+
+</Note>
+
+## Try it: which guardrail stops this?
+
+Pick a risky change someone might make. The tool shows each layer it meets, in order, and which one refuses it, or which one at least notices:
+
+<Guardrails />
+
+## IAM for the network: who can change what
+
+Organization policies limit what can exist. IAM decides who can change the things that are allowed. The basic roles are the problem:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Role</th><th>Can change the network?</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`roles/owner`</td><td><St k="bad">everything</St>, including IAM itself</td><td>One or two break-glass accounts, not daily work</td></tr>
+    <tr><td>2</td><td>`roles/editor`</td><td><St k="bad">almost everything</St>: firewall rules, routes, IPs</td><td>Avoid. It is the usual way "a developer opened port 22" happens</td></tr>
+    <tr><td>3</td><td>`roles/compute.networkAdmin`</td><td>Networks, subnets, routes, load balancers, NAT, VPN. **Not** firewall rules or certificates</td><td>Whoever builds the network</td></tr>
+    <tr><td>4</td><td>`roles/compute.securityAdmin`</td><td>Firewall rules, firewall policies, SSL certificates and policies</td><td>Whoever owns security. Kept separate on purpose</td></tr>
+    <tr><td>5</td><td>`roles/compute.networkViewer`</td><td>Read only</td><td>Developers who need to see, not change</td></tr>
+    <tr><td>6</td><td>`roles/compute.networkUser`</td><td>Use a (shared) subnet when creating resources</td><td>Service projects in a Shared VPC (<Ch n="14">chapter 14</Ch>)</td></tr>
+    <tr><td>7</td><td>`roles/dns.admin`, `roles/compute.loadBalancerAdmin`</td><td>Only their own area</td><td>Narrow jobs</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Network Admin and Security Admin are split so that the person who builds a path is not automatically the person who opens the firewall on it. In a one-person team both land on the same person, but the habit of using narrow roles still keeps everyone else out.</Caption>
+
+<IamFlow />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Habit</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Grant to groups, not people**</td><td>`kade-platform@kade.lk` holds the roles; people join and leave the group. One place to see and remove access</td></tr>
+    <tr><td>2</td><td>**Grant high, narrowly**</td><td>Network roles on the folder cover staging too; developer roles on single projects</td></tr>
+    <tr><td>3</td><td>**Time-limit special access**</td><td>An IAM condition with an expiry date for a contractor or an incident (<Ch n="6.1">chapter 6.1</Ch> did this for IAP)</td></tr>
+    <tr><td>4</td><td>**Remove what is unused**</td><td>The IAM Recommender lists permissions not used in 90 days</td></tr>
+    <tr><td>5</td><td>**No service account keys**</td><td>A leaked key file works from anywhere. Workload identity and attached service accounts need no keys; the constraint `iam.disableServiceAccountKeyCreation` enforces it</td></tr>
+  </tbody>
+</Table>
+
+## VPC Service Controls: a perimeter around Google APIs
+
+Firewall rules protect traffic to your VMs. They cannot protect **Google APIs** such as Cloud Storage or BigQuery: those are reached over Google's public endpoints, and IAM alone decides who can call them. If credentials leak, the attacker can download Kadé's data from anywhere. **VPC Service Controls** draws a perimeter around projects, so their protected APIs only answer requests from inside the perimeter, and data can only be copied to projects inside it.
+
+<VpcScEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>Job</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Service perimeter</td><td>A set of projects and the APIs protected for them</td></tr>
+    <tr><td>2</td><td>Access level</td><td>A rule for letting in requests from outside: the office IP range, or company-managed devices</td></tr>
+    <tr><td>3</td><td>Ingress and egress rules</td><td>Narrow exceptions: "this outside service account may read this bucket"</td></tr>
+    <tr><td>4</td><td>`restricted.googleapis.com`</td><td>The private API addresses that only serve perimeter-supported APIs (<Ch n="9">chapter 9</Ch>)</td></tr>
+    <tr><td>5</td><td>Dry-run perimeter</td><td>Logs what would be blocked without blocking it. Always run it for a few weeks first</td></tr>
+  </tbody>
+</Table>
+
+<Caption>VPC Service Controls adds work and breaks things that are not planned for (third-party tools reading your buckets, a CI system outside GCP). It earns its place when the data is sensitive: payments, personal data. Kadé starts with a dry-run perimeter around kade-prod.</Caption>
+
+## Detect: finding what changed, and what is already wrong
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Tool</th><th>Answers</th><th>Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Audit logs + log-based alert**</td><td>"Someone just changed a firewall rule, route or external IP." Admin Activity logs are always on (<Ch n="16.1">chapter 16.1</Ch>); an alert on them tells you within minutes</td><td>Free logs; a small metric</td></tr>
+    <tr><td>2</td><td>**Security Command Center**</td><td>"What is risky right now?" Findings such as an open firewall, an SSH port open to the internet, a public IP on a VM, a public Cloud SQL instance, flow logs disabled</td><td>Standard tier included; Premium adds more detectors</td></tr>
+    <tr><td>3</td><td>**Cloud Asset Inventory**</td><td>"Show me every external IP, every firewall rule from 0.0.0.0/0, every Owner, across the organization." One search instead of project-by-project clicking</td><td>Included</td></tr>
+    <tr><td>4</td><td>Firewall Insights, Network Analyzer</td><td>Unused and overly broad rules; misconfigurations (<Ch n="16.2">chapter 16.2</Ch>)</td><td>Included</td></tr>
+    <tr><td>5</td><td>IAM Recommender, Policy Analyzer</td><td>"Who can change firewall rules in kade-prod, and through which role?"</td><td>Included</td></tr>
+  </tbody>
+</Table>
+
+## The network written down: infrastructure as code
+
+The strongest answer to "what should the network look like?" is a file. With Terraform (or a similar tool), the network from this course is described in code, kept in Git, reviewed before it changes, and applied by a CI job. A console change then shows up as **drift**: the next plan says "the real firewall differs from the code".
+
+<IacFlow />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Only the CI service account holds network write roles in kade-prod</td><td>People change the network by changing code, which gets reviewed</td></tr>
+    <tr><td>2</td><td>Humans keep Network Viewer, plus a break-glass group for emergencies</td><td>Incidents still need hands; every use of break-glass is visible in the audit log</td></tr>
+    <tr><td>3</td><td>A scheduled plan (daily) reports drift</td><td>Catches changes made outside the pipeline</td></tr>
+    <tr><td>4</td><td>Start by importing what exists</td><td>Rewriting a working network from scratch is a risk of its own; import, then improve</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Infrastructure as code is a subject of its own. For this course, the point is the governance one: a written, reviewed description of the network is what turns "is this right?" from memory into a diff.</Caption>
+
+## Rollout plan
+
+In order of protection gained per hour spent, for a platform starting with Owners everywhere and no policies:
+
+<GovRollout />
+
+<Box kind="exam" title="Exam angle">
+
+"Prevent VMs from having external IPs across the organization" is the organization policy `compute.vmExternalIpAccess`, set high in the hierarchy. "Prevent data exfiltration from Cloud Storage even with valid credentials" is VPC Service Controls. "A team may manage firewall rules but not networks" is Compute Security Admin. "Apply a rule to all projects in a department" means setting it on the folder. "Find all public IPs across projects" is Cloud Asset Inventory.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Done: the course's fixes are locked in">
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Where</th><th>Setting</th><th>Protects</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Org `kade.lk`</td><td>`compute.skipDefaultNetworkCreation`, `compute.requireOsLogin`, `iam.disableServiceAccountKeyCreation`, `iam.allowedPolicyMemberDomains`: only kade.lk's own identities (freelancers now get a kade.lk account)</td><td><Ch n="2">Ch 2</Ch>, <Ch n="6.2">6.2</Ch>; access stays inside the company</td></tr>
+    <tr><td>2</td><td>Folder `production`</td><td>`compute.vmExternalIpAccess` deny all; `sql.restrictPublicIp`; `sql.restrictAuthorizedNetworks`; `run.allowedIngress` internal + LB; `compute.vmCanIpForward` deny all</td><td><Ch n="3">Ch 3</Ch>, <Ch n="4">4</Ch>, <Ch n="7">7</Ch>, <Ch n="9">9</Ch>, <Ch n="10">10</Ch></td></tr>
+    <tr><td>2b</td><td>Folder `production`</td><td>Also: `compute.requireShieldedVm`; `compute.restrictVpnPeerIPs` = 198.51.100.20; `compute.restrictLoadBalancerCreationForTypes` (external managed and internal only); `gcp.resourceLocations` = asia-southeast1; `storage.publicAccessPrevention` (exception: the `kade-static-assets` bucket behind the load balancer)</td><td><Ch n="2">Ch 2</Ch>, <Ch n="9">9</Ch>, <Ch n="11">11</Ch>, <Ch n="12.2">12.2</Ch>, <Ch n="15">15</Ch></td></tr>
+    <tr><td>3</td><td>Folder `production`</td><td>Hierarchical firewall policy: deny 22 and 3389 from the internet, except IAP (<Ch n="5.2">chapter 5.2</Ch>)</td><td><Ch n="6.1">Ch 6.1</Ch></td></tr>
+    <tr><td>4</td><td>IAM</td><td>Owner: 2 break-glass accounts. Group `kade-platform@`: Network Admin + Security Admin on the folder. Developers: Network Viewer. Freelancer's access removed</td><td>Everything</td></tr>
+    <tr><td>5</td><td>Detect</td><td>Log-based alert on firewall, route, address and Cloud Armor changes; Security Command Center findings reviewed weekly</td><td>What policies cannot express</td></tr>
+    <tr><td>6</td><td>VPC Service Controls</td><td>Dry-run perimeter around kade-prod for Cloud Storage, Cloud SQL Admin, BigQuery</td><td>Data, once the dry run is clean</td></tr>
+    <tr><td>7</td><td>Code</td><td>Network imported into Terraform; CI is the only writer in kade-prod; daily drift plan</td><td>"Is this right?" becomes a diff</td></tr>
+  </tbody>
+</Table>
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 5 are read-only. Commands 6 to 8 change the organization; run them with the organization or folder ID, after dry run.
+
+<TryIt n={1} title="What policy actually applies to a project?">
+
+- **What it shows:** The effective policy for one constraint on kade-prod, after inheritance and merging.
+- **What to look for:** `enforce: true` or the allowed and denied values you expect. If it is empty, nothing above sets it.
+
+```sh
+gcloud org-policies describe compute.vmExternalIpAccess --project=kade-prod --effective
+```
+
+</TryIt>
+
+<TryIt n={2} title="List the policies set on the folder">
+
+- **What it shows:** Every constraint with a policy set directly on the production folder.
+- **What to look for:** The constraints from section 11's table.
+
+```sh
+gcloud org-policies list --folder=FOLDER_ID
+```
+
+</TryIt>
+
+<TryIt n={3} title="Find every external IP in the organization">
+
+- **What it shows:** Reserved and in-use external addresses across all projects.
+- **What to look for:** Anything besides the load balancer and NAT IPs. Fix these before enforcing `vmExternalIpAccess`.
+
+```sh
+gcloud asset search-all-resources --scope=organizations/ORG_ID \
+  --asset-types=compute.googleapis.com/Address --query="addressType:EXTERNAL" \
+  --format="table(displayName,project,location,additionalAttributes.address)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Who holds Owner or Editor?">
+
+- **What it shows:** Every IAM binding granting the basic roles, anywhere in the organization.
+- **What to look for:** Individual users and former contractors. The goal is two break-glass Owners and no Editors.
+
+```sh
+gcloud asset search-all-iam-policies --scope=organizations/ORG_ID \
+  --query="policy:(roles/owner OR roles/editor)" --format="table(resource,policy.bindings.role,policy.bindings.members)"
+```
+
+</TryIt>
+
+<TryIt n={5} title="Who can change firewall rules in kade-prod?">
+
+- **What it shows:** Every identity that holds the permission to update firewall rules, and through which role and level.
+- **What to look for:** Only the platform group and the CI service account.
+
+```sh
+gcloud asset analyze-iam-policy --organization=ORG_ID \
+  --full-resource-name=//cloudresourcemanager.googleapis.com/projects/kade-prod \
+  --permissions=compute.firewalls.update
+```
+
+</TryIt>
+
+<TryIt n={6} title="Block external IPs on VMs in the folder, dry run first (changes the organization)">
+
+- **What it shows:** A policy file with a dry-run spec only: violations are logged, nothing is blocked. Move the rules to `spec` to enforce.
+- **What to look for:** Dry-run violations in the audit logs for a week; zero means it is safe to enforce. Dry run is not available for every constraint; where it is not, preview with the Policy Simulator in the console, and fix what command 3 found first.
+
+```sh
+cat > no-external-ip.yaml <<'EOF'
+name: folders/FOLDER_ID/policies/compute.vmExternalIpAccess
+dryRunSpec:
+  rules:
+  - denyAll: true
+EOF
+gcloud org-policies set-policy no-external-ip.yaml
+```
+
+</TryIt>
+
+<TryIt n={7} title="Require OS Login and skip default networks, organization-wide (changes the organization)">
+
+- **What it shows:** Two boolean constraints enforced on the organization.
+- **What to look for:** Command 1 on any project shows `enforce: true`. A new test project has no default network.
+
+```sh
+gcloud org-policies set-policy require-oslogin.yaml        # constraints/compute.requireOsLogin, enforce: true
+gcloud org-policies set-policy skip-default-network.yaml   # constraints/compute.skipDefaultNetworkCreation, enforce: true
+```
+
+</TryIt>
+
+<TryIt n={8} title="Alert on network changes (changes the project)">
+
+- **What it shows:** A log-based metric counting changes to firewall rules, routes, addresses and security policies, for an alert to watch (<Ch n="16.2">chapter 16.2</Ch>).
+- **What to look for:** The counter rising when you change a test rule; the alert's notification arriving.
+
+```sh
+gcloud logging metrics create kade_network_changes \
+  --description="Changes to firewall rules, routes, addresses, security policies" \
+  --log-filter='logName:"cloudaudit.googleapis.com%2Factivity" AND
+    (protoPayload.methodName:("compute.firewalls." OR "compute.routes." OR
+     "compute.addresses." OR "compute.securityPolicies."))'
+```
+
+</TryIt>

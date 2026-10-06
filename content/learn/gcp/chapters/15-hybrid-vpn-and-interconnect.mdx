@@ -1,0 +1,278 @@
+import { BgpEx, FailoverEx, HybridPaths, MtuBar, VpnFlows, VpnParts } from "@/components/learn/widgets/gcp/growing";
+
+<Box kind="problem" title="The problem">
+
+- **Warehouse scanners** need to post stock counts to an inventory API on kade-worker (`10.10.1.20:8443`). They are devices, not people, so IAP sign-in (<Ch n="6">chapter 6</Ch>) does not fit, and the API must not be on the internet.
+- **The office accountant** runs nightly reports against Cloud SQL (`10.10.32.3`).
+- **Both sides need each other's names**: kade-worker reads files from the office file server `nas.office.kade.lan`, and office PCs should resolve `db.kade.internal` (<Ch n="8">chapter 8</Ch>).
+- Today the office reaches GCP only over the public internet, through its router at `198.51.100.20`.
+
+</Box>
+
+## Three ways to reach GCP from an office
+
+<Recalls><Recall n="6">Kadé's office network</Recall><Recall n="29">Tunnels</Recall></Recalls>
+
+<HybridPaths />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Option</th><th>How</th><th>Fits</th><th>Kadé</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Per person, over the internet</td><td>IAP for SSH and admin tools (<Ch n="6">chapter 6</Ch>), IAP for HTTPS or Cloudflare Access for web apps (<Ch n="13">chapter 13</Ch>)</td><td>People with Google identities, occasional admin work</td><td>Kept for admin access</td></tr>
+    <tr><td>2</td><td>**Site-to-site VPN**</td><td>An encrypted tunnel between the office router and GCP, over the internet. Whole networks talk on private IPs</td><td>Devices that cannot sign in, steady office-to-cloud traffic, modest bandwidth</td><td>**Kadé's choice**</td></tr>
+    <tr><td>3</td><td>Interconnect</td><td>A private physical link, or a link through a provider, into Google's network</td><td>Many gigabits, predictable latency, large data volumes</td><td>Not needed (section 08)</td></tr>
+  </tbody>
+</Table>
+
+## The hybrid family
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Product</th><th>Path</th><th>Bandwidth</th><th>Availability SLA</th><th>Encrypted</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**HA VPN**</td><td>IPsec over the internet</td><td>About 3 Gbps per tunnel; add tunnels for more</td><td>99.99% with two tunnels, one from each gateway interface</td><td>Yes (IPsec)</td></tr>
+    <tr><td>2</td><td>Classic VPN</td><td>IPsec over the internet, one interface</td><td>Same per tunnel</td><td>99.9%</td><td>Yes</td></tr>
+    <tr><td>3</td><td>Dedicated Interconnect</td><td>Your own 10 or 100 Gbps fibre to a Google colocation facility</td><td>10-200+ Gbps</td><td>99.9% or 99.99% with redundant links</td><td>No by default; MACsec or HA VPN over it</td></tr>
+    <tr><td>4</td><td>Partner Interconnect</td><td>Through a service provider already connected to Google</td><td>50 Mbps to 50 Gbps</td><td>99.9% or 99.99%</td><td>No by default</td></tr>
+    <tr><td>5</td><td>Cross-Cloud Interconnect</td><td>Google-managed link to another cloud (AWS, Azure…)</td><td>10 or 100 Gbps</td><td>99.9% or 99.99%</td><td>No by default</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Classic VPN is the older product: use HA VPN for anything new. All of them use the same Cloud Router and BGP setup (section 04), so what you learn with HA VPN carries over to Interconnect.</Caption>
+
+## HA VPN: the parts
+
+An HA VPN connection is five GCP resources plus the office router. Click each part to see what it holds and Kadé's value:
+
+<VpnParts />
+
+<Note>
+
+**One office IP, still highly available.** Kadé's office router has a single public IP. HA VPN still runs **two tunnels**, one from each of its two interfaces to that same address. That covers a failure on Google's side; a second office internet line would cover the office side too.
+
+</Note>
+
+## Cloud Router and BGP: who learns which routes
+
+<Recalls><Recall n="12">Routing and BGP</Recall></Recalls>
+
+HA VPN uses **dynamic routing**: the Cloud Router and the office router run BGP over each tunnel, and each tells the other which ranges it can reach (<Ch n="4">chapter 4</Ch>: dynamic routes). Nothing is typed in by hand, and when a tunnel fails its routes disappear by themselves. The important question is **what each side advertises**, because a range that is not advertised simply has no path.
+
+<BgpEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kadé advertises</th><th>Why</th><th>Learned from</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>All subnets of kade-vpc (default)</td><td>Office reaches kade-worker and anything else in a subnet</td><td>Automatic</td></tr>
+    <tr><td>2</td><td>`10.10.32.0/20`</td><td>Cloud SQL's private services range is **not** a subnet of kade-vpc, so it is not advertised by default</td><td><Ch n="9">Chapter 9</Ch></td></tr>
+    <tr><td>3</td><td>`35.199.192.0/19`</td><td>Replies to Cloud DNS forwarding queries (<Ch n="8">chapter 8</Ch>) must find their way back over the VPN</td><td><Ch n="8">Chapter 8</Ch></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Adding 2 and 3 means switching the Cloud Router to **custom advertisement**: "all subnets" plus listed ranges (command 6).</Caption>
+
+<Key title="Dynamic routing mode decides how far learned routes reach">
+
+A VPC setting (<Ch n="2">chapter 2</Ch>): in **regional** mode, the office routes the Cloud Router learns are used only by resources in its own region, asia-southeast1. In **global** mode, every region of kade-vpc can use them. Kadé runs in one region, so regional is fine; a second region would need global.
+
+</Key>
+
+## Two tunnels: sharing load and failing over
+
+With two tunnels, there are two ways to use them. BGP decides, through the priority Cloud Router attaches to the routes it advertises and the priority the office router uses:
+
+<FailoverEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>Default</th><th>Effect</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>BGP keepalive and hold time</td><td>20 s keepalive</td><td>Without BFD, a silent tunnel failure is noticed after up to about a minute</td></tr>
+    <tr><td>2</td><td>BFD (Bidirectional Forwarding Detection)</td><td>off</td><td>Detects a dead path in about a second, if the office router supports it</td></tr>
+    <tr><td>3</td><td>Advertised route priority (base priority)</td><td>100</td><td>Lower wins, the same idea as route priority in <Ch n="4">chapter 4</Ch>. Give one tunnel a higher number to make it the backup</td></tr>
+  </tbody>
+</Table>
+
+## MTU over the tunnel
+
+<Recalls><Recall n="18">MTU, MSS and fragmentation</Recall></Recalls>
+
+IPsec wraps each packet in extra headers before it crosses the internet. The inside packet must therefore be smaller than the outside path allows. <Ch n="1">Chapter 1</Ch> promised this would come back:
+
+<MtuBar />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Cloud VPN carries inner packets up to 1460 bytes</td><td>The same as kade-vpc's default MTU (<Ch n="1">chapter 1</Ch>), so VMs and the tunnel agree</td></tr>
+    <tr><td>2</td><td>Set the office side of the tunnel to the same size, and clamp TCP MSS on the office router</td><td>Office PCs think in 1500-byte packets. Clamping MSS (Google's peer guides suggest values around 1360 to 1420) makes TCP pick smaller segments from the start</td></tr>
+    <tr><td>3</td><td>If kade-vpc's MTU is ever raised to 1500 or 8896, the VPN does not follow</td><td>Large packets to the office would no longer fit through the tunnel</td></tr>
+    <tr><td>4</td><td>The symptom of getting it wrong</td><td>Small things work (ping, DNS, logins); large transfers or big pages hang. The fundamentals course' "black hole" again</td></tr>
+  </tbody>
+</Table>
+
+## Everything the VPN touches
+
+A tunnel that is up only means packets **can** travel. Each real flow also needs a route on both sides, a firewall rule, and often DNS. These are Kadé's three flows; switch one piece off to see which flow breaks:
+
+<VpnFlows />
+
+## Interconnect, briefly
+
+Interconnect replaces "over the internet" with a private physical path into Google's network. The Cloud Router and BGP part stays exactly as above; the tunnel is replaced by a **VLAN attachment** on the physical link.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Consider Interconnect when</th><th>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>You need more than a few Gbps steadily</td><td>Each VPN tunnel tops out around 3 Gbps</td></tr>
+    <tr><td>2</td><td>Latency must be steady</td><td>The internet path a VPN uses changes from hour to hour</td></tr>
+    <tr><td>3</td><td>You move a lot of data out of GCP</td><td>Egress over Interconnect is cheaper per GB than internet egress, which can pay for the port</td></tr>
+    <tr><td>4</td><td>Your site is near a Google colocation facility, or a partner serves it</td><td>Dedicated needs your equipment in the facility; Partner works through a provider that is already there</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Interconnect traffic is not encrypted by default. Add MACsec on the link, or run HA VPN over the Interconnect, when encryption is required.</Caption>
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+HA VPN is billed per tunnel per hour (so two tunnels for HA) plus normal egress for traffic sent from GCP to the office. Interconnect has a monthly port or connection fee plus VLAN attachment charges, with lower egress rates. Check the Cloud VPN and Cloud Interconnect pricing pages for your region.
+
+</Box>
+
+<Box kind="exam" title="Exam angle">
+
+"Encrypted connection over the internet with 99.99% availability" is HA VPN with two tunnels. "10 Gbps or more, private, not over the internet" is Dedicated Interconnect, or Partner Interconnect if no colocation is nearby. "Routes should update automatically when on-premises networks change" means dynamic routing with Cloud Router (BGP). "On-premises cannot reach Cloud SQL's private IP" means the private services range is not advertised, or custom routes are not exported on the peering.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Done: the office is on the private network">
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>HA VPN gateway</td><td>`kade-havpn`, asia-southeast1, two interfaces with Google-assigned public IPs</td></tr>
+    <tr><td>2</td><td>Peer VPN gateway</td><td>`kade-office-gw`, one interface: `198.51.100.20`</td></tr>
+    <tr><td>3</td><td>Tunnels</td><td>`kade-tunnel-0` and `kade-tunnel-1`, IKEv2, both to the office IP, active/active</td></tr>
+    <tr><td>4</td><td>Cloud Router</td><td>`kade-vpn-router`, ASN 64512 (separate from kade-router, which runs Cloud NAT)</td></tr>
+    <tr><td>5</td><td>BGP sessions</td><td>`169.254.0.1` ↔ `169.254.0.2` and `169.254.1.1` ↔ `169.254.1.2`, office ASN 65010, BFD on</td></tr>
+    <tr><td>6</td><td>Advertised</td><td>All subnets, plus `10.10.32.0/20` and `35.199.192.0/19`</td></tr>
+    <tr><td>7</td><td>Learned</td><td>`172.16.0.0/16`</td></tr>
+    <tr><td>8</td><td>Firewall</td><td>`kade-warehouse-to-inventory`: tcp:8443 from `172.16.2.0/24` to `sa-kade-worker`. Nothing else from the office</td></tr>
+    <tr><td>9</td><td>Cloud SQL</td><td>PSA peering exports custom routes (<Ch n="9">chapter 9</Ch>, command 9); accountant's PC allowed in the database's own users</td></tr>
+    <tr><td>10</td><td>DNS</td><td>Forwarding zone `office.kade.lan` → `172.16.1.53`; inbound server policy for the office to resolve `kade.internal` (<Ch n="8">chapter 8</Ch>)</td></tr>
+    <tr><td>11</td><td>MTU</td><td>Office tunnel MTU 1460, TCP MSS clamped per Google's guide for the router model</td></tr>
+  </tbody>
+</Table>
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 4 are read-only. Commands 5 to 7 change the project; the office router is configured separately, with the same secret, addresses and ASNs.
+
+<TryIt n={1} title="Are the tunnels up?">
+
+- **What it shows:** Each tunnel's status and the reason if it is not established.
+- **What to look for:** `ESTABLISHED` on both. Other values usually mean a mismatched shared secret or IKE settings.
+
+```sh
+gcloud compute vpn-tunnels list --filter="region:asia-southeast1" \
+  --format="table(name,status,detailedStatus,peerIp)"
+```
+
+</TryIt>
+
+<TryIt n={2} title="Are the BGP sessions up, and what was learned?">
+
+- **What it shows:** Each BGP peer's state, and the routes learned from the office.
+- **What to look for:** Both peers `Established`, and `172.16.0.0/16` in the best routes.
+
+```sh
+gcloud compute routers get-status kade-vpn-router --region=asia-southeast1 \
+  --format="yaml(result.bgpPeerStatus,result.bestRoutes)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="What does Kadé advertise to the office?">
+
+- **What it shows:** The Cloud Router's advertisement mode, groups and extra ranges.
+- **What to look for:** `CUSTOM`, `ALL_SUBNETS`, and both extra ranges.
+
+```sh
+gcloud compute routers describe kade-vpn-router --region=asia-southeast1 \
+  --format="yaml(bgp)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Test a full-size packet to the office">
+
+- **What it shows:** From kade-worker, whether 1460-byte packets cross the tunnel without fragmenting.
+- **What to look for:** Replies at 1432 bytes of data. If small pings work and this one fails, it is MTU.
+
+```sh
+ping -c 3 -M do -s 1432 172.16.1.40
+```
+
+</TryIt>
+
+<TryIt n={5} title="Create the gateways (changes the project)">
+
+- **What it shows:** The HA VPN gateway, and a resource describing the office router.
+- **What to look for:** The two public IPs GCP assigns to kade-havpn, which go into the office router's config.
+
+```sh
+gcloud compute vpn-gateways create kade-havpn --network=kade-vpc --region=asia-southeast1
+gcloud compute external-vpn-gateways create kade-office-gw --interfaces=0=198.51.100.20
+```
+
+</TryIt>
+
+<TryIt n={6} title="Create the router and one tunnel with its BGP session (changes the project)">
+
+- **What it shows:** The Cloud Router, tunnel 0, and its BGP session. Repeat the last three commands for interface 1 and 169.254.1.0/30.
+- **What to look for:** Commands 1 and 2 report the tunnel and session up once the office side is configured.
+
+```sh
+gcloud compute routers create kade-vpn-router --network=kade-vpc \
+  --region=asia-southeast1 --asn=64512
+gcloud compute vpn-tunnels create kade-tunnel-0 --region=asia-southeast1 \
+  --vpn-gateway=kade-havpn --interface=0 \
+  --peer-external-gateway=kade-office-gw --peer-external-gateway-interface=0 \
+  --ike-version=2 --shared-secret=REPLACE-WITH-A-LONG-SECRET --router=kade-vpn-router
+gcloud compute routers add-interface kade-vpn-router --region=asia-southeast1 \
+  --interface-name=if-tunnel-0 --vpn-tunnel=kade-tunnel-0 --ip-address=169.254.0.1 --mask-length=30
+gcloud compute routers add-bgp-peer kade-vpn-router --region=asia-southeast1 \
+  --peer-name=office-0 --interface=if-tunnel-0 \
+  --peer-ip-address=169.254.0.2 --peer-asn=65010
+```
+
+</TryIt>
+
+<TryIt n={7} title="Advertise the extra ranges (changes the project)">
+
+- **What it shows:** Switches to custom advertisement: all subnets, plus Cloud SQL's range and Cloud DNS's forwarding range.
+- **What to look for:** The office router's BGP table now lists both ranges via the tunnels.
+
+```sh
+gcloud compute routers update kade-vpn-router --region=asia-southeast1 \
+  --advertisement-mode=CUSTOM --set-advertisement-groups=ALL_SUBNETS \
+  --set-advertisement-ranges=10.10.32.0/20,35.199.192.0/19
+```
+
+</TryIt>

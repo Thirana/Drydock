@@ -1,0 +1,75 @@
+import { Cap2, FinalMap, Quiz2 } from "@/components/learn/widgets/gcp/capstone";
+
+<Box kind="problem" title="The request">
+
+A shopper taps "Pay". The app sends `POST https://api.kade.lk/v1/checkout`. kade-api on Cloud Run reserves stock and creates the order in Cloud SQL, asks PayGate to charge the card, and answers the shopper. PayGate only accepts requests from `34.87.200.7`.
+
+</Box>
+
+## The walk
+
+The same three modes as <Ch n="18.1">chapter 18.1</Ch>: request path, return path, and break it.
+
+<Cap2 />
+
+## What is different from the VM path
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>VM path (18.1)</th><th>Cloud Run path (this chapter)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Backend</td><td>Instance group, VMs in sn-app</td><td>Serverless NEG, instances in Google's network</td></tr>
+    <tr><td>2</td><td>Health checks</td><td>Two: load balancer and autohealing</td><td>None: Cloud Run manages instances itself</td></tr>
+    <tr><td>3</td><td>Who may reach the backend</td><td>Firewall rule from Google's ranges to the service account</td><td>Cloud Run's ingress setting</td></tr>
+    <tr><td>4</td><td>Enters kade-vpc</td><td>Already inside</td><td>Only for outgoing traffic, through Direct VPC egress</td></tr>
+    <tr><td>5</td><td>VPC Flow Logs see shopper traffic</td><td>Yes, the load balancer to VM leg</td><td>No; only the outgoing calls from sn-run</td></tr>
+    <tr><td>6</td><td>Outgoing to the internet</td><td>Cloud NAT on sn-app</td><td>Cloud NAT on sn-run, needs `all-traffic`</td></tr>
+    <tr><td>7</td><td>Scaling limit to watch</td><td>Max VMs in the group</td><td>Max instances, and NAT ports at that size</td></tr>
+  </tbody>
+</Table>
+
+## Kadé's whole network, on one page
+
+Everything the course built, with the real names. Use it as a map when something breaks, or as a checklist when building a network like it:
+
+<FinalMap />
+
+## <Ch n="0">Chapter 0</Ch>'s findings, closed
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Finding in <Ch n="0">chapter 0</Ch></th><th>Now</th><th>Fixed in</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The `default` network still exists</td><td><St k="ok">closed</St> Deleted; an organization policy stops new projects getting one</td><td className="whitespace-nowrap">2, 17</td></tr>
+    <tr><td>2</td><td>`kade-allow-ssh`: port 22 open to everyone</td><td><St k="ok">closed</St> IAP only, from `35.235.240.0/20`; folder policy blocks 22 from the internet; OS Login</td><td className="whitespace-nowrap">6.1, 6.2, 5.2</td></tr>
+    <tr><td>3</td><td>`kade-allow-web`: 80, 443, 8080 open to everyone</td><td><St k="ok">closed</St> Deleted; only Google's front ends reach backends, by service account</td><td className="whitespace-nowrap">5.1</td></tr>
+    <tr><td>4</td><td>`kade-allow-internal`: every port between all VMs</td><td><St k="ok">closed</St> Deleted; the database is Cloud SQL on a private IP</td><td className="whitespace-nowrap">5.1, 9</td></tr>
+    <tr><td>5</td><td>No way to reach the internet</td><td><St k="ok">closed</St> Cloud NAT with `34.87.200.7` on PayGate's allow-list</td><td className="whitespace-nowrap">7, 10</td></tr>
+    <tr><td>6</td><td>Hardcoded database IP</td><td><St k="ok">closed</St> `db.kade.internal` in a private zone</td><td className="whitespace-nowrap">8</td></tr>
+    <tr><td>7</td><td>Database VM patched and backed up by hand</td><td><St k="ok">closed</St> Cloud SQL, private IP only, encrypted connections, automatic backups</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>8</td><td>Nothing is logged</td><td><St k="ok">closed</St> Load balancer, flow, firewall and NAT logs; dashboard; eight alerts</td><td className="whitespace-nowrap">16.1, 16.2</td></tr>
+    <tr><td>9</td><td>All VMs run as the default service account</td><td><St k="ok">closed</St> One service account per role; firewall rules target them</td><td className="whitespace-nowrap">5.1, 12.2</td></tr>
+  </tbody>
+</Table>
+
+## Self-check
+
+Six questions about this path and the course as a whole:
+
+<Quiz2 />
+
+## Where to go from here
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Next step</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Apply the rollout plans in <Ch n="16.2">chapters 16.2</Ch> and <Ch n="17">17</Ch> to a real project</td><td>They are ordered by value for effort; Day 1 of each takes about an hour</td></tr>
+    <tr><td>2</td><td>Write the network as code (Terraform)</td><td>Turns this course's settings into something reviewed and repeatable (<Ch n="17">chapter 17</Ch> section 09)</td></tr>
+    <tr><td>3</td><td>Multi-VPC design, if you grow into it</td><td><Ch n="14">Chapter 14</Ch> section 06 lists the topics, in order</td></tr>
+    <tr><td>4</td><td>The exam-angle boxes across the chapters</td><td>Together they cover the networking questions in Google's associate and professional cloud exams</td></tr>
+  </tbody>
+</Table>

@@ -685,6 +685,34 @@
     stroke-width: 2.5;
   }
 
+  /* Selection inside a step-through drawing: the hop being described. Blue,
+     because blue means "current" everywhere on the site. */
+  .dd-fig .n.cur {
+    stroke: var(--dd-accent);
+    stroke-width: 2.5;
+  }
+  .dd-fig circle.badge.cur {
+    stroke: var(--dd-accent);
+    stroke-width: 2.4;
+  }
+  .dd-fig .w.cur {
+    stroke: var(--dd-accent);
+    stroke-width: 3;
+  }
+  /* A warning, or the part to notice: the highlighter, not a hue. */
+  .dd-fig .n.mark {
+    fill: var(--dd-mark);
+    stroke: var(--dd-ink-faint);
+  }
+  /* Words on something broken: dropped, refused, failing. */
+  .dd-fig text.flt {
+    fill: var(--dd-fault);
+  }
+  /* A step that is not reached, in a chain that stopped earlier. */
+  .dd-fig .off {
+    opacity: 0.4;
+  }
+
   /* Arrowhead fills, used by the markers in <DiagramDefs />. */
   .dd-mk-muted {
     fill: var(--dd-ink-faint);
@@ -703,6 +731,9 @@
   }
   .dd-mk-fault {
     fill: var(--dd-fault);
+  }
+  .dd-mk-accent {
+    fill: var(--dd-accent);
   }
 }
 

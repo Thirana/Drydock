@@ -6,31 +6,13 @@ import { cn } from "@/lib/utils";
 import { arrowHead } from "../diagram-defs";
 import data from "./data/fundamentals.json";
 import { MultiSeqDrawing } from "./seq";
-import { Action, Choices, KeyValues, Outcome, Select, Steps, WidgetNote } from "./ui";
+import { Action, Choices, KeyValues, Outcome, Rich, Select, Steps, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
 
 /*
  * Chapters 33 and 34: proxies and load balancers, then one request followed
  * end to end. Outcomes are in words; red only where something breaks.
  */
-
-/** The notes' small strings use <b> and <code>; render just those, never raw HTML. */
-function Rich({ text }: { text: string }) {
-  const parts = text.split(/(<b>.*?<\/b>|<code>.*?<\/code>)/g);
-  return (
-    <>
-      {parts.map((p, i) =>
-        p.startsWith("<b>") ? (
-          <b key={i} className="text-ink">{p.slice(3, -4)}</b>
-        ) : p.startsWith("<code>") ? (
-          <code key={i} className="font-mono text-[0.92em]">{p.slice(6, -7)}</code>
-        ) : (
-          <Fragment key={i}>{p}</Fragment>
-        ),
-      )}
-    </>
-  );
-}
 
 function Flow({ lanes, rows, label, wide }: { lanes: { t: string; c: string }[]; rows: Parameters<typeof MultiSeqDrawing>[0]["rows"]; label: string; wide?: boolean }) {
   return (
