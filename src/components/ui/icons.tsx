@@ -73,6 +73,16 @@ export const IconX = makeIcon(
   12,
   <path d="M3 3l6 6M9 3L3 9" />,
 );
+export const IconSearch = makeIcon(
+  "IconSearch",
+  16,
+  1.8,
+  16,
+  <>
+    <circle cx="7" cy="7" r="4.5" />
+    <path d="M10.5 10.5l3.5 3.5" />
+  </>,
+);
 export const IconMenu = makeIcon(
   "IconMenu",
   16,

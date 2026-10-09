@@ -1,0 +1,458 @@
+import { AddrFind } from "@/components/learn/widgets/lazy";
+import { FigPlan, FigTarget, FigToday } from "@content/learn/gcp/figures/00-kade-on-gcp";
+
+## Where the fundamentals course left off
+
+Kadé is the small online grocery shop in Colombo. Customers use a mobile app and a website, and both call one backend at `api.kade.lk`. You are Kadé's backend engineer. From now on you are also the only person looking after its Google Cloud setup.
+
+The fundamentals course used GCP as the place where Kadé's servers live, and looked at it mostly from the outside: packets arriving, a load balancer in front, a gateway at `.1`. By the end, this much was built:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>What it is</th><th>Built in</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>kade-vpc</td><td>Kadé's network in GCP, with subnets `sn-app 10.10.1.0/24` and `sn-data 10.10.2.0/24`</td><td><Ch course="fundamentals" n="3">Fundamentals ch 3</Ch></td></tr>
+    <tr><td>2</td><td>kade-api-1, kade-api-2</td><td>Two VMs running the Node app, no external IPs</td><td><Ch course="fundamentals" n="33">Fundamentals ch 33</Ch></td></tr>
+    <tr><td>3</td><td>kade-db</td><td>One VM running PostgreSQL, `10.10.2.5:5432`</td><td><Ch course="fundamentals" n="4">Fundamentals ch 4</Ch></td></tr>
+    <tr><td>4</td><td>Load balancer</td><td>External Application Load Balancer at `34.120.88.10`. `api.kade.lk` points here</td><td><Ch course="fundamentals" n="33">Fundamentals ch 33</Ch></td></tr>
+    <tr><td>5</td><td>Cloud DNS</td><td>Hosts the `kade.lk` zone</td><td><Ch course="fundamentals" n="22">Fundamentals ch 22</Ch></td></tr>
+    <tr><td>6</td><td>Two firewall rules</td><td>Ping from your home and office IPs; health checks from Google's load balancer ranges</td><td><Ch course="fundamentals" n="13">Fundamentals ch 13</Ch>, <Ch course="fundamentals" n="33">33</Ch></td></tr>
+  </tbody>
+</Table>
+
+Some things were only planned there, never built: Cloud NAT with a fixed IP for the payment provider (<Ch course="fundamentals" n="10">Fundamentals ch 10</Ch>), a VPN to the office (<Ch course="fundamentals" n="0">Fundamentals ch 0</Ch>), a rule that lets only kade-api reach the database (<Ch course="fundamentals" n="0">ch 0</Ch>), and SSH through IAP instead of an open port 22 (<Ch course="fundamentals" n="29">ch 29</Ch>).
+
+These notes pick up at that point. Every chapter starts with a real problem in Kadé's project and ends with it fixed, and every new idea is tied back to the fundamentals course chapter it builds on.
+
+## One correction first: a VPC has no address range
+
+<Recalls><Recall n="3">Networks, hosts and CIDR</Recall><Recall n="5">The default gateway</Recall></Recalls>
+
+The fundamentals course map said `kade-vpc 10.10.0.0/16`. That was a useful shortcut, but it is not how GCP works. <Term>In GCP, a VPC network has no address range of its own. Only subnets have ranges.</Term> A home router is set up with one LAN range; a VPC is not.
+
+So `10.10.0.0/16` is **Kadé's own plan**: the block we promise to take every subnet range from. GCP does not know about it and does not enforce it. That has three results:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>What this means</th><th>Example</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A subnet can use any private range, even one far outside our plan</td><td>GCP would accept a new subnet `192.168.50.0/24` in kade-vpc</td><td>2</td></tr>
+    <tr><td>2</td><td>Two VPCs can use the same ranges, and nothing warns you until you try to connect them</td><td>A staging VPC that also uses `10.10.1.0/24` cannot be peered with kade-vpc</td><td>14</td></tr>
+    <tr><td>3</td><td>The plan must be written down somewhere, because GCP will not hold it for you</td><td>Section 06 of this page is that record</td><td>0, 17</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+List the networks in the project:
+
+```sh
+gcloud compute networks list --project=kade-prod
+```
+
+<Label>Output</Label>
+
+```text
+NAME      SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
+default   AUTO         REGIONAL
+kade-vpc  CUSTOM       REGIONAL
+```
+
+<Label>What it tells you</Label>
+
+The `IPV4_RANGE` and `GATEWAY_IPV4` columns are empty for both networks. Those columns are only filled for old "legacy" networks, which GCP no longer lets you create. For a normal VPC the ranges live on the subnets (<Ch n="2">chapter 2</Ch>). The output also shows a second network, `default`, that nobody at Kadé created on purpose. Section 04 comes back to it.
+
+</Box>
+
+## The project today
+
+This is what you find the first time you open the project and look properly. Red numbers are problems; section 04 lists them.
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigToday />}>
+
+Traffic from shoppers takes the right path: DNS, then the load balancer, then kade-api on port 8080. Everything around that path is either too open or missing. Solid lines work today; red dashed lines are problems.
+
+</Figure>
+
+## What is wrong today
+
+Nothing here is unusual. This is what a project looks like when it was set up quickly with default settings, and it is close to what many real projects look like on their first audit.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>What we found</th><th>Why it is a problem</th><th>Fixed in</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The `default` network still exists</td><td>GCP creates it with every new project. It has a subnet in every region and rules that open SSH, RDP and ping to the whole internet. No VM uses it today, but a VM created with default settings lands in it</td><td className="whitespace-nowrap"><Ch n="2">Ch 2</Ch>, <Ch n="17">17</Ch></td></tr>
+    <tr><td>2</td><td>`kade-allow-ssh`: port 22 from `0.0.0.0/0` to every VM</td><td>Any VM that gets an external IP can be reached by every SSH bot on the internet</td><td className="whitespace-nowrap"><Ch n="6.1">Ch 6.1</Ch></td></tr>
+    <tr><td>3</td><td>`kade-allow-web`: 80, 443, 8080 from `0.0.0.0/0` to every VM</td><td>Left over from when kade-api had its own external IP. It does nothing today, but the day any VM gets an external IP, the app is open without the load balancer in front</td><td className="whitespace-nowrap"><Ch n="5.1">Ch 5.1</Ch></td></tr>
+    <tr><td>4</td><td>`kade-allow-internal`: every port from `10.10.0.0/16` to every VM</td><td>Any VM in kade-vpc can reach kade-db on any port, not only kade-api on 5432</td><td className="whitespace-nowrap"><Ch n="5.1">Ch 5.1</Ch></td></tr>
+    <tr><td>5</td><td>kade-api has no way to reach the internet</td><td>No external IP and no Cloud NAT, so `apt update` hangs and calls to PayGate fail. The workaround so far is to add a temporary external IP, which together with rules 2 and 3 opens the VM to the internet</td><td className="whitespace-nowrap"><Ch n="7">Ch 7</Ch></td></tr>
+    <tr><td>6</td><td>kade-api finds the database by a hardcoded IP, `10.10.2.5`</td><td>Moving or replacing the database means changing app config everywhere</td><td className="whitespace-nowrap"><Ch n="8">Ch 8</Ch></td></tr>
+    <tr><td>7</td><td>The database is a VM that you patch and back up by hand</td><td>Easy to forget, and it has to stay reachable for admin work</td><td className="whitespace-nowrap"><Ch n="9">Ch 9</Ch></td></tr>
+    <tr><td>8</td><td>Nothing is logged: no firewall rule logging, no VPC flow logs</td><td>When something is blocked or attacked, there is no record of it</td><td className="whitespace-nowrap"><Ch n="16">Ch 16</Ch></td></tr>
+    <tr><td>9</td><td>All VMs run as the default Compute Engine service account</td><td>Firewall rules cannot tell the VMs apart by identity (<Ch n="5">chapter 5</Ch>). The IAM side of this is outside these notes</td><td className="whitespace-nowrap"><Ch n="5.1">Ch 5.1</Ch></td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+The default list hides the column that matters most, the source ranges. Ask for it:
+
+```sh
+gcloud compute firewall-rules list --project=kade-prod \
+  --format="table(name,network,sourceRanges.list():label=SRC_RANGES,
+    allowed[].map().firewall_rule().list():label=ALLOW,
+    targetTags.list():label=TARGET_TAGS)"
+```
+
+<Label>Output</Label>
+
+```text
+NAME                    NETWORK   SRC_RANGES                        ALLOW                         TARGET_TAGS
+default-allow-icmp      default   0.0.0.0/0                         icmp
+default-allow-internal  default   10.128.0.0/9                      tcp:0-65535,udp:0-65535,icmp
+default-allow-rdp       default   0.0.0.0/0                         tcp:3389
+default-allow-ssh       default   0.0.0.0/0                         tcp:22
+kade-allow-icmp         kade-vpc  203.0.113.45/32,198.51.100.20/32  icmp
+kade-allow-internal     kade-vpc  10.10.0.0/16                      all
+kade-allow-lb           kade-vpc  35.191.0.0/16,130.211.0.0/22      tcp:8080                      api
+kade-allow-ssh          kade-vpc  0.0.0.0/0                         tcp:22
+kade-allow-web          kade-vpc  0.0.0.0/0                         tcp:80,tcp:443,tcp:8080
+```
+
+<Label>What it tells you</Label>
+
+An empty `TARGET_TAGS` means the rule applies to every VM in that network. Only `kade-allow-lb` is limited, to VMs tagged `api`. Any `0.0.0.0/0` next to a port like 22 is the first thing to fix.
+
+</Box>
+
+<Note>
+
+**Two rules you cannot see.** Every VPC also has two built-in rules that never show up in this list: block all incoming traffic, and allow all outgoing traffic. Everything above is an exception to the first one. <Ch n="5">Chapter 5</Ch> starts from them.
+
+</Note>
+
+<Box kind="check" title="gcloud check">
+
+List the VMs and their addresses:
+
+```sh
+gcloud compute instances list --project=kade-prod
+```
+
+<Label>Output (some columns removed)</Label>
+
+```text
+NAME        ZONE               MACHINE_TYPE  INTERNAL_IP  EXTERNAL_IP  STATUS
+kade-api-1  asia-southeast1-a  e2-small      10.10.1.10                RUNNING
+kade-api-2  asia-southeast1-b  e2-small      10.10.1.11                RUNNING
+kade-db     asia-southeast1-b  e2-medium     10.10.2.5                 RUNNING
+```
+
+<Label>What it tells you</Label>
+
+No VM has an external IP. That is good for incoming traffic and the reason problem 5 exists: with no external IP and no NAT, there is no way out to the internet either.
+
+</Box>
+
+## Where Kadé is going
+
+This is the project after the last chapter. Each piece carries the chapter where it arrives. Dashed boxes belong to Google's side of the network, or to another project.
+
+<Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigTarget />}>
+
+Shoppers now reach Kadé only through Cloudflare and the load balancer. Nothing in kade-vpc has an external IP. Admin access goes through IAP, outgoing calls through Cloud NAT, and the database is reachable only on a private IP. The default network is gone.
+
+</Figure>
+
+The same change, piece by piece:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>Today</th><th>Target</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>default network</td><td>Exists, with open rules</td><td>Deleted; an org policy stops new projects from getting one</td><td className="whitespace-nowrap">2, 17</td></tr>
+    <tr><td>2</td><td>Firewall</td><td>Three broad rules for every VM</td><td>Rules aimed at service accounts, only the ports each one needs</td><td className="whitespace-nowrap">5</td></tr>
+    <tr><td>3</td><td>Admin access</td><td>Temporary external IP, port 22 open to all</td><td>IAP; port 22 only from `35.235.240.0/20`</td><td className="whitespace-nowrap">6</td></tr>
+    <tr><td>4</td><td>Outgoing calls</td><td>None, or a temporary external IP</td><td>Cloud NAT with a fixed IP, `34.87.200.7`, on PayGate's allow list</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>5</td><td>Finding the database</td><td>Hardcoded `10.10.2.5`</td><td>`db.kade.internal` in a private DNS zone</td><td className="whitespace-nowrap">8</td></tr>
+    <tr><td>6</td><td>Database</td><td>kade-db VM</td><td>Cloud SQL `kade-sql`, private IP only</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>7</td><td>The API</td><td>Two VMs</td><td>Cloud Run `kade-api`, reachable only through the load balancer</td><td className="whitespace-nowrap">10</td></tr>
+    <tr><td>8</td><td>Background jobs</td><td>Inside the API VMs</td><td>One VM, `kade-worker`, no external IP</td><td className="whitespace-nowrap">10</td></tr>
+    <tr><td>9</td><td>Front door</td><td>Load balancer only</td><td>Cloudflare, then the load balancer, which accepts only Cloudflare</td><td className="whitespace-nowrap">11-13</td></tr>
+    <tr><td>10</td><td>Staging</td><td>None</td><td>Project `kade-staging`, `10.20.0.0/16`</td><td className="whitespace-nowrap">14</td></tr>
+    <tr><td>11</td><td>Office</td><td>Over the public internet</td><td>HA VPN and Cloud Router (BGP) into kade-vpc</td><td className="whitespace-nowrap">15</td></tr>
+    <tr><td>12</td><td>Logs</td><td>None</td><td>VPC flow logs, firewall rule logs, NAT logs</td><td className="whitespace-nowrap">16</td></tr>
+  </tbody>
+</Table>
+
+## The address plan
+
+<Recalls><Recall n="2">Private ranges</Recall><Recall n="3">CIDR</Recall></Recalls>
+
+Because GCP will not hold the plan for us (section 02), this is the record. Every range Kadé uses is decided here once, and no two ranges overlap. Overlaps are cheap to avoid now and very hard to fix later, when networks need to be joined (<Ch n="14">chapters 14</Ch> and <Ch n="15">15</Ch>).
+
+<Figure wide drawing={<FigPlan />}>
+
+Solid teal: subnets that exist. Dashed teal: planned subnet. Dashed plum: handed to Google for managed services. Yellow: reserved. Grey: free.
+
+</Figure>
+
+Every address used in these notes. Rows marked "Fundamentals" were already used there; the rest are new.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Place</th><th>Thing</th><th>Address</th><th>First used</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Home</td><td>Home LAN · your laptop</td><td>`192.168.1.0/24`<Os>laptop 192.168.1.23</Os></td><td>Fundamentals</td></tr>
+    <tr><td>2</td><td>Home</td><td>Home router, public side</td><td>`203.0.113.45`</td><td>Fundamentals</td></tr>
+    <tr><td>3</td><td>Office</td><td>Office LAN (staff .1.0/24, warehouse .2.0/24)</td><td>`172.16.0.0/16`</td><td>Fundamentals</td></tr>
+    <tr><td>4</td><td>Office</td><td>Office router, public side</td><td>`198.51.100.20`</td><td>Fundamentals</td></tr>
+    <tr><td>5</td><td>GCP</td><td>Kadé's plan for kade-vpc (not a GCP setting)</td><td>`10.10.0.0/16`</td><td><Ch n="0">Ch 0</Ch></td></tr>
+    <tr><td>6</td><td>GCP</td><td>Subnet sn-app · gateway</td><td>`10.10.1.0/24`<Os>gateway 10.10.1.1</Os></td><td>Fundamentals</td></tr>
+    <tr><td>7</td><td>GCP</td><td>kade-api-1, kade-api-2 (tag `api`)</td><td>`10.10.1.10` · `10.10.1.11`</td><td>Fundamentals</td></tr>
+    <tr><td>8</td><td>GCP</td><td>Subnet sn-data · kade-db</td><td>`10.10.2.0/24`<Os>kade-db 10.10.2.5:5432, removed in <Ch n="9">ch 9</Ch></Os></td><td>Fundamentals</td></tr>
+    <tr><td>9</td><td>GCP</td><td>Load balancer front end</td><td>`34.120.88.10`<Os>global, anycast</Os></td><td>Fundamentals</td></tr>
+    <tr><td>10</td><td>GCP</td><td>Cloud NAT fixed outgoing IP (on PayGate's allow list)</td><td>`34.87.200.7`</td><td><Ch n="7">Ch 7</Ch></td></tr>
+    <tr><td>11</td><td>GCP</td><td>Private services range, for Cloud SQL</td><td>`10.10.32.0/20`</td><td><Ch n="9">Ch 9</Ch></td></tr>
+    <tr><td>12</td><td>GCP</td><td>Cloud SQL kade-sql, private IP</td><td>`10.10.32.3`</td><td><Ch n="9">Ch 9</Ch></td></tr>
+    <tr><td>13</td><td>GCP</td><td>Kept for Private Service Connect endpoints</td><td>`10.10.200.0/24`</td><td><Ch n="9">Ch 9</Ch></td></tr>
+    <tr><td>14</td><td>GCP</td><td>Subnet sn-run, for Cloud Run's outgoing traffic</td><td>`10.10.3.0/24`</td><td><Ch n="10">Ch 10</Ch></td></tr>
+    <tr><td>15</td><td>GCP</td><td>kade-worker VM</td><td>`10.10.1.20`</td><td><Ch n="10">Ch 10</Ch></td></tr>
+    <tr><td>16</td><td>GCP</td><td>kade-staging project's block</td><td>`10.20.0.0/16`</td><td><Ch n="14">Ch 14</Ch></td></tr>
+    <tr><td>17</td><td>VPN</td><td>BGP ASNs: Cloud Router · office router</td><td>`64512` · `65010`</td><td><Ch n="15">Ch 15</Ch></td></tr>
+  </tbody>
+</Table>
+
+<Caption>All addresses are examples. 203.0.113.x and 198.51.100.x are documentation ranges. The 34.x addresses belong to Google in real life; here they stand in for Kadé's.</Caption>
+
+### Google's own addresses you will meet
+
+These are real, fixed ranges that Google uses. They show up in firewall rules and logs, so it is worth knowing them on sight.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Range</th><th>What it is</th><th>Where you meet it</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`169.254.169.254`</td><td>Metadata server, on every VM</td><td>DNS, time, VM details, service account tokens</td><td className="whitespace-nowrap">1, 8</td></tr>
+    <tr><td>2</td><td>`10.128.0.0/9`</td><td>Ranges used by auto mode networks like `default`</td><td>`default-allow-internal`</td><td className="whitespace-nowrap">2</td></tr>
+    <tr><td>3</td><td>`35.191.0.0/16` · `130.211.0.0/22`</td><td>Google front ends and health checkers</td><td>Source IPs on kade-api; `kade-allow-lb`</td><td className="whitespace-nowrap">11, 12</td></tr>
+    <tr><td>4</td><td>`35.235.240.0/20`</td><td>IAP TCP forwarding</td><td>Source IP of SSH through IAP</td><td className="whitespace-nowrap">6</td></tr>
+    <tr><td>5</td><td>`199.36.153.8/30`</td><td>`private.googleapis.com`</td><td>Reaching Google APIs without the internet</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>6</td><td>`199.36.153.4/30`</td><td>`restricted.googleapis.com`</td><td>The same, limited to services that support VPC Service Controls</td><td className="whitespace-nowrap">9, 17</td></tr>
+  </tbody>
+</Table>
+
+## Names used in every chapter
+
+Resources get the same names in every diagram, command and table. Commands in these notes are written for these names, so you can read them as if the project were real.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>Name</th><th>First used</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Project · region · zones</td><td>`kade-prod` · `asia-southeast1` (Singapore) · `-a`, `-b`</td><td><Ch n="0">Ch 0</Ch></td></tr>
+    <tr><td>1b</td><td>Organization · folder</td><td>`kade.lk` · `production`</td><td><Ch n="5.2">Ch 5.2</Ch></td></tr>
+    <tr><td>2</td><td>VPC network · subnets</td><td>`kade-vpc` · `sn-app`, `sn-data`, later `sn-run`</td><td><Ch n="0">Ch 0</Ch>, <Ch n="10">10</Ch></td></tr>
+    <tr><td>3</td><td>VMs</td><td>`kade-api-1`, `kade-api-2`, `kade-db`, later `kade-worker`</td><td><Ch n="0">Ch 0</Ch>, <Ch n="10">10</Ch></td></tr>
+    <tr><td>4</td><td>Service accounts (used as firewall targets)</td><td>`sa-kade-api`, `sa-kade-db`, `sa-kade-worker`</td><td><Ch n="5.1">Ch 5.1</Ch></td></tr>
+    <tr><td>5</td><td>Cloud Router · Cloud NAT · its IP</td><td>`kade-router` · `kade-nat` · `kade-nat-ip`</td><td><Ch n="7">Ch 7</Ch></td></tr>
+    <tr><td>6</td><td>DNS zones: public · private</td><td>`kade-lk` · `kade-internal`</td><td><Ch n="8">Ch 8</Ch></td></tr>
+    <tr><td>7</td><td>Private services range · Cloud SQL</td><td>`kade-psa-range` · `kade-sql`</td><td><Ch n="9">Ch 9</Ch></td></tr>
+    <tr><td>8</td><td>Cloud Run service</td><td>`kade-api`</td><td><Ch n="10">Ch 10</Ch></td></tr>
+    <tr><td>9</td><td>Load balancer parts</td><td>`kade-lb-ip`, `kade-https-rule`, `kade-https-proxy`, `kade-url-map`, `kade-api-backend`, `kade-hc`</td><td><Ch n="11">Ch 11</Ch>, <Ch n="12">12</Ch></td></tr>
+    <tr><td>10</td><td>Cloud Armor policy</td><td>`kade-edge-policy`</td><td><Ch n="12">Ch 12</Ch>, <Ch n="13">13</Ch></td></tr>
+    <tr><td>11</td><td>Staging project</td><td>`kade-staging`</td><td><Ch n="14">Ch 14</Ch></td></tr>
+    <tr><td>12</td><td>HA VPN · its Cloud Router · office side</td><td>`kade-havpn` · `kade-vpn-router` · `kade-office-gw`</td><td><Ch n="15">Ch 15</Ch></td></tr>
+  </tbody>
+</Table>
+
+## Try it: where does this address belong?
+
+<Recalls><Recall n="12">Longest prefix match</Recall></Recalls>
+
+Type any IPv4 address. The tool checks it against every range on this page and lists all the ranges it falls in, most specific first. This is the same longest-prefix idea that routing uses, and <Ch n="4">chapter 4</Ch> uses it again for GCP routes.
+
+<AddrFind />
+
+## How to read these notes
+
+The layout is the same as the fundamentals course: numbered sections and diagrams, with a list of every command used at the end of each chapter. Colours mean something in every diagram:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Colour</th><th>Means</th><th>Examples</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><Swatch hue="teal" />Teal</td><td>Your VPC: subnets, internal IPs, routes, NAT</td><td>sn-app, kade-api-1, Cloud NAT</td></tr>
+    <tr><td>2</td><td><Swatch hue="plum" />Plum</td><td>Run by Google, outside your VPC</td><td>Load balancer front ends, Cloud Run, Cloud SQL, IAP</td></tr>
+    <tr><td>3</td><td><Swatch hue="amber" />Amber</td><td>Firewall and access rules</td><td>kade-allow-ssh, firewall policies</td></tr>
+    <tr><td>4</td><td><Swatch hue="ink" />Ink</td><td>Networks outside GCP</td><td>Shoppers, home, office, Cloudflare, PayGate</td></tr>
+    <tr><td>5</td><td><Swatch hue="green" />Green</td><td>Allowed traffic and replies</td><td>A rule that matches and allows</td></tr>
+    <tr><td>6</td><td><Swatch hue="fault" />Red</td><td>Problems and blocked traffic</td><td>Numbered findings, dropped packets</td></tr>
+  </tbody>
+</Table>
+
+The fundamentals course used colour for layers (TCP amber, IP green, and so on). Here the layers matter less than who owns a piece and whether traffic is allowed, so the colours change meaning. Where a chapter shows packet layers again, it says so in the caption.
+
+Besides the boxes you know from the fundamentals course (definitions and notes), these notes add a few new ones:
+
+<Box kind="problem" title="The problem">
+
+Opens every chapter: what is broken or risky in Kadé's project. The chapter ends with a "Fixed" note that shows the same thing solved.
+
+</Box>
+
+<Recalls><Recall n="10">NAT</Recall></Recalls>
+
+A "Builds on" line sits under a heading and points to the fundamentals chapter the section builds on. If the idea feels new, read that chapter first.
+
+<Box kind="check" title="gcloud check">
+
+A read-only command, its output for Kadé's project, and what the output tells you. Nothing in these boxes changes anything, so they are safe to run on a real project.
+
+</Box>
+
+<Box kind="console" title="Console">
+
+Where to find the same thing in the Google Cloud console. Menu names change from time to time, so these give the page name, not every click.
+
+</Box>
+
+<Box kind="cost" title="Cost and limits">
+
+Prices, quotas and default numbers. These change more often than anything else in GCP, so each box gives the date it was checked.
+
+</Box>
+
+<Box kind="exam" title="Exam angle">
+
+One or two lines on how the Associate Cloud Engineer exam tends to ask about the topic.
+
+</Box>
+
+## The road ahead
+
+Each chapter fixes one part of section 04 or adds one piece from section 05. The last column is what to re-read in the fundamentals course if it has faded.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Chapter</th><th>Kadé's problem</th><th>Recall first (fundamentals course)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>0</td><td>Kadé on GCP <St k="here">this page</St></td><td>Know the starting point</td><td>Scenario page</td></tr>
+    <tr><td>1</td><td>The mental model: Andromeda and no layer 2</td><td>Where did the router and the switch go?</td><td><Ch course="fundamentals" n="5">Ch 5</Ch>, <Ch course="fundamentals" n="9">9</Ch>, <Ch course="fundamentals" n="18">18</Ch>, <Ch course="fundamentals" n="32">32</Ch></td></tr>
+    <tr><td>2</td><td>VPC networks and subnets</td><td>The default network is still there</td><td><Ch course="fundamentals" n="3">Ch 3</Ch></td></tr>
+    <tr><td>3</td><td>IP addressing</td><td>An external IP changes after a restart</td><td><Ch course="fundamentals" n="2">Ch 2</Ch>, <Ch course="fundamentals" n="3">3</Ch>, <Ch course="fundamentals" n="10">10</Ch></td></tr>
+    <tr><td>4</td><td>Routing</td><td>A packet went a way nobody expected</td><td><Ch course="fundamentals" n="5">Ch 5</Ch>, <Ch course="fundamentals" n="12">12</Ch></td></tr>
+    <tr><td>5.1</td><td>Firewall 1: VPC firewall rules</td><td>Findings 3, 4 and 9</td><td><Ch course="fundamentals" n="16">Ch 16</Ch>, <Ch course="fundamentals" n="31">31</Ch></td></tr>
+    <tr><td>5.2</td><td>Firewall 2: firewall policies</td><td>Keep the fixes from being undone; share rules across projects</td><td>None</td></tr>
+    <tr><td>6.1</td><td>Admin access 1: IAP TCP forwarding</td><td>Port 22 is open to everyone (finding 2)</td><td><Ch course="fundamentals" n="29">Ch 29</Ch></td></tr>
+    <tr><td>6.2</td><td>Admin access 2: OS Login and no external IPs</td><td>Old SSH keys still work on every VM</td><td><Ch course="fundamentals" n="29">Ch 29</Ch></td></tr>
+    <tr><td>7</td><td>Egress and Cloud NAT</td><td>No way out; PayGate needs one fixed IP</td><td><Ch course="fundamentals" n="10">Ch 10</Ch></td></tr>
+    <tr><td>8</td><td>DNS inside GCP</td><td>The database is a hardcoded IP</td><td><Ch course="fundamentals" n="22">Ch 22</Ch>, <Ch course="fundamentals" n="23">23</Ch></td></tr>
+    <tr><td>9</td><td>Private access to Google services</td><td>Move the database to Cloud SQL without a public IP</td><td><Ch course="fundamentals" n="7">Ch 7</Ch>, <Ch course="fundamentals" n="10">10</Ch></td></tr>
+    <tr><td>10</td><td>Serverless networking</td><td>Move the API to Cloud Run and keep the fixed IP</td><td><Ch course="fundamentals" n="10">Ch 10</Ch>, <Ch course="fundamentals" n="33">33</Ch></td></tr>
+    <tr><td>11</td><td>Load balancing 1: the family and how to choose</td><td>Which of the many load balancers is ours, and why</td><td><Ch course="fundamentals" n="33">Ch 33</Ch></td></tr>
+    <tr><td>12.1</td><td>Load balancing 2: inside the HTTPS load balancer</td><td>Health checks fail; the shopper's IP is lost</td><td><Ch course="fundamentals" n="25">Ch 25</Ch>, <Ch course="fundamentals" n="33">33</Ch></td></tr>
+    <tr><td>12.2</td><td>Load balancing 3: VMs behind the load balancer</td><td>A VM service that cannot scale, heal or update itself</td><td><Ch course="fundamentals" n="33">Ch 33</Ch></td></tr>
+    <tr><td>13</td><td>Cloudflare and GCP</td><td>Traffic can skip Cloudflare and hit the load balancer</td><td><Ch course="fundamentals" n="22">Ch 22</Ch>, <Ch course="fundamentals" n="25">25</Ch>, <Ch course="fundamentals" n="33">33</Ch></td></tr>
+    <tr><td>14</td><td>A second VPC, briefly</td><td>Kadé adds a staging project: connect it or not?</td><td><Ch course="fundamentals" n="6">Ch 6</Ch></td></tr>
+    <tr><td>15</td><td>Hybrid: VPN and Interconnect</td><td>The office needs a private path to GCP</td><td><Ch course="fundamentals" n="12">Ch 12</Ch>, <Ch course="fundamentals" n="18">18</Ch></td></tr>
+    <tr><td>16.1</td><td>Observability 1: what each log can tell you</td><td>Nobody can see what happened to a request</td><td><Ch course="fundamentals" n="33">Ch 33</Ch></td></tr>
+    <tr><td>16.2</td><td>Observability 2: monitoring, alerting and troubleshooting</td><td>Outages are reported by shoppers first</td><td><Ch course="fundamentals" n="13">Ch 13</Ch></td></tr>
+    <tr><td>17</td><td>Governance: keeping it fixed</td><td>Fixes keep drifting back; too many Owners</td><td>None</td></tr>
+    <tr><td>18.1</td><td>Capstone 1: a photo, through a VM to the database</td><td>Follow one request through everything, then break it</td><td><Ch course="fundamentals" n="34">Ch 34</Ch></td></tr>
+    <tr><td>18.2</td><td>Capstone 2: a payment, through Cloud Run to PayGate</td><td>The other backend and outgoing traffic; the whole network on one page</td><td><Ch course="fundamentals" n="34">Ch 34</Ch></td></tr>
+  </tbody>
+</Table>
+
+## Commands in this chapter
+
+All read-only. Replace `kade-prod` with your own project ID to run them on a real project.
+
+<TryIt n={1} title="Set the default project">
+
+- **What it shows:** Sets `kade-prod` as the project for every later command.
+- **What to look for:** Nothing to check. It only saves typing `--project` each time.
+
+```sh
+gcloud config set project kade-prod
+```
+
+</TryIt>
+
+<TryIt n={2} title="List the VPC networks">
+
+- **What it shows:** Every VPC network in the project, with its mode (auto or custom).
+- **What to look for:** A `default` network that nobody meant to keep, and empty `IPV4_RANGE` columns: a VPC has no range of its own.
+
+```sh
+gcloud compute networks list
+```
+
+</TryIt>
+
+<TryIt n={3} title="List the subnets of kade-vpc">
+
+- **What it shows:** Each subnet with its region and IP range.
+- **What to look for:** Ranges that fit the address plan in section 06, and no overlaps.
+
+```sh
+gcloud compute networks subnets list --network=kade-vpc
+```
+
+</TryIt>
+
+<TryIt n={4} title="List firewall rules with sources and targets">
+
+- **What it shows:** Every firewall rule with where traffic may come from, which ports it opens, and which VMs it applies to.
+- **What to look for:** `0.0.0.0/0` next to admin ports like 22 or 3389, and rules with no target tags, which apply to every VM in the network.
+
+```sh
+gcloud compute firewall-rules list \
+  --format="table(name,network,sourceRanges.list(),
+    allowed[].map().firewall_rule().list(),targetTags.list())"
+```
+
+</TryIt>
+
+<TryIt n={5} title="List the VMs">
+
+- **What it shows:** Every VM with its zone, internal IP and external IP.
+- **What to look for:** Any external IP that should not be there. In Kadé's project today there are none.
+
+```sh
+gcloud compute instances list
+```
+
+</TryIt>
+
+<TryIt n={6} title="List reserved static IPs">
+
+- **What it shows:** IP addresses reserved in the project, internal and external.
+- **What to look for:** The load balancer IP `34.120.88.10`; from <Ch n="7">chapter 7</Ch>, the NAT IP `34.87.200.7`.
+
+```sh
+gcloud compute addresses list
+```
+
+</TryIt>
+
+<TryIt n={7} title="List DNS records in the public zone">
+
+- **What it shows:** The records Cloud DNS serves for `kade.lk`.
+- **What to look for:** `api.kade.lk` pointing at `34.120.88.10`.
+
+```sh
+gcloud dns record-sets list --zone=kade-lk
+```
+
+</TryIt>

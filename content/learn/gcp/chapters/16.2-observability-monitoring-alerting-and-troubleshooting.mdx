@@ -1,0 +1,231 @@
+import { AlertWin, ConnTest, DashMock, Incidents, Rollout, UptimeEx } from "@/components/learn/widgets/lazy";
+
+<Box kind="problem" title="The problem">
+
+Kadé learns about outages from shoppers on social media. There is no dashboard, no alert, and no agreed first step. As traffic grows, an hour of "the site is slow" costs real orders, and with one person responsible for the platform, the alerts must be few and must mean something.
+
+</Box>
+
+## The few metrics that matter
+
+Logs are records of events; **metrics** are numbers sampled over time, cheap to keep and fast to chart. GCP collects most of them automatically, at no charge for Google's own services. For a web platform, four "golden signals" measured at the front door cover most of what users feel:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Golden signal</th><th>Question</th><th>Metric (Cloud Monitoring)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Traffic**</td><td>How busy are we?</td><td>`loadbalancing.googleapis.com/https/request_count`</td></tr>
+    <tr><td>2</td><td>**Errors**</td><td>What share of requests fail?</td><td>The same, split by `response_code_class` (5xx divided by all)</td></tr>
+    <tr><td>3</td><td>**Latency**</td><td>How slow are the slow requests?</td><td>`https/total_latencies`, at the 95th and 99th percentile, not the average</td></tr>
+    <tr><td>4</td><td>**Saturation**</td><td>How close to a limit are we?</td><td>Cloud Run `container/instance_count` against max instances, Cloud SQL connections, NAT ports</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Measure at the load balancer, because that is what shoppers experience. The backend's own numbers miss requests that never reached it.</Caption>
+
+Below the front door, a handful of metrics catch the network failures from this course before users report them:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Metric</th><th>Catches</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`router.googleapis.com/nat/dropped_sent_packets_count` (reason `OUT_OF_RESOURCES`)</td><td>PayGate calls failing because NAT ports ran out</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>2</td><td>`cloudsql.googleapis.com/database/postgresql/num_backends`</td><td>Connections approaching the database's limit</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>3</td><td>`run.googleapis.com/container/instance_count`</td><td>kade-api pinned at max instances, so requests queue</td><td className="whitespace-nowrap">10</td></tr>
+    <tr><td>4</td><td>`loadbalancing.googleapis.com/https/backend_latencies`</td><td>Slowness inside kade-api rather than on the way to it</td><td className="whitespace-nowrap">12</td></tr>
+    <tr><td>5</td><td>`compute.googleapis.com/instance_group/size` against the target size</td><td>A managed instance group stuck below its size: a boot loop or a quota (<Ch n="12.2">chapter 12.2</Ch>)</td><td className="whitespace-nowrap">12.2</td></tr>
+    <tr><td>6</td><td>`agent.googleapis.com/memory/percent_used` (needs the Ops Agent)</td><td>VMs running out of memory before they crash</td><td className="whitespace-nowrap">16.1</td></tr>
+    <tr><td>7</td><td>`vpn.googleapis.com/tunnel_established`</td><td>A VPN tunnel down (the other carries on, so nobody notices)</td><td className="whitespace-nowrap">15</td></tr>
+  </tbody>
+</Table>
+
+## One dashboard: "is the platform healthy?"
+
+One page, read top-left to bottom-right, that answers the question in ten seconds. Each panel is one metric from section 01:
+
+<DashMock />
+
+<Note>
+
+**Read it like this.** Top row: are users being served, and how well? Bottom row: is anything close to a limit? If the top row is fine, users are fine, whatever else looks odd. The panels here show a real pattern: at about 14:00, NAT drops and 5xx errors rise together, while traffic is normal. Section 06's routine starts from exactly that.
+
+</Note>
+
+## Uptime checks: is the shop reachable from outside?
+
+An uptime check calls a URL from several places around the world every minute or few, and records whether the right answer came back. It is the closest thing to a shopper trying the site, and it works even when no shopper is online. It can also warn before the certificate expires.
+
+Kadé's front door now has Cloudflare and an origin lock (<Ch n="13">chapter 13</Ch>), and both will treat a robot from Google's data centres with suspicion. Pick what to check, and see what blocks it:
+
+<UptimeEx />
+
+## Alerts that people do not learn to ignore
+
+An alert that fires for nothing teaches you to ignore alerts. Three habits keep them meaningful:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Habit</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Alert on symptoms users feel**</td><td>"5% of requests fail" is something to act on. "CPU at 80%" often is not</td></tr>
+    <tr><td>2</td><td>**Use ratios, not counts**</td><td>50 errors in a minute is a disaster at 100 requests and nothing at 100,000. The error **ratio** stays meaningful as traffic grows</td></tr>
+    <tr><td>3</td><td>**Require a duration**</td><td>"Above the threshold for 5 minutes" ignores single spikes. The chart below shows the difference</td></tr>
+  </tbody>
+</Table>
+
+<AlertWin />
+
+Kadé's alert set. Few enough that each one gets attention:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Alert</th><th>Condition</th><th>Sends to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Shop unreachable</td><td>Uptime check failing from 2 or more regions for 2 minutes</td><td><St k="bad">phone</St></td></tr>
+    <tr><td>2</td><td>Errors high</td><td>Load balancer 5xx above 2% of requests for 5 minutes</td><td><St k="bad">phone</St></td></tr>
+    <tr><td>3</td><td>Slow</td><td>p95 total latency above 1.5 s for 10 minutes</td><td><St k="bad">phone</St></td></tr>
+    <tr><td>4</td><td>Payments at risk</td><td>NAT drops with `OUT_OF_RESOURCES` above 0 for 5 minutes</td><td><St k="bad">phone</St></td></tr>
+    <tr><td>5</td><td>Database near its limit</td><td>Connections above 80% of max for 10 minutes</td><td><St k="plan">email / chat</St></td></tr>
+    <tr><td>6</td><td>VPN tunnel down</td><td>Either tunnel not established for 5 minutes</td><td><St k="plan">email / chat</St></td></tr>
+    <tr><td>7</td><td>Certificate expiring</td><td>Uptime check: certificate expires within 14 days</td><td><St k="plan">email / chat</St></td></tr>
+    <tr><td>8</td><td>Attack in progress</td><td>Cloud Armor denies 10 times above normal for 15 minutes (log-based metric)</td><td><St k="plan">email / chat</St></td></tr>
+  </tbody>
+</Table>
+
+<Caption>"Phone" alerts mean shoppers are affected now. "Email / chat" alerts mean something needs attention today. A budget alert on the billing account belongs in the second group too.</Caption>
+
+<Key title="A step up: SLOs">
+
+A service level objective says "99.5% of requests succeed, measured over 30 days". Cloud Monitoring can track one and alert on its **burn rate**: how fast you are using up the 0.5% allowance. A short burst of errors burns slowly and waits; a serious outage burns fast and alerts immediately. It replaces alerts 2 and 3 with something calmer, once the basics work.
+
+</Key>
+
+## Network Intelligence Center
+
+Google's network troubleshooting tools, in one place in the console. They work from configuration and Google's own measurements, so most need no logs:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Tool</th><th>Answers</th><th>When to use it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Connectivity Tests**</td><td>"Can A reach B on this port, and if not, which rule or route stops it?"</td><td>Before and after every firewall or route change, and first in any "can't connect" incident</td></tr>
+    <tr><td>2</td><td>Network Topology</td><td>A live map of networks, subnets, load balancers and the traffic between them</td><td>Understanding an unfamiliar project</td></tr>
+    <tr><td>3</td><td>Network Analyzer</td><td>Problems it finds by itself: unused reserved IPs, subnets running out of addresses, risky configurations</td><td>A weekly glance</td></tr>
+    <tr><td>4</td><td>Firewall Insights</td><td>Shadowed, unused and overly broad firewall rules</td><td>Monthly clean-up (<Ch n="5.2">chapter 5.2</Ch>)</td></tr>
+    <tr><td>5</td><td>Performance Dashboard</td><td>Packet loss and latency between zones and regions, and to the internet, measured by Google</td><td>"Is it us or is it Google?"</td></tr>
+    <tr><td>6</td><td>Flow Analyzer</td><td>Queries over VPC Flow Logs without writing SQL</td><td>"Top talkers" from a subnet</td></tr>
+  </tbody>
+</Table>
+
+A Connectivity Test traces a pretend packet through every check this course covered, using the real configuration, without sending anything. Two tests from Kadé:
+
+<ConnTest />
+
+## Troubleshooting routines
+
+For each common symptom, the order of steps that finds the cause fastest. Each step has the check, what the result means, and where it leads next:
+
+<Incidents />
+
+## Rollout plan
+
+For a platform that has none of this today, in order of value for effort. Each stage is useful on its own, so stopping early still leaves you better off:
+
+<Rollout />
+
+## Back to Kadé
+
+<Box kind="fixed" title="Done: Kadé hears about problems before shoppers do">
+
+- **Dashboard** "Kadé platform health" with the six panels from section 02.
+- **Uptime checks** on `https://api.kade.lk/v1/health` through Cloudflare, from three regions, with certificate expiry checking; Cloudflare skips its bot checks for Google's uptime checker (section 03).
+- **Alerts** 1 to 8 from section 04; phone alerts to the on-call phone, the rest to a team chat channel.
+- **Connectivity Tests** saved for the four paths that matter: Cloud Run to Cloud SQL, Cloud Run to PayGate, warehouse to kade-worker, kade-worker to the office file server. Re-run after every network change.
+- **Routines** from section 06 linked from each alert's description, so whoever is paged sees the first step immediately.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 3 are read-only. Commands 4 to 6 change the project.
+
+<TryIt n={1} title="Find the IP ranges uptime checks come from">
+
+- **What it shows:** The source addresses of Google's uptime checkers, by region.
+- **What to look for:** Only needed if you check the origin directly and must allow them (section 03).
+
+```sh
+gcloud monitoring uptime list-ips
+```
+
+</TryIt>
+
+<TryIt n={2} title="Run a Connectivity Test and read the result">
+
+- **What it shows:** Whether kade-worker can reach Cloud SQL on 5432, and the step that decides it.
+- **What to look for:** `REACHABLE`, or the step where it says `DROPPED` and why.
+
+```sh
+gcloud network-management connectivity-tests create worker-to-sql \
+  --source-instance=projects/kade-prod/zones/asia-southeast1-a/instances/kade-worker \
+  --destination-ip-address=10.10.32.3 --destination-port=5432 --protocol=TCP
+gcloud network-management connectivity-tests describe worker-to-sql \
+  --format="yaml(reachabilityDetails.result,reachabilityDetails.traces[0].steps)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="List alert policies">
+
+- **What it shows:** Every alert policy and whether it is enabled.
+- **What to look for:** The eight from section 04, all enabled, each with a notification channel.
+
+```sh
+gcloud alpha monitoring policies list --format="table(displayName,enabled,notificationChannels.len())"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Create an uptime check (changes the project)">
+
+- **What it shows:** An HTTPS check of the health URL, every minute, from three regions, expecting a 200.
+- **What to look for:** Results in the console under Monitoring → Uptime checks within a few minutes.
+
+```sh
+gcloud monitoring uptime create kade-api-health \
+  --resource-type=uptime-url --resource-labels=host=api.kade.lk,project_id=kade-prod \
+  --protocol=https --path=/v1/health --period=1 \
+  --regions=asia-pacific,europe,usa-oregon --status-codes=200
+```
+
+</TryIt>
+
+<TryIt n={5} title="Count Cloud Armor denies as a metric (changes the project)">
+
+- **What it shows:** A log-based metric that counts denied requests, which alert 8 can watch.
+- **What to look for:** The metric `logging.googleapis.com/user/kade_armor_denies` in Metrics Explorer after some traffic.
+
+```sh
+gcloud logging metrics create kade_armor_denies \
+  --description="Requests denied by Cloud Armor" \
+  --log-filter='resource.type="http_load_balancer" AND jsonPayload.enforcedSecurityPolicy.outcome="DENY"'
+```
+
+</TryIt>
+
+<TryIt n={6} title="Create a notification channel (changes the project)">
+
+- **What it shows:** An email channel for "email / chat" alerts. Phone and chat apps are added the same way, or in the console.
+- **What to look for:** The channel's ID in the output, used when creating alert policies.
+
+```sh
+gcloud beta monitoring channels create --display-name="Kadé platform email" \
+  --type=email --channel-labels=email_address=platform@kade.lk
+```
+
+</TryIt>

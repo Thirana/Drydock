@@ -1,0 +1,222 @@
+import { FigGateway, FigOnward } from "@content/learn/fundamentals/figures/05-the-default-gateway";
+
+## Where we are
+
+Each chapter so far uses the one before it, so the order matters:
+
+<Hops>
+  <Hop sub="ch 2">IP structure</Hop>
+  <Hop sub="ch 3">Network vs host</Hop>
+  <Hop sub="ch 4">Subnet mask</Hop>
+  <Hop sub="ch 5 · here" state="on">Default gateway</Hop>
+  <Hop sub="coming" state="next">MAC and ARP</Hop>
+</Hops>
+
+## The two outcomes of the mask check
+
+<Cols n={2}>
+
+<Col title="Same network">
+
+Send straight to the target, using its MAC address (found with ARP, coming soon).
+
+Laptop → printer 192.168.1.60. Easy.
+
+</Col>
+
+<Col title="Different network">
+
+We have an address, but no direct path to it.
+
+Laptop → kade-api. DNS gave us 34.87.120.15, but that machine is not on our network, so we cannot reach it ourselves.
+
+</Col>
+
+</Cols>
+
+The first case is solved. The second is the interesting one: how do you send something to an address you cannot reach?
+
+## The default gateway
+
+The answer is the <Term>default gateway</Term>. On a home network, that is your router. When a device does not know how to reach an IP directly, it hands the packet to its default gateway and in effect says: "I don't know where this is, but I assume you do. Please pass it on."
+
+<Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigGateway />}>
+
+Amber: anything for outside 192.168.1.0/24 goes through one door. Green: local traffic never touches it.
+
+</Figure>
+
+<Key title="Definition">
+
+The default gateway is the device that knows how to reach networks outside your own. To get anywhere beyond your network, you go through it.
+
+</Key>
+
+## Where the gateway lives: the routing table
+
+Your laptop keeps a small <Term>routing table</Term>: a list of "for these addresses, send this way". For the home WiFi it has just two lines that matter:
+
+<Table>
+  <thead>
+    <tr><th>Destination</th><th>Send to</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>192.168.1.0/24</Mono></td><td><Mono>directly, on en0</Mono></td><td>My own network<Sub>the "same network" case from <Ch n="4">chapter 4</Ch></Sub></td></tr>
+    <tr><td><Mono>0.0.0.0/0 <Sub>shown as "default"</Sub></Mono></td><td><Mono>192.168.1.1</Mono></td><td>Everything else<Sub>the default gateway</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Caption>0.0.0.0/0 matches every address (<Ch n="3">chapter 3</Ch>), so it is the fallback. When several lines match, the most specific one wins: for 192.168.1.60, the /24 line beats the /0 line. This rule is called longest prefix match, and the routing chapter goes deeper.</Caption>
+
+So the mask check from <Ch n="4">chapter 4</Ch> and this table are two views of the same thing. The table is what the OS actually looks at.
+
+## What the gateway does next
+
+The router has a routing table too, and it also has a default gateway: the ISP's router. That router has its own, and so on. Each device only needs to know its next step. Nobody holds the full path.
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigOnward />} />
+
+The home router's own table looks like this:
+
+<Table>
+  <thead>
+    <tr><th>Destination</th><th>Send to</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>192.168.1.0/24</Mono></td><td><Mono>directly, LAN side</Mono></td><td>The home network</td></tr>
+    <tr><td><Mono>203.0.113.0/24</Mono></td><td><Mono>directly, WAN side</Mono></td><td>The small network shared with the ISP router</td></tr>
+    <tr><td><Mono>0.0.0.0/0</Mono></td><td><Mono>203.0.113.1</Mono></td><td>Everything else: the ISP</td></tr>
+  </tbody>
+</Table>
+
+## The destination IP does not change
+
+A common mistake is to think the laptop sends the packet "to 192.168.1.1". It does not. The packet still says kade-api. Only the frame, the outer wrap from <Ch n="1">chapter 1</Ch>, is addressed to the router:
+
+<Table>
+  <thead>
+    <tr><th>Field</th><th>Value</th><th>Points to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**Destination IP**</td><td><Mono>34.87.120.15</Mono></td><td>kade-api, the real target<Sub>stays the same the whole way</Sub></td></tr>
+    <tr><td>**Destination MAC**</td><td><Mono>3c:84:6a:10:ee:01</Mono></td><td>The home router, the next step<Sub>changes at every hop</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Key title="What the gateway's IP is for">
+
+The laptop uses 192.168.1.1 only to find the router's MAC address with ARP. The gateway's IP is never written into the packet.
+
+</Key>
+
+## Where the gateway setting comes from
+
+You do not set it yourself. The laptop got it from DHCP when it joined the WiFi (<Ch n="3">chapter 3</Ch>), in the same offer as its IP and mask. It is usually the router's own address, very often the first usable one (.1), though some routers use .254.
+
+One rule is fixed: **the gateway must be on your own network.** The laptop has to reach the gateway directly, because it is the one step it cannot hand to anyone else. A laptop on 192.168.1.0/24 with its gateway set to 192.168.2.1 cannot send anything outside its network.
+
+## When the gateway is the problem
+
+"The printer works but websites don't" is a classic gateway-shaped problem. Check one step at a time, closest first:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Command</th><th>If it works</th><th>If it fails</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`ip route`<Os>macOS: netstat -rn · Windows: route print</Os></td><td>A `default via 192.168.1.1` line exists. Go to 2.</td><td>No default line: the laptop has no gateway. Reconnect so DHCP runs again.</td></tr>
+    <tr><td>2</td><td>`ping 192.168.1.1`</td><td>The laptop can reach its gateway. Go to 3.</td><td>Wrong gateway, or the router itself is down.</td></tr>
+    <tr><td>3</td><td>`ping 1.1.1.1`</td><td>The router can reach the internet. Go to 4.</td><td>The router's WAN side or the ISP is down. Not your laptop.</td></tr>
+    <tr><td>4</td><td>`ping api.kade.lk`</td><td>Everything works, including DNS.</td><td>Only names fail: a DNS problem, not a gateway one.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>If even the printer fails and your IP is 169.254.x.x, DHCP never answered (<Ch n="2">chapter 2</Ch>), so there is no gateway either.</Caption>
+
+## In the cloud
+
+kade-api's default gateway is 10.10.1.1, one of the 4 addresses GCP keeps in each subnet (<Ch n="3">chapter 3</Ch>). GCP hands it out with DHCP, just like the home router. The VPC also has its own route table, created for you:
+
+<Table>
+  <thead>
+    <tr><th>Destination</th><th>Next hop</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>10.10.1.0/24</Mono></td><td><Mono>the VPC network</Mono></td><td>Subnet route for sn-app<Sub>added automatically for each subnet</Sub></td></tr>
+    <tr><td><Mono>10.10.2.0/24</Mono></td><td><Mono>the VPC network</Mono></td><td>Subnet route for sn-data</td></tr>
+    <tr><td><Mono>0.0.0.0/0</Mono></td><td><Mono>default-internet-gateway</Mono></td><td>Everything else: the internet<Sub>the VPC's "default gateway"</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**A route is not enough.** kade-db also sees the 0.0.0.0/0 route, but it has no external IP, so it still cannot reach the internet. To send traffic out without a public address it needs NAT (Cloud NAT, a later chapter). A route says which way to go; it does not give you the right to go.
+
+</Note>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The problem</td><td>We know the target's IP but it is not on our network</td><td></td></tr>
+    <tr><td>2</td><td>The answer</td><td>Hand it to the default gateway: "you know the way"</td><td>default gateway</td></tr>
+    <tr><td>3</td><td>Routing table</td><td>Own network → direct; 0.0.0.0/0 → gateway; most specific match wins</td><td>routing table, default route, longest prefix match</td></tr>
+    <tr><td>4</td><td>A chain</td><td>Every router has its own next step; nobody knows the full path</td><td>next hop</td></tr>
+    <tr><td>5</td><td>Addresses</td><td>Destination IP stays kade-api; only the MAC points to the gateway</td><td></td></tr>
+    <tr><td>6</td><td>Setup</td><td>Comes from DHCP; must be inside your own network</td><td></td></tr>
+    <tr><td>7</td><td>Debugging</td><td>Check route → gateway → internet → DNS, closest first</td><td></td></tr>
+    <tr><td>8</td><td>Cloud</td><td>Subnet gateway .1; VPC default route to default-internet-gateway</td><td>subnet route</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Your gateway from DHCP">
+
+- **What to look for:** `192.168.1.1`
+- **Runs on:** macOS · Windows: ipconfig (Default Gateway line)
+- **From section:** [7. Where the gateway setting comes from](#where-the-gateway-setting-comes-from)
+
+```sh
+ipconfig getoption en0 router
+```
+
+</TryIt>
+
+<TryIt n={2} title="Your routing table">
+
+- **What to look for:** A `default` (or 0.0.0.0) line and a line for your own network.
+- **Runs on:** Linux · macOS: netstat -rn -f inet · Windows: route print -4
+- **From section:** [4. Where the gateway lives: the routing table](#where-the-gateway-lives-the-routing-table)
+
+```sh
+ip route
+```
+
+</TryIt>
+
+<TryIt n={3} title="Every router on the way">
+
+- **What to look for:** Hop 1 is your gateway (192.168.1.1). Hop 2 is usually the ISP.
+- **Runs on:** Windows: tracert 1.1.1.1
+- **From section:** [5. What the gateway does next](#what-the-gateway-does-next)
+
+```sh
+traceroute 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={4} title="A VPC's route table">
+
+- **What to look for:** Subnet routes plus the default route with next hop `default-internet-gateway`.
+- **From section:** [9. In the cloud](#in-the-cloud)
+
+```sh
+gcloud compute routes list --filter="network:kade-vpc"
+```
+
+</TryIt>

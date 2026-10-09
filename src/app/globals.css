@@ -37,6 +37,13 @@
   /* Highlighter: the one thing in a block worth noticing. Never a link. */
   --dd-mark: #fbe98a;
   --dd-mark-ink: #121211;
+
+  /* Drawing hues: colour inside course drawings and widgets only, never in
+     chrome. What each hue means is set by the course's legend. */
+  --dd-plum: #8e3394;
+  --dd-teal: #268899;
+  --dd-green: #21763c;
+  --dd-amber: #c97c16;
   color-scheme: light;
 }
 
@@ -62,6 +69,11 @@
   --dd-code: #1b1b1a;
   --dd-mark: rgba(250, 219, 95, 0.2);
   --dd-mark-ink: #fff3c4;
+
+  --dd-plum: #cd85d8;
+  --dd-teal: #71cfd9;
+  --dd-green: #4eb068;
+  --dd-amber: #f6c16b;
   color-scheme: dark;
 }
 
@@ -99,6 +111,12 @@
   --tone-external: var(--dd-ink-faint);
   --tone-line: var(--dd-rule);
   --tone-lineStrong: var(--dd-ink-faint);
+  /* Hue fills: a tenth of the hue mixed into the page, per theme. */
+  --dd-plum-soft: color-mix(in oklab, var(--dd-plum) 10%, var(--dd-ground));
+  --dd-teal-soft: color-mix(in oklab, var(--dd-teal) 10%, var(--dd-ground));
+  --dd-green-soft: color-mix(in oklab, var(--dd-green) 10%, var(--dd-ground));
+  --dd-amber-soft: color-mix(in oklab, var(--dd-amber) 10%, var(--dd-ground));
+
   --diagram-group-wash: color-mix(in srgb, var(--dd-ink) 1.5%, transparent);
   --diagram-selection-wash: var(--dd-accent-soft);
   --dd-sel: var(--dd-accent);
@@ -166,6 +184,14 @@
   --color-code: var(--dd-code);
   --color-mark: var(--dd-mark);
   --color-mark-ink: var(--dd-mark-ink);
+  --color-plum: var(--dd-plum);
+  --color-plum-soft: var(--dd-plum-soft);
+  --color-teal: var(--dd-teal);
+  --color-teal-soft: var(--dd-teal-soft);
+  --color-green: var(--dd-green);
+  --color-green-soft: var(--dd-green-soft);
+  --color-amber: var(--dd-amber);
+  --color-amber-soft: var(--dd-amber-soft);
 
   --shadow-gl: none;
   --shadow-gl-lg: none;
@@ -266,7 +292,11 @@
     color: var(--dd-accent);
     font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--dd-accent) 55%, transparent);
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--dd-accent) 55%,
+      transparent
+    );
     text-decoration-thickness: 1.5px;
     text-underline-offset: 0.22em;
     transition: text-decoration-color 150ms;
@@ -330,7 +360,11 @@
     color: var(--dd-accent);
     font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--dd-accent) 55%, transparent);
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--dd-accent) 55%,
+      transparent
+    );
     text-decoration-thickness: 1.5px;
   }
   .gl-prose :where(a:hover):not(:where(.not-prose, .not-prose *)) {
@@ -389,6 +423,317 @@
   .gl-prose :where(td:first-child):not(:where(.not-prose, .not-prose *)) {
     color: var(--dd-ink);
     white-space: nowrap;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Course chapters: sections are numbered moves. The numeral comes from a
+   counter, so the MDX stays plain; on wide screens it hangs in the gutter.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  .dd-chapter {
+    counter-reset: dd-section;
+  }
+  .dd-chapter > h2:first-child {
+    margin-top: 1.5rem;
+  }
+  .dd-chapter h2[data-section="numbered"] {
+    counter-increment: dd-section;
+  }
+  /* A part heading carries the rule; the section that opens it does not. */
+  .dd-chapter .dd-part + h2 {
+    margin-top: 1.25rem !important;
+    border-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  .dd-chapter h2[data-section="numbered"]::before {
+    content: counter(dd-section) ".";
+    display: inline-block;
+    margin-right: 0.55em;
+    color: var(--dd-ink-faint);
+    font-family:
+      var(--font-atkinson-mono), "Atkinson Hyperlegible Mono", ui-monospace,
+      monospace;
+    font-size: 0.62em;
+    font-weight: 700;
+    letter-spacing: 0;
+    vertical-align: 0.12em;
+  }
+  @media (min-width: 64rem) {
+    .dd-chapter h2[data-section="numbered"]::before {
+      width: 44px;
+      margin-left: -56px;
+      margin-right: 12px;
+      text-align: right;
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Course figures: the notes' drawing vocabulary, short class names kept so a
+   converted drawing stays readable. Boxes and wires take a hue; text stays ink.
+   Arrowheads come from <DiagramDefs /> (src/components/learn/diagram-defs.tsx).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Drawings keep a readable size and scroll sideways on narrow screens. */
+  .dd-fig svg {
+    display: block;
+    width: 100%;
+    min-width: 680px;
+    height: auto;
+  }
+  .dd-fig text {
+    fill: var(--dd-ink);
+    font-family:
+      var(--font-atkinson), "Atkinson Hyperlegible Next", ui-sans-serif,
+      sans-serif;
+    font-size: 13px;
+  }
+  /* Title of a box. */
+  .dd-fig text.t {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  /* Sub-line: addresses, ports, values. */
+  .dd-fig text.s {
+    fill: var(--dd-ink-muted);
+    font-family:
+      var(--font-atkinson-mono), "Atkinson Hyperlegible Mono", ui-monospace,
+      monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+  }
+  /* Words on a wire (a sub-line on a wire keeps the sub-line style). */
+  .dd-fig text.l:not(.s) {
+    fill: var(--dd-ink-muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .dd-fig text.f {
+    fill: var(--dd-ink-faint);
+  }
+  .dd-fig text.mid {
+    text-anchor: middle;
+  }
+  /* A label that crosses lines: a ring of page colour keeps it legible. */
+  .dd-fig text.halo {
+    paint-order: stroke;
+    stroke: var(--dd-ground);
+    stroke-width: 6px;
+    stroke-linejoin: round;
+  }
+  /* The step being described, in a step-through diagram. */
+  .dd-fig text.cur {
+    fill: var(--dd-ink);
+    font-weight: 700;
+  }
+
+  /* Boxes: neutral in faint ink; a hue adds its stroke and soft fill. */
+  .dd-fig .n {
+    fill: var(--dd-ground);
+    stroke: var(--dd-ink-faint);
+    stroke-width: 1.25;
+  }
+  .dd-fig .n.plum {
+    fill: var(--dd-plum-soft);
+    stroke: var(--dd-plum);
+  }
+  .dd-fig .n.teal {
+    fill: var(--dd-teal-soft);
+    stroke: var(--dd-teal);
+  }
+  .dd-fig .n.green {
+    fill: var(--dd-green-soft);
+    stroke: var(--dd-green);
+  }
+  .dd-fig .n.amber {
+    fill: var(--dd-amber-soft);
+    stroke: var(--dd-amber);
+  }
+  .dd-fig .n.fault {
+    fill: var(--dd-fault-soft);
+    stroke: var(--dd-fault);
+  }
+  /* A boundary drawn around boxes: a network, a zone, a VPC. */
+  .dd-fig .zone {
+    fill: none;
+    stroke: var(--dd-rule-strong);
+    stroke-dasharray: 5 5;
+    stroke-width: 1.25;
+  }
+
+  .dd-fig .zone.teal {
+    stroke: var(--dd-teal);
+  }
+  .dd-fig .zone.plum {
+    stroke: var(--dd-plum);
+  }
+  .dd-fig .zone.fault {
+    stroke: var(--dd-fault);
+  }
+  /* A box that joins the drawing later. */
+  .dd-fig .ghost {
+    fill: none;
+    stroke: var(--dd-rule-strong);
+    stroke-dasharray: 4 4;
+    stroke-width: 1.25;
+  }
+
+  /* Address-block charts: one cell per block of a range. */
+  .dd-fig .blk {
+    stroke-width: 1.25;
+  }
+  .dd-fig .blk.free {
+    fill: var(--dd-ground);
+    stroke: var(--dd-rule-strong);
+  }
+  .dd-fig .blk.used {
+    fill: color-mix(in oklab, var(--dd-teal) 24%, var(--dd-ground));
+    stroke: var(--dd-teal);
+  }
+  .dd-fig .blk.plan {
+    fill: var(--dd-teal-soft);
+    stroke: var(--dd-teal);
+    stroke-dasharray: 4 3;
+  }
+  .dd-fig .blk.goog {
+    fill: var(--dd-plum-soft);
+    stroke: var(--dd-plum);
+    stroke-dasharray: 4 3;
+  }
+  .dd-fig .blk.res {
+    fill: var(--dd-mark);
+    stroke: var(--dd-ink-faint);
+    stroke-dasharray: 4 3;
+  }
+
+  /* Status dots and marks: ink for fine, red for broken - never green. */
+  .dd-fig circle.ok {
+    fill: var(--dd-ink);
+  }
+  .dd-fig circle.bad {
+    fill: var(--dd-fault);
+  }
+  .dd-fig circle.badge {
+    fill: var(--dd-ground);
+    stroke: var(--dd-ink-faint);
+  }
+  /* A number inside a filled dot. */
+  .dd-fig text.bn {
+    fill: var(--dd-ground);
+    font-size: 11px;
+    font-weight: 700;
+    text-anchor: middle;
+  }
+  /* A chapter or note reference at the end of a row. */
+  .dd-fig text.ch {
+    fill: var(--dd-ink-faint);
+    font-size: 11px;
+    text-anchor: end;
+  }
+  /* A cross on a broken path. */
+  .dd-fig text.x {
+    fill: var(--dd-fault);
+    font-size: 16px;
+    font-weight: 700;
+    text-anchor: middle;
+  }
+
+  /* Wires. */
+  .dd-fig .w {
+    fill: none;
+    stroke: var(--dd-ink-faint);
+    stroke-width: 1.5;
+  }
+  .dd-fig .w.plum {
+    stroke: var(--dd-plum);
+  }
+  .dd-fig .w.teal {
+    stroke: var(--dd-teal);
+  }
+  .dd-fig .w.green {
+    stroke: var(--dd-green);
+  }
+  .dd-fig .w.amber {
+    stroke: var(--dd-amber);
+  }
+  .dd-fig .w.fault {
+    stroke: var(--dd-fault);
+  }
+  /* Not built yet, or optional. */
+  .dd-fig .dash {
+    stroke-dasharray: 6 5;
+  }
+
+  /* Interactive highlights: the path taken, its two ends, the router used. */
+  .dd-fig .w.hl {
+    stroke: var(--dd-green);
+    stroke-width: 3;
+  }
+  .dd-fig .n.src {
+    stroke: var(--dd-plum);
+    stroke-width: 2.5;
+  }
+  .dd-fig .n.dst {
+    stroke: var(--dd-green);
+    stroke-width: 2.5;
+  }
+  .dd-fig .n.via {
+    stroke: var(--dd-amber);
+    stroke-width: 2.5;
+  }
+
+  /* Selection inside a step-through drawing: the hop being described. Blue,
+     because blue means "current" everywhere on the site. */
+  .dd-fig .n.cur {
+    stroke: var(--dd-accent);
+    stroke-width: 2.5;
+  }
+  .dd-fig circle.badge.cur {
+    stroke: var(--dd-accent);
+    stroke-width: 2.4;
+  }
+  .dd-fig .w.cur {
+    stroke: var(--dd-accent);
+    stroke-width: 3;
+  }
+  /* A warning, or the part to notice: the highlighter, not a hue. */
+  .dd-fig .n.mark {
+    fill: var(--dd-mark);
+    stroke: var(--dd-ink-faint);
+  }
+  /* Words on something broken: dropped, refused, failing. */
+  .dd-fig text.flt {
+    fill: var(--dd-fault);
+  }
+  /* A step that is not reached, in a chain that stopped earlier. */
+  .dd-fig .off {
+    opacity: 0.4;
+  }
+
+  /* Arrowhead fills, used by the markers in <DiagramDefs />. */
+  .dd-mk-muted {
+    fill: var(--dd-ink-faint);
+  }
+  .dd-mk-plum {
+    fill: var(--dd-plum);
+  }
+  .dd-mk-teal {
+    fill: var(--dd-teal);
+  }
+  .dd-mk-green {
+    fill: var(--dd-green);
+  }
+  .dd-mk-amber {
+    fill: var(--dd-amber);
+  }
+  .dd-mk-fault {
+    fill: var(--dd-fault);
+  }
+  .dd-mk-accent {
+    fill: var(--dd-accent);
   }
 }
 

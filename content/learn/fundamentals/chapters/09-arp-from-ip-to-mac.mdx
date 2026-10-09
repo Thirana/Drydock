@@ -1,0 +1,199 @@
+import { ArpFan, ArpSim } from "@/components/learn/widgets/lazy";
+
+## What ARP does
+
+<Term>ARP</Term> (Address Resolution Protocol) has one job: give it an IP address on your local network, and it returns the MAC address of the interface that holds that IP.
+
+You already know a lookup like this. DNS turns a name into an IP. ARP turns an IP into a MAC:
+
+<Table>
+  <thead>
+    <tr><th></th><th>DNS (<Ch n="1">chapter 1</Ch>)</th><th>ARP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Input</td><td><Mono>api.kade.lk</Mono></td><td><Mono>172.16.1.20</Mono></td></tr>
+    <tr><td>Output</td><td><Mono>34.87.120.15</Mono></td><td><Mono>30:05:5c:8a:12:e0</Mono></td></tr>
+    <tr><td>Who answers</td><td>A chain of DNS servers</td><td>The device that owns the IP</td></tr>
+    <tr><td>Reach</td><td>The whole internet</td><td>Only the local network</td></tr>
+    <tr><td>Result kept for</td><td>The record's TTL</td><td>Seconds to minutes (depends on the OS)</td></tr>
+  </tbody>
+</Table>
+
+## The setup: the office staff network
+
+We use the staff network from <Ch n="6">chapter 6</Ch>. Every device now has its MAC listed:
+
+<Table>
+  <thead>
+    <tr><th>Device</th><th>IP</th><th>MAC</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Front desk PC</td><td><Mono>172.16.1.10</Mono></td><td><Mono>3c:7c:3f:10:22:01</Mono></td></tr>
+    <tr><td>Manager laptop</td><td><Mono>172.16.1.11</Mono></td><td><Mono>f0:18:98:6d:2e:44</Mono></td></tr>
+    <tr><td>Office printer</td><td><Mono>172.16.1.20</Mono></td><td><Mono>30:05:5c:8a:12:e0</Mono></td></tr>
+    <tr><td>Router, eth1 (gateway)</td><td><Mono>172.16.1.1</Mono></td><td><Mono>e4:8d:8c:00:01:01</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>All use mask 255.255.255.0. The front desk PC wants to print an order on the office printer.</Caption>
+
+The PC already knows the printer's IP (the print setup stores it, just as your frontend knows the backend's address after DNS). First, the mask check from <Ch n="4">chapter 4</Ch>: 172.16.1.10 AND mask = 172.16.1.0, and 172.16.1.20 AND mask = 172.16.1.0. Same network, so the PC can deliver directly. But to build the frame, it needs the printer's MAC.
+
+## Request and reply
+
+<ArpFan target="op" />
+
+1. **Request, sent as a broadcast.** The PC sends a frame to `ff:ff:ff:ff:ff:ff`, the broadcast MAC (<Ch n="7">chapter 7</Ch>). The switch copies it to every port, so every device on the network gets it. It asks: "Who has 172.16.1.20? Tell 172.16.1.10."
+1. **Everyone checks.** Each device compares 172.16.1.20 with its own IP. The manager laptop and the router do not match, so they ignore it.
+1. **Only the owner replies, and only to the PC.** The printer sends "172.16.1.20 is at 30:05:5c:8a:12:e0" straight back to the PC's MAC. The reply is unicast, not a broadcast.
+
+## What is inside an ARP message
+
+Both messages have the same four fields. Only the values change:
+
+<Table>
+  <thead>
+    <tr><th>Field</th><th>Request</th><th>Reply</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Frame destination</td><td><Mono>ff:ff:ff:ff:ff:ff <Sub>everyone</Sub></Mono></td><td><Mono>3c:7c:3f:10:22:01 <Sub>only the PC</Sub></Mono></td></tr>
+    <tr><td>Sender MAC</td><td><Mono>3c:7c:3f:10:22:01</Mono></td><td><Mono>30:05:5c:8a:12:e0 <Sub>the answer</Sub></Mono></td></tr>
+    <tr><td>Sender IP</td><td><Mono>172.16.1.10</Mono></td><td><Mono>172.16.1.20</Mono></td></tr>
+    <tr><td>Target MAC</td><td><Mono>00:00:00:00:00:00 <Sub>unknown, that's the question</Sub></Mono></td><td><Mono>3c:7c:3f:10:22:01</Mono></td></tr>
+    <tr><td>Target IP</td><td><Mono>172.16.1.20</Mono></td><td><Mono>172.16.1.10</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>ARP is carried directly in a frame. There is no IP packet around it, which is why it can work before a device knows anyone's MAC.</Caption>
+
+## The ARP table (cache)
+
+Broadcasting before every single frame would waste the whole network's time. So every device keeps an <Term>ARP table</Term>: a small cache of IP → MAC pairs it has learned. The PC's table before and after:
+
+<Cols n={2}>
+
+<Col title="Before">
+
+<Mono>172.16.1.1 → e4:8d:8c:00:01:01</Mono>
+
+learned earlier, when the PC first went online
+
+</Col>
+
+<Col title="After">
+
+<Mono>172.16.1.1 → e4:8d:8c:00:01:01<br />172.16.1.20 → 30:05:5c:8a:12:e0</Mono>
+
+the next print job skips the broadcast
+
+</Col>
+
+</Cols>
+
+- **Entries expire.** After a while (seconds to minutes, depending on the OS) an unused entry is dropped or rechecked. If the printer is replaced, its new MAC is picked up on the next lookup.
+- **The target learns too.** The request already contained the PC's IP and MAC, so the printer saves 172.16.1.10 → 3c:7c:3f:10:22:01. When it replies, it does not need to ask.
+- **A small correction to the notes:** a device does not find its own MAC in the ARP table. It knows its own addresses from its interface settings. The table holds other devices.
+
+## When the target is on another network
+
+Now the PC loads an order from kade-api (34.87.120.15). The mask check fails: 34.87.120.0 is not 172.16.1.0. So the PC must send to its default gateway, 172.16.1.1 (it got that from DHCP, <Ch n="5">chapter 5</Ch>). It runs ARP for the **gateway's** IP, and this time the router replies:
+
+<ArpFan target="gw" />
+
+The frame then goes out with the router's MAC and kade-api's IP, just as in <Ch n="1">chapters 1</Ch> and <Ch n="5">5</Ch>:
+
+<Table>
+  <tbody>
+    <tr><td>**Destination MAC**</td><td><Mono>e4:8d:8c:00:01:01</Mono></td><td>router eth1, from ARP</td></tr>
+    <tr><td>**Destination IP**</td><td><Mono>34.87.120.15</Mono></td><td>kade-api, unchanged</td></tr>
+  </tbody>
+</Table>
+
+<Key title="ARP never leaves the local network">
+
+Broadcasts stop at the router. The PC never learns kade-api's MAC, and never needs it. At each later hop, the next router runs its own ARP on its own local link.
+
+</Key>
+
+## Try it: an ARP simulator
+
+Pick a sender and a target, then press Send. The first time, you will see a broadcast. Press Send again and the cache answers instead. The cache stays until you clear it.
+
+<ArpSim />
+
+## ARP trusts everyone
+
+ARP has no checks. Any device can send a reply, even one nobody asked for, and most devices will cache it. An attacker on the staff network could send "172.16.1.1 is at _my_ MAC". The PC would then send all its internet traffic to the attacker first. This is called <Term>ARP spoofing</Term>, and it is one reason public WiFi is risky and why HTTPS (TLS) matters even on a "private" network. Managed switches can block it with a feature called dynamic ARP inspection.
+
+<Note>
+
+**In GCP:** a VPC has no broadcast at all. VMs still send ARP requests, but the VPC's software network answers them itself. So ARP spoofing between VMs does not work there, and kade-api always reaches its gateway 10.10.1.1 through Google's network.
+
+</Note>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Job</td><td>IP in, MAC out, local network only</td><td>ARP</td></tr>
+    <tr><td>2</td><td>Before ARP</td><td>Mask check decides whose IP to ask for: target or gateway</td><td></td></tr>
+    <tr><td>3</td><td>Request / reply</td><td>Broadcast "who has X?"; only the owner replies, unicast</td><td>ARP request, ARP reply</td></tr>
+    <tr><td>4</td><td>Message</td><td>Sender MAC/IP, target MAC/IP; request's target MAC is all zeros</td><td></td></tr>
+    <tr><td>5</td><td>Cache</td><td>IP → MAC table; entries expire; the target learns the sender too</td><td>ARP table</td></tr>
+    <tr><td>6</td><td>Other networks</td><td>ARP for the gateway's IP; never for a far-away target</td><td></td></tr>
+    <tr><td>8</td><td>Security</td><td>No checks, so replies can be faked</td><td>ARP spoofing</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Your ARP table">
+
+- **What to look for:** Your gateway's IP with its MAC. Browse a bit, print something, run it again: new entries appear.
+- **Runs on:** macOS / Linux / Windows · Linux also: ip neigh
+- **From section:** [5. The ARP table (cache)](#the-arp-table-cache)
+
+```sh
+arp -a
+```
+
+</TryIt>
+
+<TryIt n={2} title="Delete one entry">
+
+- **What to look for:** Run `arp -a` after loading any page: the gateway is back, learned again by a broadcast.
+- **Runs on:** macOS / Linux · Windows (admin): arp -d
+- **From section:** [5. The ARP table (cache)](#the-arp-table-cache)
+
+```sh
+sudo arp -d 192.168.1.1
+```
+
+</TryIt>
+
+<TryIt n={3} title="Live ARP traffic">
+
+- **What to look for:** `Request who-has 192.168.1.1 tell 192.168.1.23` and the `Reply … is-at …` after it.
+- **Runs on:** macOS (Linux: -i wlan0 or eth0)
+- **From section:** [3. Request and reply](#request-and-reply)
+
+```sh
+sudo tcpdump -n -i en0 arp
+```
+
+</TryIt>
+
+<TryIt n={4} title="Send ARP requests by hand">
+
+- **What to look for:** Each reply shows the gateway's MAC.
+- **Runs on:** Linux (install arping)
+- **From section:** [3. Request and reply](#request-and-reply)
+
+```sh
+arping -c 3 192.168.1.1
+```
+
+</TryIt>

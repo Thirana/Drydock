@@ -1,0 +1,202 @@
+import { LbDecoder, LbGlobal, LbL7L4, LbTree, ProxyEx } from "@/components/learn/widgets/lazy";
+
+<Box kind="problem" title="The problem">
+
+Kadé's load balancer was set up quickly in the fundamentals course, by following a guide. Since then the API moved to Cloud Run (<Ch n="10">chapter 10</Ch>), Cloudflare is coming (<Ch n="13">chapter 13</Ch>), and someone has asked whether an "internal" or a "Network" load balancer would be cheaper. Nobody can say for sure which kind Kadé has, or why it is the right one.
+
+</Box>
+
+## Four choices make every name
+
+<Recalls><Recall n="33">Proxies and load balancers</Recall></Recalls>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Choice</th><th>Options</th><th>The question it answers</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Reach</td><td>External · Internal</td><td>Where does the traffic come from?</td></tr>
+    <tr><td>2</td><td>Spread</td><td>Global · Regional</td><td>How widely is the load balancer distributed?</td></tr>
+    <tr><td>3</td><td>Layer</td><td>Application (L7) · Network (L4)</td><td>How much does it understand about the traffic?</td></tr>
+    <tr><td>4</td><td>Mode</td><td>Proxy · Passthrough</td><td>Does it end the client's connection and open its own?</td></tr>
+  </tbody>
+</Table>
+
+Read a name word by word and it explains itself. "Global external Application Load Balancer" is one IP worldwide, on the internet, that understands HTTP (and so must be a proxy). "Regional internal passthrough Network Load Balancer" is one region, private IP, L4 only, and does not end the connection. Not every combination exists. Try it:
+
+<LbDecoder />
+
+## External or internal
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Reached from</th><th>IP</th><th>Typical use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**External**</td><td>The internet</td><td>Public</td><td>The front door: a public website or API. Kadé's `api.kade.lk`</td></tr>
+    <tr><td>2</td><td>**Internal**</td><td>Inside your VPC, and networks connected to it (VPN, peering)</td><td>Private, from a subnet</td><td>Service to service, such as an API spreading calls across several payment workers, never exposed to the internet</td></tr>
+  </tbody>
+</Table>
+
+## Global or regional
+
+A **global** load balancer has one IP announced from Google's edge locations all over the world (anycast, <Ch course="fundamentals" n="33">Fundamentals ch 33</Ch>). A **regional** one has an IP that belongs to one region and serves backends in that region.
+
+<LbGlobal />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Choose global when</th><th>Choose regional when</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Users are in several countries</td><td>The service and its users are in one region</td></tr>
+    <tr><td>2</td><td>You want routing to the nearest healthy region and failover between regions from one IP</td><td>A rule says traffic must stay in one region, including TLS termination</td></tr>
+    <tr><td>3</td><td>You want Cloud CDN, or Cloud Armor edge policies</td><td>You want Standard network tier (<Ch n="3">chapter 3</Ch>), or a simpler model</td></tr>
+  </tbody>
+</Table>
+
+<Caption>For public web traffic, the global external Application Load Balancer is GCP's normal default. Pick regional on purpose, for a reason.</Caption>
+
+<Key title="Two links back to earlier chapters">
+
+- **Global needs Premium tier.** A global load balancer can only use a global, Premium-tier IP (<Ch n="3">chapter 3</Ch> sections 04 and 05).
+- **Envoy-based load balancers need a proxy-only subnet.** Regional external, regional internal and cross-region internal load balancers run Google-managed Envoy proxies inside your VPC, which take their addresses from a subnet with purpose `REGIONAL_MANAGED_PROXY` or `GLOBAL_MANAGED_PROXY` (<Ch n="2">chapter 2</Ch> section 06). The global external one runs on Google Front Ends outside your VPC and needs none.
+
+</Key>
+
+## Application (L7) or Network (L4)
+
+<Recalls><Recall n="24">HTTP</Recall></Recalls>
+
+<LbL7L4 />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Understands</th><th>Can do</th><th>Used for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Application (L7)**</td><td>HTTP and HTTPS: host, path, headers, cookies</td><td>Route by host and path, end TLS, change headers, run a WAF, cache</td><td>Anything web</td></tr>
+    <tr><td>2</td><td>**Network (L4)**</td><td>IP addresses, protocol, ports</td><td>Spread connections across backends. That is all</td><td>Non-HTTP protocols (a database, a game server, a custom TCP or UDP service), or when the load balancer should stay out of the way</td></tr>
+  </tbody>
+</Table>
+
+## Proxy or passthrough: the choice that changes behaviour
+
+Does the load balancer end the client's connection and open a new one to the backend, or let the original connection pass straight through? Everything else follows from that.
+
+<ProxyEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Proxy</th><th>Passthrough</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Connections</td><td>Two: client to load balancer, load balancer to backend</td><td>One: client to backend; the load balancer only steers packets</td></tr>
+    <tr><td>2</td><td>Source IP the backend sees</td><td>The load balancer's (`35.191.x.x` or a proxy-only subnet address). Real client in `X-Forwarded-For`</td><td>The real client's</td></tr>
+    <tr><td>3</td><td>HTTP routing, TLS termination, WAF, header changes, caching</td><td>Possible, because it has ended the connection and can read it</td><td>Impossible: it never reads the traffic</td></tr>
+    <tr><td>4</td><td>Replies</td><td>Go back through the load balancer</td><td>Go straight from the backend to the client (direct server return)</td></tr>
+    <tr><td>5</td><td>Protocols</td><td>TCP (and HTTP on top)</td><td>TCP, UDP, and others such as ESP and ICMP</td></tr>
+    <tr><td>6</td><td>Layer</td><td>L7 or L4</td><td>Always L4: you cannot read HTTP without ending the connection</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>You need</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>HTTP routing, a WAF, TLS termination at the load balancer</td><td>Proxy (an Application Load Balancer)</td></tr>
+    <tr><td>2</td><td>The backend to see the real client IP at the network level</td><td>Passthrough</td></tr>
+    <tr><td>3</td><td>UDP or another non-TCP protocol</td><td>Passthrough</td></tr>
+    <tr><td>4</td><td>The load balancer to stay out of the connection (end-to-end TLS the backend handles)</td><td>Passthrough</td></tr>
+  </tbody>
+</Table>
+
+<Caption>If you need a WAF in front of a web app, you must use a proxy, and accept that the app reads client IPs from a header (<Ch n="12">chapter 12</Ch> section 06).</Caption>
+
+## The whole family, and how to choose
+
+Put the four choices together and these are the load balancers that exist today:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Load balancer</th><th>Reach</th><th>Spread</th><th>Mode</th><th>Runs on</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Global external Application LB**</td><td>External</td><td>Global</td><td>Proxy, L7</td><td>Google Front Ends; also a "classic" version with fewer routing features</td></tr>
+    <tr><td>2</td><td>Regional external Application LB</td><td>External</td><td>Regional</td><td>Proxy, L7</td><td>Envoy in a proxy-only subnet</td></tr>
+    <tr><td>3</td><td>Cross-region internal Application LB</td><td>Internal</td><td>Global</td><td>Proxy, L7</td><td>Envoy in a proxy-only subnet</td></tr>
+    <tr><td>4</td><td>Regional internal Application LB</td><td>Internal</td><td>Regional</td><td>Proxy, L7</td><td>Envoy in a proxy-only subnet</td></tr>
+    <tr><td>5</td><td>Global external proxy Network LB</td><td>External</td><td>Global</td><td>Proxy, L4 (TCP, optional TLS)</td><td>Google Front Ends</td></tr>
+    <tr><td>6</td><td>Regional external proxy Network LB</td><td>External</td><td>Regional</td><td>Proxy, L4</td><td>Envoy in a proxy-only subnet</td></tr>
+    <tr><td>7</td><td>Internal proxy Network LB (regional or cross-region)</td><td>Internal</td><td>Either</td><td>Proxy, L4</td><td>Envoy in a proxy-only subnet</td></tr>
+    <tr><td>8</td><td>**External passthrough Network LB**</td><td>External</td><td>Regional</td><td>Passthrough, L4</td><td>The data plane on each host (<Ch n="1">chapter 1</Ch>)</td></tr>
+    <tr><td>9</td><td>**Internal passthrough Network LB**</td><td>Internal</td><td>Regional</td><td>Passthrough, L4</td><td>The data plane; can also be a route's next hop (<Ch n="4">chapter 4</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Passthrough load balancers are always regional, and Application load balancers are always proxies. Those two rules explain every combination that does not exist.</Caption>
+
+Choosing is a short walk down four questions:
+
+<LbTree />
+
+<Box kind="exam" title="Exam angle">
+
+The questions usually hide the deciding detail in one phrase: "HTTPS with a WAF" (Application, proxy), "users worldwide, one IP" (global external Application), "UDP" or "must see client IPs" (passthrough Network), "only reachable from the VPC" (internal), "next hop for an appliance" (internal passthrough).
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Decided: Kadé keeps a global external Application Load Balancer">
+
+- **HTTPS with a WAF** means Application, which means proxy. A Network load balancer would be cheaper per hour but cannot run Cloud Armor or route by path.
+- **External,** because shoppers are on the internet. An internal load balancer would only be useful if Kadé later splits the API into services that call each other.
+- **Global,** because Cloud CDN, which serves Kadé's product images (<Ch n="12">chapter 12</Ch>), only works with the global external one, and because it is what Kadé already has. Kadé's users are mostly in Sri Lanka, so the gain from worldwide spread is small, but nothing in Kadé's case calls for regional.
+- **The not-classic version,** for the newer routing features. Its IP `34.120.88.10` is already global and Premium tier (<Ch n="3">chapter 3</Ch>), and it needs no proxy-only subnet.
+- **Real client IP** comes from `X-Forwarded-For`, read correctly (<Ch n="12">chapter 12</Ch> section 06).
+
+<Ch n="12">Chapter 12</Ch> opens the load balancer up, link by link.
+
+</Box>
+
+## Commands in this chapter
+
+All read-only.
+
+<TryIt n={1} title="List forwarding rules (the front of every load balancer)">
+
+- **What it shows:** Every load balancer's IP, port, scope and scheme.
+- **What to look for:** `EXTERNAL_MANAGED` (the newer global or regional external Application LB), `EXTERNAL` (classic or passthrough), `INTERNAL` or `INTERNAL_MANAGED`.
+
+```sh
+gcloud compute forwarding-rules list \
+  --format="table(name,region.basename(),IPAddress,portRange,loadBalancingScheme,target.basename())"
+```
+
+</TryIt>
+
+<TryIt n={2} title="List backend services">
+
+- **What it shows:** Each backend service with its scheme, protocol and whether it is global.
+- **What to look for:** The protocol (`HTTP`, `HTTPS`, `TCP`, `UDP`) tells you L7 or L4.
+
+```sh
+gcloud compute backend-services list \
+  --format="table(name,region.basename(),loadBalancingScheme,protocol)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="List proxy-only subnets">
+
+- **What it shows:** Subnets reserved for Envoy-based load balancers.
+- **What to look for:** None for Kadé. One per region is needed before creating a regional or internal Application LB.
+
+```sh
+gcloud compute networks subnets list \
+  --filter="purpose~MANAGED_PROXY" --format="table(name,region.basename(),ipCidrRange,purpose,role)"
+```
+
+</TryIt>

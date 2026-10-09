@@ -1,0 +1,468 @@
+import { ExpCheck, SubnetGrid } from "@/components/learn/widgets/lazy";
+import { FigAlias, FigScope } from "@content/learn/gcp/figures/02-vpc-networks-and-subnets";
+
+<Box kind="problem" title="The problem">
+
+Finding 1 from <Ch n="0">chapter 0</Ch>: the project still has the `default` network, with SSH, RDP and ping open to the whole internet. No VM uses it, but any VM created without choosing a network would land in it.
+
+Kadé also needs to grow. <Ch n="10">Chapter 10</Ch> adds `sn-run`, and sn-app is a `/24`. Before adding or changing anything, we need to know the rules: what a subnet can hold, which addresses are lost, and whether a subnet can grow later.
+
+</Box>
+
+## A VPC is a scope
+
+<Recalls><Recall n="6">Two networks, one router</Recall></Recalls>
+
+The easiest way to think about a VPC network is as a **boundary**. Everything inside it shares four things, and nothing outside it gets them:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>The VPC decides</th><th>The question it answers</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Which **routes** apply</td><td>Where can a packet be sent?</td><td className="whitespace-nowrap">4</td></tr>
+    <tr><td>2</td><td>Which **firewall rules** apply</td><td>Which packets are allowed?</td><td className="whitespace-nowrap">5</td></tr>
+    <tr><td>3</td><td>Which **IP ranges** are handed out (through its subnets)</td><td>What addresses can be given to things?</td><td className="whitespace-nowrap">2, 3</td></tr>
+    <tr><td>4</td><td>Which **resources** can reach each other on internal IPs</td><td>Who is inside?</td><td className="whitespace-nowrap">2</td></tr>
+  </tbody>
+</Table>
+
+Two VPCs in the same project are two separate worlds. There is no router between them unless you add one (peering or VPN, <Ch n="14">chapter 14</Ch>). A VM in `default` cannot reach kade-db on `10.10.2.5`, because `default` has no route to it. The two VPCs could even use the same ranges and never notice.
+
+<Figure wide hues={["teal", "green"]} drawing={<FigScope />}>
+
+A VPC is the outer wall. Subnets divide the inside, but they are not walls: by default any VM can route to any subnet in the same VPC, and only firewall rules stop it.
+
+</Figure>
+
+A VPC network itself has only a few settings. Most of what matters lives on its subnets:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>VPC setting</th><th>Kadé's value</th><th>Change later?</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Name</td><td>`kade-vpc`</td><td><St k="bad">no</St></td><td className="whitespace-nowrap">2</td></tr>
+    <tr><td>2</td><td>Subnet creation mode</td><td>custom</td><td><St k="plan">auto → custom only</St></td><td className="whitespace-nowrap">2</td></tr>
+    <tr><td>3</td><td>MTU</td><td>1460</td><td><St k="ok">yes, with VMs stopped</St></td><td className="whitespace-nowrap">1</td></tr>
+    <tr><td>4</td><td>Dynamic routing mode</td><td>regional</td><td><St k="ok">yes</St></td><td className="whitespace-nowrap">4, 15</td></tr>
+    <tr><td>5</td><td>Internal IPv6 range (a `/48` ULA)</td><td>none</td><td><St k="plan">add once, never change</St></td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>6</td><td>An IPv4 range</td><td>does not exist (<Ch n="0">chapter 0</Ch>)</td><td>-</td><td className="whitespace-nowrap">0</td></tr>
+  </tbody>
+</Table>
+
+## Auto mode and custom mode
+
+When you create a VPC, you choose who creates its subnets:
+
+<Cols n={2}>
+
+<Col title="Auto mode">
+
+GCP creates one `/20` subnet in **every** region, from a fixed list inside `10.128.0.0/9`. When Google opens a new region, a new subnet appears in your network by itself.
+
+</Col>
+
+<Col title="Custom mode">
+
+GCP creates nothing. Every subnet, region and range is a decision you make. This is what Google recommends for production, and what kade-vpc uses.
+
+</Col>
+
+</Cols>
+
+The auto mode ranges are the same in every auto mode network in the world, and Google publishes them:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Region</th><th>Auto mode subnet</th><th>Gateway</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`us-central1`</td><td>`10.128.0.0/20`</td><td>`10.128.0.1`</td></tr>
+    <tr><td>2</td><td>`europe-west1`</td><td>`10.132.0.0/20`</td><td>`10.132.0.1`</td></tr>
+    <tr><td>3</td><td>`us-west1`</td><td>`10.138.0.0/20`</td><td>`10.138.0.1`</td></tr>
+    <tr><td>4</td><td>`asia-east1`</td><td>`10.140.0.0/20`</td><td>`10.140.0.1`</td></tr>
+    <tr><td>5</td><td>`asia-southeast1` (Kadé's region)</td><td>`10.148.0.0/20`</td><td>`10.148.0.1`</td></tr>
+    <tr><td>6</td><td>`asia-south1`</td><td>`10.160.0.0/20`</td><td>`10.160.0.1`</td></tr>
+  </tbody>
+</Table>
+
+That convenience has a cost:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Problem with auto mode</th><th>Why it matters</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The ranges are fixed and public</td><td>Anyone who gets onto one VM already knows the whole internal address plan, without running a single command</td></tr>
+    <tr><td>2</td><td>Every auto mode network uses the same ranges</td><td>Two auto mode networks can never be joined with peering or VPN: their ranges overlap by design</td></tr>
+    <tr><td>3</td><td>`10.128.0.0/9` is a common private range</td><td>An office or another cloud may already use part of it, which blocks a VPN later</td></tr>
+    <tr><td>4</td><td>Subnets appear in regions you never use</td><td>More ranges to keep track of, and new ones arrive without anyone deciding</td></tr>
+    <tr><td>5</td><td>No IPv6</td><td>Auto mode networks cannot have subnets with IPv6 ranges</td></tr>
+  </tbody>
+</Table>
+
+Two more facts. You can add your own subnets to an auto mode network, as long as they are outside `10.128.0.0/9`. And you can convert an auto mode network to custom mode at any time: the existing subnets stay exactly as they are, and no new ones appear. The conversion only goes one way.
+
+<Box kind="exam" title="Exam angle">
+
+"Two teams each created an auto mode VPC and now cannot peer them" has one answer: the ranges overlap because every auto mode network uses the same `10.128.0.0/9` plan. Use custom mode with planned ranges.
+
+</Box>
+
+## The default network
+
+Every new project gets a network called `default`, unless an organization policy stops it. It is an auto mode network plus four firewall rules. <Ch n="0">Chapter 0</Ch> already listed them; here is what each one really allows:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule</th><th>Source</th><th>Allows</th><th>Real risk</th><th>Usual action</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`default-allow-internal`</td><td>`10.128.0.0/9`</td><td>every TCP and UDP port, and ICMP</td><td>Every VM can reach every port on every other VM: no separation at all</td><td>Replace with rules for what really talks to what (<Ch n="5">chapter 5</Ch>)</td></tr>
+    <tr><td>2</td><td>`default-allow-ssh`</td><td>`0.0.0.0/0`</td><td>tcp:22</td><td>Any VM with an external IP is open to every SSH bot on the internet</td><td>Limit to IAP's range `35.235.240.0/20` (<Ch n="6">chapter 6</Ch>)</td></tr>
+    <tr><td>3</td><td>`default-allow-rdp`</td><td>`0.0.0.0/0`</td><td>tcp:3389</td><td>The same for Windows remote desktop</td><td>Delete if there are no Windows VMs</td></tr>
+    <tr><td>4</td><td>`default-allow-icmp`</td><td>`0.0.0.0/0`</td><td>icmp</td><td>Small: lets anyone confirm a VM exists</td><td>Often left, or limited to known IPs</td></tr>
+  </tbody>
+</Table>
+
+<Caption>All four have priority 65534 and apply to every VM in the network. The two built-in rules (block all incoming, allow all outgoing) sit underneath them at 65535.</Caption>
+
+<Key title="Why it matters even when empty">
+
+When someone creates a VM and does not choose a network, GCP puts it in `default`. So an unused default network is a trap waiting for the first rushed test VM: it gets an external IP, lands in a network with SSH and RDP open to the world, and nobody notices.
+
+</Key>
+
+What to do depends on whether anything uses it:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Situation</th><th>What to do</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Nothing uses it (Kadé)</td><td>Delete its four firewall rules, then delete the network. Its auto subnets go with it</td></tr>
+    <tr><td>2</td><td>VMs or other resources already live in it</td><td>You cannot delete a network while anything uses it. Convert it to custom mode so no new subnets appear, delete the auto subnets in regions you do not use, and replace the four rules with narrow ones</td></tr>
+    <tr><td>3</td><td>For every future project</td><td>Set the organization policy `compute.skipDefaultNetworkCreation` so new projects never get one (<Ch n="17">chapter 17</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Auto subnets cannot be deleted one by one.** In an auto mode network, the subnets GCP created are locked. Convert the network to custom mode first; after that, any unused subnet can be deleted.
+
+</Note>
+
+## What a subnet is made of
+
+A subnet is a regional object inside one VPC. These are its properties, and the column that matters most is the one that says whether you can change it later:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Property</th><th>What it is</th><th>Change later?</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`name`</td><td>The subnet's name</td><td><St k="bad">no</St></td><td>Unique per project per region. To rename, create a new one and delete the old one once nothing uses it</td></tr>
+    <tr><td>2</td><td>`region`</td><td>The region it lives in</td><td><St k="bad">no</St></td><td>Covers every zone in that region (<Ch n="1">chapter 1</Ch>)</td></tr>
+    <tr><td>3</td><td>`network`</td><td>The VPC it belongs to</td><td><St k="bad">no</St></td><td>A subnet cannot move to another VPC</td></tr>
+    <tr><td>4</td><td>`ipCidrRange`</td><td>The primary IPv4 range</td><td><St k="plan">grow only</St></td><td>Can be expanded, never shrunk or moved. Must not overlap any other range in the VPC. Loses 4 addresses (section 05). Smallest is `/29`</td></tr>
+    <tr><td>5</td><td>`secondaryIpRanges`</td><td>Extra named ranges</td><td><St k="ok">add / remove</St></td><td>Only for alias IPs (section 07). Removable only when nothing uses them</td></tr>
+    <tr><td>6</td><td>`gatewayAddress`</td><td>The subnet's gateway</td><td><St k="plan">read-only</St></td><td>Always the second address of the primary range, the `.1`</td></tr>
+    <tr><td>7</td><td>`purpose`</td><td>What the subnet is for</td><td><St k="bad">mostly no</St></td><td>`PRIVATE` for VMs; other values are for Google-managed things (section 06)</td></tr>
+    <tr><td>8</td><td>`role`</td><td>Active or backup</td><td><St k="ok">yes</St></td><td>Only for proxy-only subnets: `ACTIVE` or `BACKUP`</td></tr>
+    <tr><td>9</td><td>`stackType`</td><td>IPv4 only, dual-stack, or IPv6 only</td><td><St k="plan">limited</St></td><td>IPv4-only can become dual-stack. Dual-stack can go back to IPv4-only only if its IPv6 is external. IPv6-only never changes</td></tr>
+    <tr><td>10</td><td>`ipv6AccessType`</td><td>Internal or external IPv6</td><td><St k="bad">no</St></td><td>Only when the subnet has IPv6</td></tr>
+    <tr><td>11</td><td>`privateIpGoogleAccess`</td><td>Reach Google APIs without an external IP</td><td><St k="ok">yes</St></td><td>Off by default (<Ch n="9">chapter 9</Ch>)</td></tr>
+    <tr><td>12</td><td>`logConfig` (flow logs)</td><td>Record samples of traffic</td><td><St k="ok">yes</St></td><td>Off by default; the sampling rate is the main cost setting (<Ch n="16">chapter 16</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+Look at one subnet in full:
+
+```sh
+gcloud compute networks subnets describe sn-app --region=asia-southeast1
+```
+
+<Label>Output (trimmed)</Label>
+
+```text
+gatewayAddress: 10.10.1.1
+ipCidrRange: 10.10.1.0/24
+name: sn-app
+network: https://www.googleapis.com/compute/v1/projects/kade-prod/global/networks/kade-vpc
+privateIpGoogleAccess: false
+purpose: PRIVATE
+region: https://www.googleapis.com/compute/v1/projects/kade-prod/regions/asia-southeast1
+stackType: IPV4_ONLY
+```
+
+<Label>What it tells you</Label>
+
+The gateway is the `.1`, the purpose is `PRIVATE` (for VMs), and there is no `logConfig` block at all: flow logs are off, which is finding 8. The `network` and `region` are full self links, the same idea as <Ch n="1">chapter 1</Ch> section 11.
+
+</Box>
+
+## The four addresses you cannot use
+
+<Recalls><Recall n="3">Network and broadcast addresses</Recall><Recall n="5">When the gateway is the problem</Recall></Recalls>
+
+A normal network loses two addresses: the network address and the broadcast address. A GCP subnet loses **four**, the first two and the last two of its primary range. In sn-app:
+
+<SubnetGrid />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Address in sn-app</th><th>Name</th><th>Why it is kept</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`10.10.1.0`</td><td>Network address</td><td>Names the subnet itself, so it cannot be given to a machine</td></tr>
+    <tr><td>2</td><td>`10.10.1.1`</td><td>Default gateway</td><td>The address the data plane answers for (<Ch n="1">chapter 1</Ch>). Not a real router</td></tr>
+    <tr><td>3</td><td>`10.10.1.254`</td><td>Second-to-last</td><td>Kept by Google for possible future use; it does nothing today</td></tr>
+    <tr><td>4</td><td>`10.10.1.255`</td><td>Broadcast address</td><td>Kept for compatibility, even though broadcast does not work in a VPC</td></tr>
+  </tbody>
+</Table>
+
+This matters most for small subnets. Secondary ranges do not lose any addresses:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Size</th><th>Addresses</th><th>Usable in a primary range</th><th>Usable in a secondary range</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`/29` (the smallest allowed)</td><td>8</td><td>4</td><td>8</td></tr>
+    <tr><td>2</td><td>`/28`</td><td>16</td><td>12</td><td>16</td></tr>
+    <tr><td>3</td><td>`/24` (sn-app)</td><td>256</td><td>252</td><td>256</td></tr>
+    <tr><td>4</td><td>`/20` (an auto mode subnet)</td><td>4,096</td><td>4,092</td><td>4,096</td></tr>
+  </tbody>
+</Table>
+
+<Key title="The gateway does not answer ping">
+
+In the fundamentals course (<Ch n="5">ch 5</Ch>), the second troubleshooting step was `ping 192.168.1.1`. Do not do that in GCP: the virtual gateway never replies to ping and never shows up in traceroute. A failed `ping 10.10.1.1` is normal and tells you nothing. Test by pinging another VM or an address outside instead.
+
+</Key>
+
+## Not every subnet is for VMs: purpose
+
+Some Google-managed products need a block of addresses inside your VPC for their own machines. You give them a subnet with a special **purpose**. You cannot put VMs in these subnets, and in most cases the purpose cannot be changed later.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Purpose</th><th>Who uses it</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`PRIVATE` (default)</td><td>Your VMs, internal load balancer IPs, and similar. Shown as "None" in the console</td><td className="whitespace-nowrap">2</td></tr>
+    <tr><td>2</td><td>`REGIONAL_MANAGED_PROXY`</td><td>Proxy-only subnet: the Envoy proxies behind regional and internal Application Load Balancers. Needs a `role` of `ACTIVE` or `BACKUP`</td><td className="whitespace-nowrap">11</td></tr>
+    <tr><td>3</td><td>`GLOBAL_MANAGED_PROXY`</td><td>Proxy-only subnet for cross-region internal load balancers</td><td className="whitespace-nowrap">11</td></tr>
+    <tr><td>4</td><td>`PRIVATE_SERVICE_CONNECT`</td><td>Used when you publish your own service to other VPCs through Private Service Connect</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>5</td><td>`PRIVATE_NAT`</td><td>Source addresses for Private NAT, which translates between private networks</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>6</td><td>`PEER_MIGRATION`</td><td>A temporary subnet for moving a service from peering to Private Service Connect</td><td className="whitespace-nowrap">-</td></tr>
+  </tbody>
+</Table>
+
+Kadé's load balancer is a global external Application Load Balancer. Its proxies are Google's front ends, which live outside kade-vpc, so it does not need a proxy-only subnet. That changes only if Kadé ever adds a regional or internal Application Load Balancer.
+
+## Secondary ranges and alias IPs
+
+A VM's network card normally has one internal IP from the subnet's primary range. It can also carry extra addresses, called <Term>alias IP ranges</Term>. An alias range can be a single address (`/32`) or a block, and it can come from the primary range or from a <Term>secondary range</Term> of the same subnet.
+
+<Figure wide drawing={<FigAlias />}>
+
+GCP creates routes for both ranges automatically, so the rest of the VPC can reach every alias address, and the data plane delivers them all to the same VM.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Use</th><th>How alias IPs help</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Several containers or services on one VM, each with its own IP</td><td>Give the VM an alias block; the apps inside use addresses from it</td></tr>
+    <tr><td>2</td><td>A "floating" IP that can move between two VMs</td><td>Move the alias from one VM to the other through GCP. This is the replacement for gratuitous ARP (<Ch n="1">chapter 1</Ch> section 10)</td></tr>
+    <tr><td>3</td><td>Keep a service address separate from the VM's own address</td><td>Clients use the alias; the VM can be replaced and the alias moved to the new one</td></tr>
+  </tbody>
+</Table>
+
+Rules for secondary ranges: each needs a name, the smallest is `/29`, none of their addresses are reserved, they must not overlap any other range in the VPC, and you can remove one only when nothing uses it. <Ch n="3">Chapter 3</Ch> shows how to assign and move alias IPs.
+
+## Growing a subnet: expand only
+
+A subnet's primary range can be made bigger by lowering the number after the slash. It can never be made smaller, moved, or put back, so a mistake here is permanent.
+
+The part that surprises people: the bigger range is not "the old range plus more at the end". It is the larger aligned block that contains the old one. For sn-app, `/23` means `10.10.0.0/23`, which grows **backwards** into `10.10.0.0/24`. That works only because Kadé kept `10.10.0.0/24` free (<Ch n="0">chapter 0</Ch> section 06).
+
+<Recalls><Recall n="3">CIDR blocks</Recall></Recalls>
+
+Try it. Pick a subnet and a new size, and see whether GCP would allow it and whether it breaks Kadé's plan:
+
+<ExpCheck />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule</th><th>What it means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Only bigger, never smaller</td><td>Expansion cannot be undone. Grow in small steps; you can always grow again</td></tr>
+    <tr><td>2</td><td>No overlaps</td><td>The new range must not overlap any other subnet range, secondary range, or private services range in the VPC, or any subnet in a peered VPC. GCP refuses the change</td></tr>
+    <tr><td>3</td><td>No interruption</td><td>Expansion takes a few minutes and traffic inside the subnet keeps flowing</td></tr>
+    <tr><td>4</td><td>Firewall rules do not follow</td><td>A rule that names the old range (for example `10.10.1.0/24`) does not cover the new addresses. Update those rules. Kadé's rules use `10.10.0.0/16`, which still covers them</td></tr>
+    <tr><td>5</td><td>Auto mode subnets stop at `/16`</td><td>Anything bigger would collide with another region's auto range</td></tr>
+    <tr><td>6</td><td>Proxy-only subnets cannot be expanded</td><td>Create a new one instead (<Ch n="11">chapter 11</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## Planning ranges
+
+<Recalls><Recall n="2">Private ranges</Recall></Recalls>
+
+Because ranges can only grow and can never overlap anything you might connect to, the plan is the one part of a VPC that is expensive to get wrong. These are the rules Kadé's plan in <Ch n="0">chapter 0</Ch> follows:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule</th><th>Why</th><th>In Kadé's plan</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Never overlap anything you may ever connect</td><td>Peering and VPN refuse or misroute overlapping ranges, and fixing it means renumbering</td><td>Prod `10.10.0.0/16`, staging `10.20.0.0/16`, office `172.16.0.0/16`, home `192.168.1.0/24`</td></tr>
+    <tr><td>2</td><td>Keep one block per environment</td><td>Firewall rules and routes can then name one range for all of prod</td><td>All of prod inside `10.10.0.0/16`</td></tr>
+    <tr><td>3</td><td>Leave free space next to each subnet</td><td>So it can expand later</td><td>`10.10.0.0/24` and `.4`-`.15` kept free</td></tr>
+    <tr><td>4</td><td>Size by purpose, not by habit</td><td>VM subnets rarely need more than a `/24`; services like Cloud SQL need their own block</td><td>`/24` subnets, a `/20` for private services</td></tr>
+    <tr><td>5</td><td>Avoid `10.128.0.0/9`</td><td>Auto mode networks use it; overlapping blocks peering or VPN with them</td><td>Not used</td></tr>
+    <tr><td>6</td><td>Avoid `172.17.0.0/16`</td><td>Docker's default bridge network uses it inside VMs</td><td>Not used</td></tr>
+    <tr><td>7</td><td>Write the plan down</td><td>GCP does not store it (<Ch n="0">chapter 0</Ch>)</td><td><Ch n="0">Chapter 0</Ch> section 06</td></tr>
+  </tbody>
+</Table>
+
+Subnet ranges do not have to be RFC 1918. GCP also accepts `100.64.0.0/10`, some other special ranges, and even public ranges used privately. It refuses a few ranges outright, including `169.254.0.0/16` (link-local), `127.0.0.0/8`, the private Google API ranges `199.36.153.4/30` and `199.36.153.8/30`, and Google's own public addresses. Stick to RFC 1918 unless you have run out.
+
+## Subnet switches covered later
+
+Three subnet settings belong to later chapters but are worth knowing now:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>What it does</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Private Google Access</td><td>Lets VMs without an external IP reach Google APIs (Cloud Storage, Artifact Registry, and so on). It works with the normal default route and normal DNS; the special `private.googleapis.com` and `restricted.googleapis.com` addresses are optional extras</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>2</td><td>Flow logs</td><td>Records samples of connections to and from VMs in the subnet. Sampling rate, interval and metadata control the cost</td><td className="whitespace-nowrap">16</td></tr>
+    <tr><td>3</td><td>IPv6 (dual-stack)</td><td>Adds a `/64` IPv6 range to the subnet, internal or external. Kadé stays IPv4 only for now</td><td className="whitespace-nowrap">3</td></tr>
+  </tbody>
+</Table>
+
+## Back to Kadé
+
+Kadé's default network has no VMs, so it can go. The order matters: a network cannot be deleted while firewall rules still point at it.
+
+<Box kind="fixed" title="Fixed: finding 1">
+
+Check nothing uses the default network, delete its four rules, then delete it:
+
+```sh
+gcloud compute instances list --filter="networkInterfaces.network~/default$"
+
+gcloud compute firewall-rules delete default-allow-internal \
+  default-allow-ssh default-allow-rdp default-allow-icmp
+
+gcloud compute networks delete default
+```
+
+Afterwards, `gcloud compute networks list` shows only `kade-vpc`, and a VM created without choosing a network now fails with an error instead of landing somewhere open. <Ch n="17">Chapter 17</Ch> adds the organization policy so the next project never gets a default network.
+
+Two decisions for later chapters: sn-app stays a `/24` (252 usable addresses is far more than two API VMs need, and it can grow to `/23` if it ever must), and `sn-run 10.10.3.0/24` is added in <Ch n="10">chapter 10</Ch>.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 5 are read-only. Commands 6 to 8 change the project; run them only after the checks.
+
+<TryIt n={1} title="List networks and their mode">
+
+- **What it shows:** Every VPC network in the project and whether it is auto or custom mode.
+- **What to look for:** A `default` network, or any `AUTO` network used for production.
+
+```sh
+gcloud compute networks list
+```
+
+</TryIt>
+
+<TryIt n={2} title="List subnets in one network">
+
+- **What it shows:** Each subnet with its region and primary range.
+- **What to look for:** Ranges that match the plan in <Ch n="0">chapter 0</Ch>, and no overlaps.
+
+```sh
+gcloud compute networks subnets list --network=kade-vpc
+```
+
+</TryIt>
+
+<TryIt n={3} title="See how full each subnet is">
+
+- **What it shows:** Free and used addresses per subnet. The used count includes the 4 reserved addresses.
+- **What to look for:** A subnet close to full, which would need expanding.
+
+```sh
+gcloud compute networks subnets list --network=kade-vpc --view=WITH_UTILIZATION
+```
+
+</TryIt>
+
+<TryIt n={4} title="Describe one subnet">
+
+- **What it shows:** All of the subnet's properties: gateway, purpose, stack type, Private Google Access, flow logs.
+- **What to look for:** `purpose: PRIVATE`, and a missing `logConfig` block, which means flow logs are off.
+
+```sh
+gcloud compute networks subnets describe sn-app --region=asia-southeast1
+```
+
+</TryIt>
+
+<TryIt n={5} title="Check nothing uses the default network">
+
+- **What it shows:** VMs whose network card is attached to `default`.
+- **What to look for:** An empty list. If anything shows up, convert the network to custom mode instead of deleting it (section 03).
+
+```sh
+gcloud compute instances list --filter="networkInterfaces.network~/default$"
+```
+
+</TryIt>
+
+<TryIt n={6} title="Delete the default network's rules (changes the project)">
+
+- **What it shows:** Removes the four firewall rules that belong to `default`.
+- **What to look for:** gcloud asks for confirmation and lists the four rules. Check the names before saying yes.
+
+```sh
+gcloud compute firewall-rules delete default-allow-internal \
+  default-allow-ssh default-allow-rdp default-allow-icmp
+```
+
+</TryIt>
+
+<TryIt n={7} title="Delete the default network (changes the project)">
+
+- **What it shows:** Deletes the network and all its automatic subnets.
+- **What to look for:** If it fails with "resource is in use", something still references the network. The error names it.
+
+```sh
+gcloud compute networks delete default
+```
+
+</TryIt>
+
+<TryIt n={8} title="Convert an auto mode network to custom mode (changes the project)">
+
+- **What it shows:** The alternative to deleting, for a default network that is in use. Existing subnets stay; no new ones appear.
+- **What to look for:** `SUBNET_MODE` changes from `AUTO` to `CUSTOM` in command 1. This cannot be undone.
+
+```sh
+gcloud compute networks update default --switch-to-custom-subnet-mode
+```
+
+</TryIt>

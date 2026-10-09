@@ -1,0 +1,228 @@
+import { CurlTime, E2eJourney, E2eModel, JoinFlow } from "@/components/learn/widgets/lazy";
+
+## The cast
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Who</th><th>Address</th><th>Job in this story</th><th>Chapters</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Your laptop</td><td>192.168.1.23 · a4:83:e7:2b:91:0c</td><td>The client</td><td>1-5, 7</td></tr>
+    <tr><td>2</td><td>Home router</td><td>192.168.1.1 (LAN) · 203.0.113.45 (WAN) · 3c:84:6a:10:ee:01</td><td>DHCP server, DNS forwarder, gateway, NAT, firewall</td><td>5, 10, 27</td></tr>
+    <tr><td>3</td><td>LankaNet resolver</td><td>203.0.113.53</td><td>Recursive DNS with a cache</td><td>22</td></tr>
+    <tr><td>4</td><td>Cloud DNS</td><td>ns-cloud-a1…a4.googledomains.com</td><td>Authoritative for kade.lk</td><td>22-23</td></tr>
+    <tr><td>5</td><td>Internet routers</td><td>ISP, transit, Google's edge</td><td>Forward by longest prefix; BGP picks the path</td><td>12</td></tr>
+    <tr><td>6</td><td>Google front end</td><td>34.120.88.10 (anycast)</td><td>Load balancer: ends TCP and TLS, picks a backend</td><td>25, 33</td></tr>
+    <tr><td>7</td><td>kade-api-2</td><td>10.10.1.11:8080 · 42:01:0a:0a:01:0b</td><td>Runs the Node app</td><td>21, 31</td></tr>
+    <tr><td>8</td><td>kade-db</td><td>10.10.2.5:5432</td><td>PostgreSQL</td><td>3, 21</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Timings assume what <Ch n="12">chapters 12</Ch>-<Ch n="13">13</Ch> measured: about **41 ms** round trip from Colombo to Singapore, where both Kadé's region and (in this example) the nearest Google edge are. Your own numbers will differ; section 5 shows how to measure them.</Caption>
+
+## Before the click: joining the network
+
+Some work happens once, when the laptop joins the home WiFi, long before any page is opened:
+
+<JoinFlow />
+
+After this, the laptop has an address, a mask, a gateway, a DNS server, and the gateway's MAC in its ARP cache (<Ch n="3">chapters 3</Ch>, <Ch n="5">5</Ch>, <Ch n="9">9</Ch>, <Ch n="27">27</Ch>). About 5 ms of work, reused for hours.
+
+## The journey, step by step
+
+Step through the whole request. The map shows where the action is; the card shows the packet exactly as it looks at that point, layer by layer. Watch which values change and which stay the same.
+
+<E2eJourney />
+
+## The timeline
+
+Here are the same steps on a time axis. The whole first request takes about **176 ms**:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Phase</th><th>From → to</th><th>Round trips</th><th>Time</th><th>Chapters</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>DNS lookup</td><td>0 → 42 ms</td><td>laptop ⇄ resolver ⇄ Cloud DNS</td><td>42 ms</td><td>14, 22</td></tr>
+    <tr><td>2</td><td>TCP handshake</td><td>42 → 83 ms</td><td>1</td><td>41 ms</td><td>16</td></tr>
+    <tr><td>3</td><td>TLS 1.3 handshake</td><td>83 → 126 ms</td><td>1 + ~2 ms of crypto</td><td>43 ms</td><td>25</td></tr>
+    <tr><td>4</td><td>Request → first byte</td><td>126 → 175 ms</td><td>1 + ~8 ms in Google and Kadé</td><td>49 ms</td><td>24, 33</td></tr>
+    <tr><td>5</td><td>Download</td><td>175 → 176 ms</td><td>0 (2.8 KB fits in the first window)</td><td>1 ms</td><td>20</td></tr>
+    <tr><td></td><td>**Total**</td><td></td><td>**4 round trips**</td><td>**176 ms**</td><td></td></tr>
+  </tbody>
+</Table>
+
+<Key title="Where the time went">
+
+Of 176 ms, about **164 ms is distance**: four trips of light and routers between Colombo and Singapore (<Ch n="12">chapter 12</Ch>, section 14). kade-api and the database together took about 6 ms. For most apps, the biggest speed-up is not faster code but **fewer round trips**.
+
+</Key>
+
+Change the conditions and see which round trips disappear:
+
+<E2eModel />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Situation</th><th>Round trips saved</th><th>Time (41 ms RTT)</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>First visit, as above</td><td>-</td><td>~176 ms</td><td></td></tr>
+    <tr><td>2</td><td>DNS already cached (within 300 s TTL)</td><td>DNS</td><td>~134 ms</td><td><Ch n="22">Chapter 22</Ch>'s caches</td></tr>
+    <tr><td>3</td><td>HTTP/3 (QUIC)</td><td>1</td><td>~135 ms</td><td>Transport and TLS handshakes combined (<Ch n="24">chapter 24</Ch>)</td></tr>
+    <tr><td>4</td><td>TLS 1.2 instead of 1.3</td><td>−1 (costs one more)</td><td>~218 ms</td><td><Ch n="25">Chapter 25</Ch>'s timeline</td></tr>
+    <tr><td>5</td><td>**Next request on the same connection**</td><td>DNS + TCP + TLS</td><td>**~49 ms**</td><td>Keep-alive and pools (<Ch n="21">chapter 21</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## Measure your own real timings
+
+A model is useful; a measurement is better. `curl` can print when each phase finished:
+
+```sh
+curl -so /dev/null -w 'dns %{time_namelookup}\nconnect %{time_connect}\ntls %{time_appconnect}\nttfb %{time_starttransfer}\ntotal %{time_total}\n' https://www.google.com
+```
+
+Run it twice (the second run usually has DNS cached), against any HTTPS site, and paste the output here:
+
+<CurlTime />
+
+<Note>
+
+**The same numbers in the browser.** DevTools → Network → click a request → **Timing**. "DNS Lookup", "Initial connection", "SSL", "Waiting for server response" (TTFB) and "Content Download" are exactly the phases above. A reused connection shows no DNS, connection or SSL rows at all.
+
+</Note>
+
+## What changed at each hop
+
+The request travelled over **three separate connections**: laptop ⇄ Google front end, front end ⇄ kade-api, and kade-api ⇄ kade-db. Here is the first request packet at every point:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Where</th><th>Frame src → dst MAC</th><th>IP src → dst</th><th>TTL</th><th>Ports</th><th>Inside</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Laptop → home router (WiFi)</td><td>a4:83:e7:2b:91:0c → 3c:84:6a:10:ee:01</td><td>192.168.1.23 → 34.120.88.10</td><td>64</td><td>52814 → 443</td><td>TLS (encrypted HTTP/2)</td></tr>
+    <tr><td>2</td><td>Home router → ISP</td><td>router WAN → ISP gateway</td><td>**203.0.113.45** → 34.120.88.10</td><td>63</td><td>**40001** → 443</td><td>same bytes</td></tr>
+    <tr><td>3</td><td>Across the internet</td><td>new at every hop</td><td>same</td><td>62, 61 …</td><td>same</td><td>same bytes</td></tr>
+    <tr><td>4</td><td>Arrives at Google's edge</td><td>-</td><td>203.0.113.45 → 34.120.88.10</td><td>~55</td><td>40001 → 443</td><td>connection 1 **ends**: decrypted here</td></tr>
+    <tr><td>5</td><td>Google front end → kade-api-2</td><td>42:01:0a:0a:01:01 → 42:01:0a:0a:01:0b</td><td>**35.191.12.34** → **10.10.1.11**</td><td>64</td><td>51277 → **8080**</td><td>HTTP/1.1 + X-Forwarded-For (connection 2)</td></tr>
+    <tr><td>6</td><td>kade-api-2 → kade-db</td><td>42:01:0a:0a:01:0b → 42:01:0a:0a:01:01 (VPC gateway)</td><td>10.10.1.11 → 10.10.2.5</td><td>64</td><td>41822 → 5432</td><td>SQL query (connection 3, from the pool)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>MACs change at every hop (<Ch n="8">chapter 8</Ch>). IPs and ports change only at NAT (row 2) and at the proxy (row 5), where a brand-new connection starts. TTL restarts at 64 on each new connection. The response retraces the same path backwards, and the home router reverses its NAT row.</Caption>
+
+## One packet, all the layers
+
+The packet carrying the HTTP request (step 12 in the journey) on the WiFi, byte by byte:
+
+<Segments>
+  <Seg w={1.4} hue="teal">Frame 14</Seg>
+  <Seg w={2} hue="green">IP 20</Seg>
+  <Seg w={3.2} hue="amber">TCP 32</Seg>
+  <Seg w={.8}>TLS 5</Seg>
+  <Seg w={6.4} hue="plum">HTTP/2 HEADERS ~64 (encrypted)</Seg>
+  <Seg w={1.6}>tag 16</Seg>
+  <Seg w={.6} hue="teal">4</Seg>
+</Segments>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Layer</th><th>Bytes</th><th>Carries</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Frame header</td><td>14</td><td>MACs (laptop → router), type 0x0800 = IPv4</td><td>7-8</td></tr>
+    <tr><td>2</td><td>IPv4 header</td><td>20</td><td>192.168.1.23 → 34.120.88.10, TTL 64, protocol 6 (TCP), DF</td><td>12</td></tr>
+    <tr><td>3</td><td>TCP header</td><td>32</td><td>52814 → 443, seq/ack, window, timestamps option</td><td>17-19</td></tr>
+    <tr><td>4</td><td>TLS record header</td><td>5</td><td>type "application data", length</td><td>25</td></tr>
+    <tr><td>5</td><td>HTTP/2 HEADERS</td><td>~64</td><td>GET /orders/1042, api.kade.lk, the token; compressed (HPACK) and encrypted</td><td>24</td></tr>
+    <tr><td>6</td><td>TLS auth tag</td><td>16</td><td>Proves nobody changed the bytes</td><td>25</td></tr>
+    <tr><td>7</td><td>Frame check sequence</td><td>4</td><td>Detects damage on the link</td><td>7</td></tr>
+  </tbody>
+</Table>
+
+<Caption>About 155 bytes, of which only ~64 are the actual request. Five layers of envelopes, exactly as <Ch n="1">chapter 1</Ch> and <Ch n="11">chapter 11</Ch> drew them. (On WiFi the real radio header is longer; the laptop and router convert to and from this Ethernet form.)</Caption>
+
+## When it breaks: a map of where to look
+
+Every step is also a place where things fail. Find the symptom, and you know the layer and the chapter:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>Symptom</th><th>Likely cause</th><th>Check with</th><th>Ch</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>DHCP</td><td>Address 169.254.x.x; "no internet"</td><td>No DHCP server reply</td><td>`ipconfig getifaddr en0`</td><td>27</td></tr>
+    <tr><td>2</td><td>ARP / gateway</td><td>Can't even ping 192.168.1.1</td><td>WiFi, cable, wrong network</td><td>`arp -a`, `ping 192.168.1.1`</td><td>5, 9</td></tr>
+    <tr><td>3</td><td>DNS</td><td>"Could not resolve host" / NXDOMAIN / SERVFAIL</td><td>Missing record, broken DNSSEC, resolver down</td><td>`dig api.kade.lk`, `dig @8.8.8.8 …`</td><td>22-23</td></tr>
+    <tr><td>4</td><td>Routing</td><td>Timeouts; traceroute stops at one hop</td><td>A route or peering problem</td><td>`traceroute -T -p 443 api.kade.lk`</td><td>12-13</td></tr>
+    <tr><td>5</td><td>TCP</td><td>"Connection refused" vs "timed out"</td><td>Nothing listening vs firewall drop</td><td>`nc -vz api.kade.lk 443`</td><td>16, 31</td></tr>
+    <tr><td>6</td><td>MTU</td><td>Handshake works, big responses hang</td><td>PMTUD black hole (VPNs)</td><td>`ping -D -s 1472 …`</td><td>18</td></tr>
+    <tr><td>7</td><td>TLS</td><td>Certificate errors; handshake failure</td><td>Expired cert, wrong name, missing chain, TLS inspection</td><td>`openssl s_client -connect api.kade.lk:443 -servername api.kade.lk`</td><td>25</td></tr>
+    <tr><td>8</td><td>Browser rules</td><td>Works in curl, fails in the browser</td><td>CORS, mixed content, HSTS</td><td>DevTools console</td><td>28</td></tr>
+    <tr><td>9</td><td>Load balancer</td><td>502 / 503 / 504</td><td>Keep-alive race, no healthy backend, timeout</td><td>LB logs `statusDetails`, `get-health`</td><td>33</td></tr>
+    <tr><td>10</td><td>App</td><td>500, 401, 404</td><td>Your code, auth, routes</td><td>App logs (with the real client IP, thanks to trust proxy)</td><td>24</td></tr>
+    <tr><td>11</td><td>Speed</td><td>Slow but working</td><td>Round trips, loss, bufferbloat, no connection reuse</td><td>`curl -w` (section 5), `mtr`</td><td>13, 20, 21</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Work from the bottom up: if `ping 192.168.1.1` fails, nothing above it matters yet. Each passing check clears a whole layer.</Caption>
+
+## How the course fits together
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Journey step</th><th>Built on</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Getting on the network</td><td>IP addresses (2), subnets and masks (3-4), gateways (5), MACs and hex (7), DHCP (27), IPv6 SLAAC (30)</td></tr>
+    <tr><td>2</td><td>Finding the server</td><td>UDP (14-15), DNS (22), records (23), anycast (12)</td></tr>
+    <tr><td>3</td><td>Reaching the server</td><td>Frames and hops (8), ARP (9), NAT (10), layers (11), routing and BGP (12), ICMP and traceroute (13), switches and routers (32)</td></tr>
+    <tr><td>4</td><td>A reliable connection</td><td>TCP (16), sequence numbers (17), segments and MTU (18), flow control (19), congestion control (20), sockets and ports (21, 31)</td></tr>
+    <tr><td>5</td><td>A private connection</td><td>TLS and certificates (25), SSH for admin access (29)</td></tr>
+    <tr><td>6</td><td>The conversation</td><td>HTTP and its versions (24), CORS (28), WebSockets (26)</td></tr>
+    <tr><td>7</td><td>The server side</td><td>Kadé's GCP network (6, 0), load balancers (33), time sync (27)</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Course complete">
+
+From a laptop getting an address to a response arriving through a load balancer in another country, every step now has a name, a packet you can capture, and a command to check it. Topics saved for later: CDNs and HTTP caching in depth, and a closer look at QUIC.
+
+</Key>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>2</td><td>Joining</td><td>DHCP, ARP and an IPv6 router advertisement happen once, before any request</td></tr>
+    <tr><td>3</td><td>The journey</td><td>DNS → ARP (cached) → TCP → TLS → HTTP → load balancer → kade-api → kade-db → back</td></tr>
+    <tr><td>4</td><td>Timing</td><td>~176 ms first request: 4 round trips of 41 ms + ~12 ms of work; ~49 ms on a reused connection</td></tr>
+    <tr><td>5</td><td>Measuring</td><td>curl -w and DevTools Timing show the same phases</td></tr>
+    <tr><td>6</td><td>Hops</td><td>MACs change every hop; IP/ports change only at NAT and proxies; three separate connections</td></tr>
+    <tr><td>7</td><td>Layers</td><td>~155 bytes on the wire for ~64 bytes of request</td></tr>
+    <tr><td>8</td><td>Debugging</td><td>Check layer by layer, from the bottom up</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself: the whole journey from your laptop
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Command</th><th>Step it shows</th><th>What to look for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>2</td><td>`ipconfig getpacket en0`<Os>macOS · Linux: nmcli dev show</Os></td><td>Your DHCP lease</td><td>Your IP, router, DNS server, lease time.</td></tr>
+    <tr><td>2</td><td>`arp -a | grep '192.168.1.1)'`</td><td>The gateway's MAC</td><td>3c:84:… style MAC, cached.</td></tr>
+    <tr><td>3</td><td>`dig +trace www.google.com`</td><td>The full DNS walk</td><td>Root → TLD → authoritative.</td></tr>
+    <tr><td>3</td><td>`traceroute -T -p 443 www.google.com`<Os>Linux (sudo) · macOS: traceroute -P tcp -p 443</Os></td><td>The routers on the way</td><td>Your router, the ISP, then Google's edge.</td></tr>
+    <tr><td>3</td><td>`openssl s_client -connect www.google.com:443 -servername www.google.com </dev/null | head -20`</td><td>The TLS handshake and certificate chain</td><td>Subject, issuer, TLSv1.3.</td></tr>
+    <tr><td>3</td><td>`curl -v https://www.google.com -o /dev/null`</td><td>TCP, TLS, HTTP in one go</td><td>"Connected to", "SSL connection using TLSv1.3", ALPN h2, the request and response headers.</td></tr>
+    <tr><td>5</td><td>The `curl -w` command from section 5</td><td>Real timings per phase</td><td>Paste into the tool; compare a first run with a second.</td></tr>
+    <tr><td>3</td><td>`sudo tcpdump -n -i en0 host www.google.com` while running curl in another window</td><td>Every packet of the journey</td><td>SYN, SYN-ACK, ACK, TLS records, FIN.</td></tr>
+  </tbody>
+</Table>

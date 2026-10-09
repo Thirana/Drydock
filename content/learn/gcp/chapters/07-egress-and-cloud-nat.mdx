@@ -1,0 +1,417 @@
+import { NatCalc } from "@/components/learn/widgets/lazy";
+import { FigSplit } from "@content/learn/gcp/figures/07-egress-and-cloud-nat";
+
+<Box kind="problem" title="The problem">
+
+Finding 5 from <Ch n="0">chapter 0</Ch>: kade-api-1 and kade-api-2 have no external IP and no NAT, so they cannot reach the internet at all. `apt update` hangs, and calls to PayGate fail. <Ch n="6">Chapter 6</Ch> ended the old workaround (a temporary external IP) for SSH, but the outgoing half is still broken.
+
+PayGate adds one more condition: it only accepts requests from IP addresses on its allow-list. It wants **one** address, and that address must never change.
+
+</Box>
+
+## The core split: with or without an external IP
+
+<Recalls><Recall n="10">NAT</Recall></Recalls>
+
+How a VM reaches the internet depends entirely on whether it has an external IP:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>The VM has…</th><th>Path out</th><th>The world sees</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>An external IP</td><td>Direct, through 1:1 NAT on its host (<Ch n="3">chapter 3</Ch>)</td><td>The VM's own external IP</td></tr>
+    <tr><td>2</td><td>No external IP</td><td>None: internal IPs cannot be routed on the internet</td><td>Nothing; it cannot get out</td></tr>
+    <tr><td>3</td><td>No external IP **and** Cloud NAT</td><td>Through Cloud NAT</td><td>The NAT IP</td></tr>
+  </tbody>
+</Table>
+
+<Figure wide hues={["teal", "green"]} drawing={<FigSplit />}>
+
+Cloud NAT does nothing for a VM that has its own external IP. Its traffic still leaves as that IP; the NAT is ignored.
+
+</Figure>
+
+<Key title={"You cannot \"route a VM through the NAT\" while it has an external IP"}>
+
+To make a VM leave through the NAT IP, remove its external IP. That is why removing external IPs and setting up egress are one conversation: the external IP comes off only after the NAT is ready (<Ch n="6.2">chapter 6.2</Ch> section 05).
+
+</Key>
+
+The other ways traffic can leave a VPC, for completeness:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Way out</th><th>What it is for</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Private Google Access</td><td>Google APIs only (Cloud Storage, Secret Manager, and so on), without the internet</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>2</td><td>A proxy or NAT VM with a tagged route</td><td>Inspecting or filtering traffic yourself. Usually not worth running</td><td className="whitespace-nowrap">4</td></tr>
+    <tr><td>3</td><td>Private NAT</td><td>Private-to-private translation between networks whose ranges overlap. Not for the internet</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>4</td><td>VPN or Interconnect</td><td>Traffic to the office or another network</td><td className="whitespace-nowrap">15</td></tr>
+  </tbody>
+</Table>
+
+## What Cloud NAT is, and what it is not
+
+Cloud NAT is Google's managed way to give private VMs outbound internet access. The important part is what it is not.
+
+### Not a box
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>AWS NAT Gateway</th><th>Cloud NAT</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A real thing that sits in a subnet</td><td>Configuration only</td></tr>
+    <tr><td>2</td><td>Has a network interface, an IP and a bandwidth limit</td><td>No box, no instance, no NAT-device bandwidth limit</td></tr>
+    <tr><td>3</td><td>Traffic physically flows through it, and it can fail</td><td>No single point of failure</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Translation happens on each VM's host, in the same data plane as routing and the firewall (<Ch n="1">chapter 1</Ch>). The "gateway" is a set of instructions every host follows.</Caption>
+
+### Regional, and hosted on a Cloud Router
+
+One Cloud NAT gateway covers subnets in one region, across all its zones. It is configured on a **Cloud Router**. The Cloud Router does not need to run BGP (<Ch n="4">chapter 4</Ch>) for this; it can exist purely as a home for the NAT settings, which is very common. Kadé's will be `kade-router`, and <Ch n="15">chapter 15</Ch>'s VPN gets a separate one.
+
+### Outbound only
+
+```text
+private VM ──▶ internet     ✔ allowed; replies come back (stateful)
+internet   ──▶ private VM   ✘ never
+```
+
+A one-way door. For traffic coming in you need a load balancer (<Ch n="11">chapter 11</Ch>) or an external IP, which are different mechanisms entirely.
+
+### Four things it depends on or changes
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Fact</th><th>What it means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>It needs a route to the default internet gateway</td><td>Delete the default route and Cloud NAT stops working (<Ch n="4">chapter 4</Ch> section 08)</td></tr>
+    <tr><td>2</td><td>Egress firewall rules run first</td><td>They are checked against the VM's internal IP before translation. A deny still blocks the traffic</td></tr>
+    <tr><td>3</td><td>It turns on Private Google Access automatically</td><td>For every subnet range it serves, and it cannot be turned off while NAT covers that range. Traffic to Google APIs never goes through NAT (<Ch n="9">chapter 9</Ch>)</td></tr>
+    <tr><td>4</td><td>It is stateful</td><td>It keeps a table of open connections. A packet from the internet that matches no entry is dropped</td></tr>
+  </tbody>
+</Table>
+
+## What a gateway covers
+
+A Cloud NAT gateway applies to subnet ranges you choose in its region:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>Covers</th><th>When</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>All subnets, all ranges</td><td>Every primary and secondary range in the region, including subnets added later</td><td>Simple setups; the default in the console</td></tr>
+    <tr><td>2</td><td>All subnets, primary ranges only</td><td>Every subnet's primary range</td><td>Secondary ranges should not get internet access</td></tr>
+    <tr><td>3</td><td>A list of subnets</td><td>Only the subnets (and ranges) you name</td><td>You want to decide per subnet. Kadé's choice</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A subnet range can be covered by only one Cloud NAT gateway.</Caption>
+
+## NAT IPs: automatic or manual
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Automatic</th><th>Manual</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Who picks the IPs</td><td>Google, from its pool</td><td>You, from static external IPs you reserved (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>2</td><td>Can they change?</td><td><St k="bad">yes</St> Google adds and removes IPs as needed</td><td><St k="ok">no</St> only you change them</td></tr>
+    <tr><td>3</td><td>Number of IPs</td><td>Grows with demand</td><td>Fixed; you must add more if ports run out (section 05)</td></tr>
+    <tr><td>4</td><td>Good for</td><td>Nothing depends on the source IP</td><td>An allow-list somewhere depends on it</td></tr>
+  </tbody>
+</Table>
+
+PayGate's allow-list means Kadé needs **manual**. The address must be regional, in the same region as the gateway (<Ch n="3">chapter 3</Ch> section 04). When you later add a second NAT IP, tell partners **before** adding it, because new connections may leave from either address.
+
+## Ports: the limit that actually bites
+
+<Recalls><Recall n="31">Ports and the 5-tuple</Recall></Recalls>
+
+NAT works by giving each outgoing connection its own source port on the NAT IP, so replies can find their way back. That makes ports the real capacity of a gateway:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Number</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**64,512** ports per NAT IP</td><td>65,536 minus the 1,024 well-known ports</td></tr>
+    <tr><td>2</td><td>**64** ports per VM by default</td><td>Each VM reserves a block of source ports (the "minimum ports per VM" setting)</td></tr>
+    <tr><td>3</td><td>64,512 ÷ 64 = **1,008** VMs per NAT IP</td><td>How many VMs one IP can serve at the default</td></tr>
+    <tr><td>4</td><td>**64** connections to one destination</td><td>The catch: a port can be reused for different destinations, but one VM can have only as many connections open to the **same IP and port** as it has reserved ports</td></tr>
+  </tbody>
+</Table>
+
+Row 4 is what hurts in practice. If kade-api-1 opens more than 64 connections to `api.paygate.lk:443` at the same time, connection 65 is dropped, and the NAT logs show `OUT_OF_RESOURCES`. The fundamentals course (<Ch n="10">ch 10</Ch>) mentioned this error; this is where it comes from. Closed connections also hold their port for a while (TIME\_WAIT, section 06), so a burst of short connections can use up ports faster than you expect.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Fix</th><th>Effect</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Reuse connections in the app (HTTP keep-alive, connection pooling)</td><td>Fewer connections, fewer ports. The best fix, and free</td></tr>
+    <tr><td>2</td><td>Raise the minimum ports per VM</td><td>More connections per destination, fewer VMs per IP</td></tr>
+    <tr><td>3</td><td>Turn on dynamic port allocation</td><td>VMs start small and get more ports when busy, up to a maximum you set</td></tr>
+    <tr><td>4</td><td>Add NAT IPs</td><td>More ports in total. Tell allow-list owners first</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Instance groups and NAT ports.** Every VM reserves its minimum ports when it starts, whether it is busy or not. A managed instance group that scales from 2 to 8 VMs (<Ch n="12.2">chapter 12.2</Ch>) reserves four times the ports at its peak. Check the calculator at the group's **maximum** size, not its usual size, or dynamic port allocation will be the thing that saves you during a sale.
+
+</Note>
+
+### Try it: will the ports last?
+
+<NatCalc />
+
+## Timeouts
+
+Cloud NAT forgets a connection after it has been idle for a while. The defaults:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Timeout</th><th>Default</th><th>What it means for Kadé</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>TCP established, idle</td><td>1,200 s (20 min)</td><td>A connection with no traffic for 20 minutes is silently dropped. Long-lived connections need keep-alives shorter than that</td></tr>
+    <tr><td>2</td><td>TCP transitory (opening or closing)</td><td>30 s</td><td>Half-open connections are cleared quickly</td></tr>
+    <tr><td>3</td><td>TCP TIME\_WAIT</td><td>120 s</td><td>A closed connection's port stays reserved this long before it can be used for the same destination again</td></tr>
+    <tr><td>4</td><td>UDP</td><td>30 s</td><td>DNS and other short UDP exchanges</td></tr>
+    <tr><td>5</td><td>ICMP</td><td>30 s</td><td>Ping</td></tr>
+  </tbody>
+</Table>
+
+<Caption>All of these can be changed per gateway. Lowering TIME\_WAIT is one way to free ports faster for bursty traffic.</Caption>
+
+## Scenarios
+
+<Box kind="console" title="Scenario A · PayGate's allow-list">
+
+```text
+PayGate allows:  34.87.200.7/32
+
+kade-api-1 (10.10.1.10, no external IP) ──▶ Cloud NAT ──▶ api.paygate.lk:443
+                                             src rewritten to 34.87.200.7:4xxxx
+PayGate sees 34.87.200.7 → on the list → accepted
+```
+
+Works for kade-api-2, kade-worker, and Cloud Run in <Ch n="10">chapter 10</Ch> too, as long as each is covered by the gateway and has no external IP.
+
+</Box>
+
+<Box kind="console" title={"Scenario B · Someone adds an external IP \"just for a test\""}>
+
+```text
+kade-api-2 gets external IP 34.87.130.4
+kade-api-2 ──▶ PayGate      src = 34.87.130.4   (NAT ignored: section 01)
+PayGate: 34.87.130.4 not on the list → payments fail on kade-api-2 only
+```
+
+Half the checkouts fail, depending on which VM the load balancer picks. The organization policy that blocks external IPs on VMs (<Ch n="17">chapter 17</Ch>) stops this from happening by accident.
+
+</Box>
+
+<Box kind="console" title="Scenario C · A sale day, and port exhaustion">
+
+```text
+Default: 64 ports per VM, 1 NAT IP
+Sale: kade-api-1 opens 150 short connections to api.paygate.lk:443 at once
+
+connections 1–64   → ports available → sent
+connections 65–150 → no free port for that destination → DROPPED
+NAT log: OUT_OF_RESOURCES
+```
+
+Fix in this order: connection pooling in the PayGate client, then dynamic port allocation or a higher minimum. Adding an IP helps only if PayGate allows the new one.
+
+</Box>
+
+<Box kind="console" title="Scenario D · Google APIs never use the NAT">
+
+```text
+kade-api-1 ──▶ storage.googleapis.com
+→ Private Google Access (enabled automatically by the NAT for sn-app)
+→ does not use NAT ports, and does not leave as 34.87.200.7
+```
+
+So an allow-list on the Google side that expects 34.87.200.7 would never match. Google APIs are controlled with IAM instead (<Ch n="9">chapter 9</Ch>).
+
+</Box>
+
+<Box kind="console" title="Scenario E · Only PayGate and package mirrors, nothing else">
+
+```text
+Cloud NAT decides the source IP. It does not decide what is reachable.
+To limit destinations, add egress firewall rules (chapter 5):
+
+allow EGRESS tcp:443 to PayGate's range     @900
+allow EGRESS tcp:80,443 to the apt mirrors  @900
+deny  EGRESS all to 0.0.0.0/0               @1000
+```
+
+With IP-based rules, you must keep PayGate's range up to date. An FQDN rule in a firewall policy (<Ch n="5.2">chapter 5.2</Ch>) names `api.paygate.lk` instead.
+
+</Box>
+
+<Box kind="console" title={"Scenario F · The \"lock down\" that breaks NAT"}>
+
+```text
+Someone deletes the default route 0.0.0.0/0 → default-internet-gateway
+→ Cloud NAT has no path out → every VM loses internet again
+→ looks exactly like finding 5 came back
+```
+
+<Ch n="4">Chapter 4</Ch> section 08 decided to keep the default route for this reason.
+
+</Box>
+
+<Box kind="console" title="Scenario G · A scaled-out group still leaves as one IP">
+
+```text
+kade-media-mig scales from 2 to 8 VMs during a sale (chapter 12.2)
+every new VM: no external IP, in sn-app → covered by kade-nat automatically
+all 8 call Cloud Storage and a font service on the internet → src 34.87.200.7
+```
+
+Nothing to add per VM: the NAT gateway covers the subnet, not individual VMs. The only thing that changes with group size is how many ports are reserved.
+
+</Box>
+
+## Private NAT, briefly
+
+Cloud NAT has a second type. **Private NAT** translates between two **private** networks, usually because their ranges overlap and cannot be renumbered, for example two VPCs joined through Network Connectivity Center, or a VPC and an on-premises network over VPN. It takes its addresses from a subnet with purpose `PRIVATE_NAT` (<Ch n="2">chapter 2</Ch> section 06), and it never gives internet access. Kadé's address plan has no overlaps, so it does not need it.
+
+## Cost, logs and monitoring
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+Cloud NAT charges an hourly fee for each VM (or serverless instance) using the gateway, capped per gateway, plus a charge per GB processed. Each NAT IP is also billed as an external IP (<Ch n="3">chapter 3</Ch>), and internet egress is billed as usual on top. For a small setup like Kadé's, the NAT IP and data processing are most of it. Check the Cloud NAT pricing page for current numbers.
+
+</Box>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Where to look</th><th>What it shows</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>NAT logging, **errors only**</td><td>Every dropped connection with its reason, such as `OUT_OF_RESOURCES`. Cheap and worth having on</td></tr>
+    <tr><td>2</td><td>NAT logging, translations</td><td>Every connection that was translated. Useful for audits, but more log volume</td></tr>
+    <tr><td>3</td><td>Monitoring metrics</td><td>`dropped_sent_packets_count` by reason, and allocated ports per VM</td></tr>
+    <tr><td>4</td><td>`gcloud compute routers get-nat-mapping-info`</td><td>Which NAT IP and port ranges each VM has right now</td></tr>
+  </tbody>
+</Table>
+
+<Caption><Ch n="16">Chapter 16</Ch> covers reading these logs.</Caption>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: finding 5">
+
+The order matters, because PayGate needs the address before traffic starts coming from it:
+
+- **1. Reserve the IP.** `kade-nat-ip`, regional static, asia-southeast1: `34.87.200.7`.
+- **2. Send it to PayGate first** and wait for them to confirm it is on their allow-list.
+- **3. Create the gateway.** Cloud Router `kade-router` and Cloud NAT `kade-nat` in asia-southeast1, manual IP `kade-nat-ip`, covering `sn-app` and `sn-data` (and `sn-run` in <Ch n="10">chapter 10</Ch>), error logging on.
+- **4. Verify** from kade-api-1 over IAP: `curl -s ifconfig.me` prints `34.87.200.7`, `apt update` works, and a PayGate test call succeeds.
+
+kade-api-1 and kade-api-2 already had no external IPs, so the NAT applied to them the moment it was created. The only Kadé resource with a fixed public address for outgoing traffic is now `34.87.200.7`, and it is the address in <Ch n="0">chapter 0</Ch>'s plan.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 4 are read-only. Commands 5 to 7 change the project.
+
+<TryIt n={1} title="See the outgoing IP from inside a VM">
+
+- **What it shows:** The source address the internet sees for this VM.
+- **What to look for:** `34.87.200.7`. A different address means the VM has its own external IP (Scenario B). A timeout means no NAT covers its subnet.
+
+```sh
+curl -s ifconfig.me
+```
+
+</TryIt>
+
+<TryIt n={2} title="Describe the NAT gateway">
+
+- **What it shows:** Which subnets it covers, IP allocation mode, NAT IPs, port settings, timeouts and logging.
+- **What to look for:** `natIpAllocateOption: MANUAL_ONLY`, the expected subnets, and `minPortsPerVm`.
+
+```sh
+gcloud compute routers nats describe kade-nat \
+  --router=kade-router --region=asia-southeast1
+```
+
+</TryIt>
+
+<TryIt n={3} title="See which ports each VM holds">
+
+- **What it shows:** For every VM using the gateway, its NAT IP and port ranges.
+- **What to look for:** VMs with far more ports than others (busy under dynamic allocation), or VMs missing from the list (not covered).
+
+```sh
+gcloud compute routers get-nat-mapping-info kade-router --region=asia-southeast1
+```
+
+</TryIt>
+
+<TryIt n={4} title="Find NAT drops in the logs">
+
+- **What it shows:** Connections Cloud NAT dropped in the last day, with the reason.
+- **What to look for:** `OUT_OF_RESOURCES` (ports ran out, section 05). Needs error logging on.
+
+```sh
+gcloud logging read \
+  'resource.type="nat_gateway" AND jsonPayload.allocation_status="DROPPED"' \
+  --freshness=1d --limit=20
+```
+
+</TryIt>
+
+<TryIt n={5} title="Reserve the NAT IP (changes the project)">
+
+- **What it shows:** Creates the regional static address for the gateway.
+- **What to look for:** The address in `gcloud compute addresses list`, status `RESERVED` until the gateway uses it. Send this address to PayGate now.
+
+```sh
+gcloud compute addresses create kade-nat-ip --region=asia-southeast1
+```
+
+</TryIt>
+
+<TryIt n={6} title="Create the Cloud Router (changes the project)">
+
+- **What it shows:** A regional Cloud Router that only hosts the NAT settings. No BGP sessions.
+- **What to look for:** It appears in `gcloud compute routers list`.
+
+```sh
+gcloud compute routers create kade-router \
+  --network=kade-vpc --region=asia-southeast1
+```
+
+</TryIt>
+
+<TryIt n={7} title="Create the NAT gateway (changes the project)">
+
+- **What it shows:** Cloud NAT with the fixed IP, for two named subnets, with error logging.
+- **What to look for:** Command 1 on kade-api-1 prints `34.87.200.7` within a minute or two.
+
+```sh
+gcloud compute routers nats create kade-nat \
+  --router=kade-router --region=asia-southeast1 \
+  --nat-external-ip-pool=kade-nat-ip \
+  --nat-custom-subnet-ip-ranges=sn-app,sn-data \
+  --enable-logging --log-filter=ERRORS_ONLY
+```
+
+</TryIt>

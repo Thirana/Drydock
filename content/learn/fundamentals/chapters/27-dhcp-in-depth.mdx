@@ -1,0 +1,277 @@
+import { DoraInspect, LeaseSim, NtpCalc } from "@/components/learn/widgets/lazy";
+import { FigRelay } from "@content/learn/fundamentals/figures/27-dhcp-in-depth";
+
+## A device that knows nothing
+
+A brand-new device joining a network has no IP, no gateway and no DNS server. Configuring every phone, laptop and printer by hand would be slow and error-prone. <Term>DHCP</Term> (Dynamic Host Configuration Protocol) automates it. In one exchange it provides everything the earlier chapters needed:
+
+<Table>
+  <thead>
+    <tr><th>Setting</th><th>Home value</th><th>Used in</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>IP address</td><td><Mono>192.168.1.23</Mono></td><td><Ch n="2">Chapter 2</Ch></td></tr>
+    <tr><td>Subnet mask</td><td><Mono>255.255.255.0</Mono></td><td>Telling local from remote (<Ch n="4">chapter 4</Ch>)</td></tr>
+    <tr><td>Default gateway</td><td><Mono>192.168.1.1</Mono></td><td>Reaching other networks (<Ch n="5">chapter 5</Ch>)</td></tr>
+    <tr><td>DNS server</td><td><Mono>192.168.1.1</Mono></td><td>Resolving names (<Ch n="22">chapter 22</Ch>)</td></tr>
+    <tr><td>Lease time</td><td><Mono>24 hours</Mono></td><td>Section 4</td></tr>
+  </tbody>
+</Table>
+
+<Caption>DHCP is an application-layer protocol running over UDP (<Ch n="11">chapter 11</Ch>'s quiz): the server listens on port 67, the client on port 68.</Caption>
+
+## DORA, packet by packet
+
+<Ch n="3">Chapter 3</Ch> showed the four messages: **D**iscover, **O**ffer, **R**equest, **A**ck. Here they are as real packets. Click each to see its addresses and contents:
+
+<DoraInspect />
+
+<Key title="The neat detail: no address yet">
+
+The client has no IP, so it cannot address the server directly, and it does not know the server's address anyway. So the Discover goes to the **broadcast** address 255.255.255.255 (and MAC ff:ff:ff:ff:ff:ff, <Ch n="7">chapter 7</Ch>), from 0.0.0.0. Every device on the LAN receives it, and only DHCP servers answer.
+
+</Key>
+
+- **Why the Request is also a broadcast:** a network can have more than one DHCP server, and several may send offers. Broadcasting the Request, with the chosen server's ID inside, tells the chosen one "yes" and all the others "no thanks" in one message.
+- **Option numbers:** everything beyond the basic addresses travels as numbered **options**: 1 mask, 3 router, 6 DNS, 51 lease time, 53 message type, 54 server ID. Options like 42 (NTP servers) and 119 (domain search list) exist too.
+- **A final safety check:** after the Ack, a careful client sends an ARP probe for its new address (<Ch n="9">chapter 9</Ch>). If someone answers, the address is already in use; the client sends **DHCPDECLINE** and starts again.
+
+## More than four messages
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Message</th><th>From</th><th>When</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>DISCOVER, OFFER, REQUEST, ACK</td><td>both</td><td>Getting an address (DORA)</td></tr>
+    <tr><td>2</td><td>NAK</td><td>server</td><td>"You cannot have that address." Example: your laptop wakes up at the office still asking for its home address 192.168.1.23. The office server refuses, and the laptop starts a fresh Discover.</td></tr>
+    <tr><td>3</td><td>DECLINE</td><td>client</td><td>The ARP check found the offered address already in use</td></tr>
+    <tr><td>4</td><td>RELEASE</td><td>client</td><td>"I am done with this address" (a clean shutdown or `ipconfig /release`)</td></tr>
+    <tr><td>5</td><td>INFORM</td><td>client</td><td>A device with a static IP asking only for the other settings (DNS, etc.)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A returning device often skips Discover and Offer: it simply broadcasts a Request for the address it had last time ("init-reboot"). If the lease is still valid, the server Acks at once. That is why reconnecting to known WiFi is fast.</Caption>
+
+## Leases: renew, rebind, expire
+
+A DHCP address is a <Term>lease</Term>: it is yours only for a set time, say 24 hours. Two timers decide what happens before it runs out:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Time</th><th>State</th><th>What the client does</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>0</td><td>Bound</td><td>Uses the address normally</td></tr>
+    <tr><td>2</td><td>T1 = 50% (12 h)</td><td>Renewing</td><td>Sends a Request **straight to its own server** (unicast). An Ack resets the lease to a fresh 24 hours.</td></tr>
+    <tr><td>3</td><td>T2 = 87.5% (21 h)</td><td>Rebinding</td><td>Its server has not answered, so it **broadcasts** the Request: any DHCP server may extend the lease.</td></tr>
+    <tr><td>4</td><td>100% (24 h)</td><td>Expired</td><td>Must stop using the address, and starts over with Discover</td></tr>
+  </tbody>
+</Table>
+
+If a device leaves and never renews, its address goes back to the pool for reuse. That is exactly why your laptop's IP can change (<Ch n="7">chapter 7</Ch>). Try it: see what the office PC does when the DHCP server goes down:
+
+<LeaseSim />
+
+<Note>
+
+**169.254.x.x means DHCP failed.** A device that cannot get any lease picks a **link-local** address from 169.254.0.0/16 by itself (<Ch n="2">chapter 2</Ch>). It can talk to neighbours that did the same, but has no gateway and no DNS. If a user says "no internet" and their IP starts with 169.254, look at DHCP first.
+
+</Note>
+
+## Pools, reservations and static addresses
+
+The server hands out addresses from a **pool** (also called a scope or range) for each network. Kadé's office staff network:
+
+<Range>
+  <RangePart kind="special" w="9%" sub="network">.0</RangePart>
+  <RangePart kind="router" w="9%" sub="router">.1</RangePart>
+  <RangePart kind="router" w="14%" sub="static + reserved">.2 - .49</RangePart>
+  <RangePart kind="devices" sub="laptops, phones, visitors">.50 - .199 · dynamic pool</RangePart>
+  <RangePart kind="router" w="14%" sub="spare">.200 - .254</RangePart>
+  <RangePart kind="special" w="9%" sub="broadcast">.255</RangePart>
+</Range>
+
+<Caption><Ch n="6">Chapter 6</Ch> gave the front desk PC .10 and the office printer .20. Those come from the fixed range below the pool, so the pool never hands them to someone else.</Caption>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>Who decides the address</th><th>Good for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Dynamic</td><td>The server, any free address from the pool</td><td>Laptops, phones, visitors</td></tr>
+    <tr><td>2</td><td>**Reservation**</td><td>The server, always the same address for a given MAC (<Ch n="7">chapter 7</Ch>)</td><td>Printers, the packing PC, anything others need to find. Still managed centrally, and gets DNS and gateway changes automatically.</td></tr>
+    <tr><td>3</td><td>Static</td><td>Typed into the device itself; no DHCP</td><td>The router itself, and the DHCP server</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Remember <Ch n="7">chapter 7</Ch>'s private MACs: a phone with a random MAC per network breaks a reservation. Printers and PCs use their real MAC, so reservations work well for them.</Caption>
+
+## One server, two networks: DHCP relay
+
+DHCP relies on broadcasts, and **broadcasts stop at routers** (<Ch n="9">chapter 9</Ch>). Kadé's office has two networks behind one router (<Ch n="6">chapter 6</Ch>). Rather than run two DHCP servers, Kadé runs one on a small office server at 172.16.1.5 and lets the router **relay**:
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigRelay />}>
+
+The relay writes its own interface address into the **giaddr** field. The server reads it, sees 172.16.2.1, and picks an address from the warehouse pool (172.16.2.0/24), not the staff pool. On Cisco routers this setting is called `ip helper-address`.
+
+</Figure>
+
+## Attacks on DHCP
+
+Like ARP, DHCP trusts whoever answers first. Anyone plugged into the office network can abuse that:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Attack</th><th>What happens</th><th>Defence</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Rogue DHCP server**</td><td>An attacker's laptop (or a home router plugged in by mistake) answers Discovers faster than the real server and hands out itself as gateway and DNS. Every new device now sends its traffic, and its DNS lookups, through the attacker.</td><td>**DHCP snooping** on managed switches: only the port facing the real server may send Offers and Acks</td></tr>
+    <tr><td>2</td><td>**Starvation**</td><td>The attacker requests every address in the pool using fake MACs. Real devices get nothing and fall back to 169.254.</td><td>Port security (limit MACs per switch port); DHCP snooping rate limits</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A mistakenly plugged-in home router is the most common "rogue server" in small offices. Symptom: some staff suddenly get 192.168.0.x addresses and lose access to office printers.</Caption>
+
+## DHCP in GCP, and IPv6
+
+<Table>
+  <tbody>
+    <tr><td>**GCP VMs**</td><td>GCP runs DHCP for you: the metadata server (169.254.169.254) answers kade-api's DHCP requests and hands out its internal IP (10.10.1.10), the gateway and DNS settings. You never manage a pool. "Reserving" an internal IP in GCP is the same idea as a reservation.</td></tr>
+    <tr><td>**IPv6**</td><td>Devices can build their own address from the network's prefix without any server (**SLAAC**), learning the router from router advertisements. **DHCPv6** exists for networks that want central control. Covered in the IPv6 chapter later.</td></tr>
+  </tbody>
+</Table>
+
+## Time sync: NTP
+
+DHCP can also tell a device where to get the time (option 42). That sounds minor, but a surprising amount of networking breaks when clocks are wrong:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Depends on correct time</th><th>What breaks when the clock is off</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>TLS certificates (<Ch n="25">chapter 25</Ch>)</td><td>"Not yet valid" or "expired" errors for perfectly good certificates</td></tr>
+    <tr><td>2</td><td>2-step codes (TOTP)</td><td>Codes change every 30 s: a clock 1 minute off rejects correct codes</td></tr>
+    <tr><td>3</td><td>Tokens (JWT `exp`, `nbf`)</td><td>kade-api rejects fresh tokens, or accepts expired ones. Libraries allow a small "clock skew" margin for this.</td></tr>
+    <tr><td>4</td><td>Logs across machines</td><td>kade-api and kade-db logs seem to happen in the wrong order, making incidents impossible to follow</td></tr>
+    <tr><td>5</td><td>Signed things with expiry</td><td>DNSSEC signatures, signed URLs, cloud API request signatures fail</td></tr>
+  </tbody>
+</Table>
+
+<Term>NTP</Term> (Network Time Protocol) keeps clocks within milliseconds of real time, over **UDP port 123** (<Ch n="14">chapter 14</Ch>). Servers form levels called **strata**: stratum 0 is a reference clock (atomic or GPS), stratum 1 servers are wired to one, stratum 2 servers ask stratum 1, and so on. A client asks several servers and trusts the best ones.
+
+The clever part is correcting for network delay. Each exchange records four timestamps:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>t1</Mono></td><td>client sends the request (client's clock)</td></tr>
+    <tr><td><Mono>t2</Mono></td><td>server receives it (server's clock)</td></tr>
+    <tr><td><Mono>t3</Mono></td><td>server sends the reply (server's clock)</td></tr>
+    <tr><td><Mono>t4</Mono></td><td>client receives the reply (client's clock)</td></tr>
+  </tbody>
+</Table>
+
+<Equation>delay = (t4 − t1) − (t3 − t2) · offset = ((t2 − t1) + (t3 − t4)) ÷ 2</Equation>
+
+<NtpCalc />
+
+- **Gentle correction:** NTP clients (chrony, systemd-timesyncd) normally **slew** the clock, running it slightly fast or slow until it is right, instead of jumping. Jumps back in time confuse programs that measure durations.
+- **In GCP**, every VM gets time from the metadata server (`metadata.google.internal`, 169.254.169.254). Google also "smears" leap seconds over a day, so clocks never show a strange extra second.
+- **Security:** plain NTP is unauthenticated, and old public NTP servers were abused for amplification attacks (<Ch n="14">chapter 14</Ch>). **NTS** (Network Time Security) adds authentication.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>DHCP</td><td>Gives IP, mask, gateway, DNS and a lease; UDP 67/68</td><td>DHCP</td></tr>
+    <tr><td>2</td><td>DORA</td><td>Discover and Request are broadcasts from 0.0.0.0; options carry the settings; ARP check after</td><td>DHCP options, server ID</td></tr>
+    <tr><td>3</td><td>Other messages</td><td>NAK, DECLINE, RELEASE, INFORM; returning clients skip to Request</td><td>DHCPNAK, DHCPDECLINE</td></tr>
+    <tr><td>4</td><td>Leases</td><td>Renew at 50% (unicast), rebind at 87.5% (broadcast), expire at 100%</td><td>lease, T1, T2</td></tr>
+    <tr><td>5</td><td>Pools</td><td>Dynamic from a pool; reservations by MAC; static outside the pool</td><td>pool, scope, reservation</td></tr>
+    <tr><td>6</td><td>Relay</td><td>Routers forward broadcasts as unicast; giaddr picks the pool</td><td>DHCP relay, giaddr</td></tr>
+    <tr><td>7</td><td>Attacks</td><td>Rogue servers and starvation; DHCP snooping</td><td>DHCP snooping</td></tr>
+    <tr><td>8</td><td>Elsewhere</td><td>GCP runs DHCP for VMs; IPv6 uses SLAAC or DHCPv6</td><td>SLAAC, DHCPv6</td></tr>
+    <tr><td>9</td><td>Time</td><td>NTP over UDP 123; strata; 4 timestamps give offset and delay; GCP metadata server</td><td>NTP, stratum, clock skew, NTS</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="The last DHCP Ack your laptop got">
+
+- **What to look for:** `yiaddr`, `server_identifier`, `lease_time`, `router`, `domain_name_server`.
+- **Runs on:** macOS · Linux: cat /var/lib/dhcp/dhclient.leases or nmcli device show
+- **From section:** [2. DORA, packet by packet](#dora-packet-by-packet)
+
+```sh
+ipconfig getpacket en0
+```
+
+</TryIt>
+
+<TryIt n={2} title="DORA live">
+
+- **Steps:** `sudo tcpdump -n -v -i en0 'udp port 67 or udp port 68'`, then reconnect to WiFi
+- **What to look for:** `0.0.0.0.68 > 255.255.255.255.67`, then the options decoded.
+- **From section:** [2. DORA, packet by packet](#dora-packet-by-packet)
+
+```sh
+sudo tcpdump -n -v -i en0 'udp port 67 or udp port 68'
+```
+
+</TryIt>
+
+<TryIt n={3} title="Lease times">
+
+- **What to look for:** `Lease Obtained`, `Lease Expires`, `DHCP Server`.
+- **Runs on:** Windows
+- **From section:** [4. Leases: renew, rebind, expire](#leases-renew-rebind-expire)
+
+```sh
+ipconfig /all
+```
+
+</TryIt>
+
+<TryIt n={4} title="RELEASE, then a fresh DORA">
+
+- **Steps:** `ipconfig /release` then `ipconfig /renew`
+- **What to look for:** Usually the same address comes back.
+- **Runs on:** Windows · macOS: sudo ipconfig set en0 DHCP
+- **From section:** [4. Leases: renew, rebind, expire](#leases-renew-rebind-expire)
+
+```sh
+ipconfig /release
+ipconfig /renew
+```
+
+</TryIt>
+
+<TryIt n={5} title="Every DHCP server that answers on your network">
+
+- **What to look for:** Exactly one. Two means a rogue server.
+- **From section:** [7. Attacks on DHCP](#attacks-on-dhcp)
+
+```sh
+sudo nmap --script broadcast-dhcp-discover
+```
+
+</TryIt>
+
+<TryIt n={6} title="Whether the clock is synced, and how far off">
+
+- **Steps:** `timedatectl` and `chronyc tracking`
+- **What to look for:** `System clock synchronized: yes`; chrony's `System time` offset, often well under 1 ms.
+- **Runs on:** Linux · macOS: sntp time.google.com · Windows: w32tm /query /status
+- **From section:** [9. Time sync: NTP](#time-sync-ntp)
+
+```sh
+timedatectl
+chronyc tracking
+```
+
+</TryIt>

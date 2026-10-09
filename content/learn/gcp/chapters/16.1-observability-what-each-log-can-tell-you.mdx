@@ -1,0 +1,268 @@
+import { FlowCover, LbEntry, LogCost, ObsMap, QueryBook } from "@/components/learn/widgets/lazy";
+
+<Box kind="problem" title="The problem">
+
+Kadé's daily users are growing, and today almost nothing is recorded. Load balancer logging is off, no firewall rule logs, no flow logs. The last incident ("payments failing for some people") took a whole afternoon, because the only evidence was the app's own messages and a screenshot from a shopper.
+
+The goal: for any complaint, find the request, see which hop answered, and do it in minutes, without paying for logs nobody reads.
+
+</Box>
+
+## The observability map
+
+Each hop on a shopper's path has its own record. Click a signal to see where it sits, what it can answer, and what it cannot:
+
+<ObsMap />
+
+<Key title="For a Cloud Run platform, two signals come first">
+
+Kadé's API runs on Cloud Run behind a load balancer. Traffic from the load balancer to Cloud Run does not pass through kade-vpc, so **VPC Flow Logs never see shopper requests**. The signals that cover every shopper request are the **load balancer logs** and **Cloud Run's request logs**. Turn those on first. Flow logs, firewall logs and NAT logs matter for what happens **inside** or **out of** the VPC: database calls, PayGate calls, the office.
+
+</Key>
+
+## Load balancer logs: one line per request
+
+Each request through the load balancer can produce one log entry, written by Google's front end. It records what the shopper asked, what came back, how long it took, and **who produced the answer** (<Ch n="12">chapter 12</Ch> section 10). Logging is set per backend service, with a sample rate between 0 and 1.
+
+Each tab is one real kind of entry, with its important fields picked out:
+
+<LbEntry />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Field</th><th>What it tells you</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`httpRequest.status`, `requestUrl`, `requestMethod`</td><td>What was asked and what came back</td></tr>
+    <tr><td>2</td><td>`httpRequest.latency`</td><td>Total time at the load balancer, from first byte in to last byte out</td></tr>
+    <tr><td>3</td><td>`httpRequest.remoteIp`</td><td>The client Google saw. Behind Cloudflare, that is a **Cloudflare** address (<Ch n="13">chapter 13</Ch>)</td></tr>
+    <tr><td>4</td><td>`jsonPayload.statusDetails`</td><td>Who answered: the backend, the cache, Cloud Armor, or nobody (no healthy backend, timeout)</td></tr>
+    <tr><td>5</td><td>`jsonPayload.enforcedSecurityPolicy`</td><td>Which Cloud Armor rule matched, its priority and outcome. `previewSecurityPolicy` shows rules in preview mode</td></tr>
+    <tr><td>6</td><td>`resource.labels.backend_service_name`</td><td>Which backend service the URL map chose</td></tr>
+  </tbody>
+</Table>
+
+## Cloud Run logs: the request log and the app's own lines
+
+Cloud Run writes two kinds of entry for kade-api, both under `resource.type="cloud_run_revision"`:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Log</th><th>Written by</th><th>Contains</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Request log** (`run.googleapis.com/requests`)</td><td>Cloud Run itself, for every request</td><td>Status, latency, instance, URL. Like the load balancer log, but from Cloud Run's side, so it also catches cold starts and container crashes</td></tr>
+    <tr><td>2</td><td>**App log** (stdout and stderr)</td><td>kade-api's own code</td><td>Whatever the app prints. Printed as JSON, fields like `severity` and a `trace` ID become searchable</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Follow one request across every log.** Cloudflare sends a `CF-Ray` header and Google adds an `X-Cloud-Trace-Context` header to each request. If kade-api writes both into every log line it prints, one ID finds the same request in Cloudflare's logs, the load balancer log, Cloud Run's request log, and the app's own lines. This one change in the app saves the most time in incidents.
+
+</Note>
+
+## VPC Flow Logs: connections inside the VPC
+
+Flow logs are switched on per subnet. They record a **sample of connections** to and from addresses in that subnet: who talked to whom, on which ports, how many bytes and packets, and for TCP, the round-trip time. They never contain the content.
+
+<FlowCover />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>What it means</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Aggregation interval</td><td>Records are summed over this window before being written</td><td>5 s (default) for sn-run and sn-app; longer windows mean fewer, coarser records</td></tr>
+    <tr><td>2</td><td>Flow sampling</td><td>The share of connections recorded (0 to 1)</td><td>0.5 (default). Enough to see patterns; not every connection</td></tr>
+    <tr><td>3</td><td>Metadata</td><td>Extra details: VM names, regions, countries for internet addresses</td><td>All metadata; it is what makes records readable</td></tr>
+    <tr><td>4</td><td>Filter</td><td>A condition that drops records before they are written</td><td>None yet; useful later to keep only traffic to PayGate or the office</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Flow logs answer questions like "is kade-worker really talking to the office?", "which instance sends traffic to PayGate?", or "what is this unknown address our VM keeps contacting?". They are a sample, so never use them to count requests.</Caption>
+
+## Firewall rule logs and Firewall Insights
+
+Logging is a setting on each firewall rule (<Ch n="5.1">chapter 5.1</Ch> used `--enable-logging`). When on, every connection the rule allows or denies is recorded with the rule's name, which answers "which rule let this in?" and "which rule blocked this?".
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Fact</th><th>What it means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Only TCP and UDP connections are logged</td><td>Ping (ICMP) never appears</td></tr>
+    <tr><td>2</td><td>**The implied rules cannot be logged**</td><td>Traffic dropped by the implied deny ingress leaves no trace. To see what is being denied, add an explicit "deny all" ingress rule at priority 65534 with logging on</td></tr>
+    <tr><td>3</td><td>One record per connection, not per packet</td><td>Volume follows connection count, which is far lower than packet count</td></tr>
+    <tr><td>4</td><td>Firewall Insights</td><td>Uses the hit counts to point out rules that are shadowed, never used, or allow far more than the traffic needs (<Ch n="5.2">chapter 5.2</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## NAT, DNS, Cloud SQL, and Cloudflare
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Signal</th><th>Turn on</th><th>Answers</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Cloud NAT logs</td><td>Errors only</td><td>"Are PayGate calls being dropped?" `allocation_status: DROPPED` means ports ran out</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>2</td><td>Cloud DNS query logs</td><td>A server policy on kade-vpc with logging</td><td>"What names does this VM look up?" Useful to spot a compromised VM, or a typo in a hostname</td><td className="whitespace-nowrap">8</td></tr>
+    <tr><td>3</td><td>Cloud SQL logs</td><td>On by default (PostgreSQL log), plus flags such as `log_connections`</td><td>"Are connections being refused? Is a query slow?"</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>4</td><td>Cloudflare analytics and logs</td><td>Dashboard analytics on every plan; Logpush on higher plans</td><td>Requests stopped at the edge never reach GCP, so only Cloudflare knows about them. Join with GCP by `CF-Ray`</td><td className="whitespace-nowrap">13</td></tr>
+    <tr><td>5</td><td>**Ops Agent** (VMs only)</td><td>Installed on the VM, ideally baked into the image</td><td>Memory and disk usage, and the VM's system and app log files. Without it, Google only sees CPU, network and disk throughput from outside the VM</td><td className="whitespace-nowrap">12.2</td></tr>
+    <tr><td>6</td><td>Audit logs</td><td>Admin Activity always on; Data Access off by default</td><td>"Who deleted that firewall rule?" Admin Activity records every configuration change, free</td><td className="whitespace-nowrap">17</td></tr>
+  </tbody>
+</Table>
+
+<Key title="VMs need one extra step that Cloud Run does not">
+
+Cloud Run sends its logs and metrics automatically. A VM does not: without the **Ops Agent**, "memory full" or "disk full" never shows up in Cloud Monitoring, and log files written to `/var/log` stay on the VM, lost when a managed instance group replaces it. Install the agent in the VM image used by the instance template (<Ch n="12.2">chapter 12.2</Ch>), so every new VM has it from its first second. Autohealing replacements also leave a record: the system event `compute.instances.repair.recreateInstance`.
+
+</Key>
+
+## Cost, retention and where logs go
+
+Logs are billed by volume, and volume grows with users. A setting that is harmless at 1,000 requests a day can be a real bill at 1,000,000. Estimate before you turn things on:
+
+<LogCost />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Tool</th><th>What it does</th><th>Use for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Sample rate</td><td>Records only a share of requests or connections</td><td>Load balancer logs on very busy paths, flow logs</td></tr>
+    <tr><td>2</td><td>Exclusion filter</td><td>Drops matching entries before they are stored (and billed)</td><td>Health check noise, successful requests for static images</td></tr>
+    <tr><td>3</td><td>Log bucket retention</td><td>How long entries are kept. The default bucket keeps 30 days</td><td>Longer only where needed (security, payments)</td></tr>
+    <tr><td>4</td><td>Sink to Cloud Storage or BigQuery</td><td>Copies entries out for cheap long-term storage or SQL analysis</td><td>Keeping a year of load balancer logs for audits</td></tr>
+    <tr><td>5</td><td>Log Analytics</td><td>Run SQL directly on a log bucket</td><td>"Top 20 IPs hitting /api/login this week" in one query</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+Cloud Logging charges per GiB ingested beyond a monthly free allotment per project, plus storage beyond the default retention. VPC Flow Logs and firewall logs are counted as log volume like anything else. Check the Cloud Logging pricing page; the estimator above uses typical entry sizes, so measure your own after a day and adjust.
+
+</Box>
+
+## Query cookbook
+
+Ready-to-paste Logs Explorer queries, organized by the question you are asking. Each shows what it finds and what to look for:
+
+<QueryBook />
+
+## Back to Kadé
+
+<Box kind="fixed" title="Turned on">
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Signal</th><th>Setting</th><th>Why this level</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Load balancer logs</td><td>`kade-api-backend`: 100%; `kade-static`: 10%</td><td>Every API request matters; images are many and boring</td></tr>
+    <tr><td>2</td><td>Cloud Run logs</td><td>On (always); app prints JSON with `severity`, `trace` and `cf_ray`</td><td>One ID to follow a request everywhere</td></tr>
+    <tr><td>3</td><td>VPC Flow Logs</td><td>sn-run and sn-app, sampling 0.5, 5 s, all metadata</td><td>Covers database, PayGate and office traffic</td></tr>
+    <tr><td>4</td><td>Firewall rule logs</td><td>On for every allow rule; plus `kade-deny-all-log` at 65534</td><td>Answers "which rule?" in both directions</td></tr>
+    <tr><td>5</td><td>Cloud NAT</td><td>Errors only</td><td>Port exhaustion is the only NAT event worth paging on</td></tr>
+    <tr><td>6</td><td>Exclusion</td><td>Drop 200 responses for `/images/*` from load balancer logs</td><td>The biggest, least useful share of volume</td></tr>
+    <tr><td>7</td><td>Sink</td><td>Load balancer and Cloud Armor entries to BigQuery, kept 400 days</td><td>Security and payment disputes need history</td></tr>
+  </tbody>
+</Table>
+
+<Ch n="16.2">Chapter 16.2</Ch> turns these signals into dashboards, alerts and a troubleshooting routine.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 and 2 are read-only. Commands 3 to 7 change the project.
+
+<TryIt n={1} title="Is logging on for each backend service?">
+
+- **What it shows:** Logging on or off, and the sample rate, for every backend service.
+- **What to look for:** `False` or an empty value on anything public-facing.
+
+```sh
+gcloud compute backend-services list \
+  --format="table(name,logConfig.enable,logConfig.sampleRate)"
+```
+
+</TryIt>
+
+<TryIt n={2} title="Which subnets have flow logs, and which firewall rules log?">
+
+- **What it shows:** Flow log settings per subnet, then logging per firewall rule.
+- **What to look for:** Gaps against section 09's table.
+
+```sh
+gcloud compute networks subnets list --network=kade-vpc \
+  --format="table(name,logConfig.enable,logConfig.flowSampling,logConfig.aggregationInterval)"
+gcloud compute firewall-rules list --filter="network~kade-vpc" \
+  --format="table(name,direction,priority,logConfig.enable)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="Turn on load balancer logging (changes the project)">
+
+- **What it shows:** Logs every request through kade-api-backend.
+- **What to look for:** Entries under `resource.type="http_load_balancer"` within a minute.
+
+```sh
+gcloud compute backend-services update kade-api-backend --global \
+  --enable-logging --logging-sample-rate=1.0
+```
+
+</TryIt>
+
+<TryIt n={4} title="Turn on flow logs for a subnet (changes the project)">
+
+- **What it shows:** Sampled connection records for sn-run, with metadata.
+- **What to look for:** Entries under `logName:"vpc_flows"` after a few minutes of traffic.
+
+```sh
+gcloud compute networks subnets update sn-run --region=asia-southeast1 \
+  --enable-flow-logs --logging-flow-sampling=0.5 \
+  --logging-aggregation-interval=interval-5-sec --logging-metadata=include-all
+```
+
+</TryIt>
+
+<TryIt n={5} title="Log what the implied deny would drop (changes the project)">
+
+- **What it shows:** An explicit, logged "deny everything" ingress rule just above the implied one. It changes no behaviour, only adds the record.
+- **What to look for:** Denied connections with `rule_details.reference` ending in `kade-deny-all-log`.
+
+```sh
+gcloud compute firewall-rules create kade-deny-all-log --network=kade-vpc \
+  --direction=INGRESS --action=DENY --rules=all --source-ranges=0.0.0.0/0 \
+  --priority=65534 --enable-logging
+```
+
+</TryIt>
+
+<TryIt n={6} title="Exclude successful image requests from load balancer logs (changes the project)">
+
+- **What it shows:** An exclusion on the default sink: these entries are dropped before storage.
+- **What to look for:** Log volume for http\_load\_balancer falls the next day. Errors on images are still kept.
+
+```sh
+gcloud logging sinks update _Default --add-exclusion=name=lb-image-200s,\
+filter='resource.type="http_load_balancer" AND httpRequest.requestUrl:"/images/" AND httpRequest.status=200'
+```
+
+</TryIt>
+
+<TryIt n={7} title="Send load balancer logs to BigQuery (changes the project)">
+
+- **What it shows:** A sink copying load balancer entries to a dataset for long-term SQL analysis.
+- **What to look for:** The sink's writer identity needs BigQuery Data Editor on the dataset; the command prints it.
+
+```sh
+gcloud logging sinks create kade-lb-to-bq \
+  bigquery.googleapis.com/projects/kade-prod/datasets/kade_lb_logs \
+  --log-filter='resource.type="http_load_balancer"' --use-partitioned-tables
+```
+
+</TryIt>

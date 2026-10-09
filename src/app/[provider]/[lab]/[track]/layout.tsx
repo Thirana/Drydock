@@ -2,12 +2,8 @@ import { notFound } from "next/navigation";
 import { ViewStrip } from "@/components/layout/view-strip";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
-import {
-  getTrack,
-  labHref,
-  providerHref,
-  viewHref,
-} from "@/lib/content/registry";
+import { mainLinks, startLearning } from "@/lib/content/nav";
+import { getTrack, labHref, viewHref } from "@/lib/content/registry";
 
 /** Track shell: the rail, then the track's views as frames on a strip. */
 export default async function TrackLayout({
@@ -25,12 +21,7 @@ export default async function TrackLayout({
 
   return (
     <div className="bg-ground text-ink flex min-h-screen flex-1 flex-col">
-      <SiteHeader
-        links={[
-          { href: providerHref(ctx.provider), label: ctx.provider.name },
-          { href: labHref(ctx), label: ctx.lab.title },
-        ]}
-      />
+      <SiteHeader links={mainLinks()} cta={startLearning()} />
       <ViewStrip
         slate={{
           href: labHref(ctx),

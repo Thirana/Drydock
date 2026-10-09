@@ -65,6 +65,9 @@ export function allTracks(): TrackContext[] {
   );
 }
 
+/** Every lab, across providers. */
+export const labsHref = "/labs";
+
 export function providerHref(provider: Provider) {
   return `/${provider.slug}`;
 }

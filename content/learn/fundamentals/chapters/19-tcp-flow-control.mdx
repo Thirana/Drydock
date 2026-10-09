@@ -1,0 +1,183 @@
+import { BdpCalc, SeqDiagram, SlideWin } from "@/components/learn/widgets/lazy";
+import { FigProblem } from "@content/learn/fundamentals/figures/19-tcp-flow-control";
+
+## The problem: a buffer that can overflow
+
+When data arrives, the OS does not hand it straight to the app. It puts it in the connection's <Term>receive buffer</Term>, where it waits until the app reads it. If the sender pushes data faster than the app reads, the buffer fills up and overflows, and data is lost. Flow control prevents this.
+
+<Figure hues={["plum", "green", "amber"]} drawing={<FigProblem />} />
+
+## The receive window (rwnd)
+
+The receiver tracks how much free space is left in its buffer and calls it the <Term>receive window</Term> (rwnd). It is the most unacknowledged data the sender may have in flight at once.
+
+<Equation>rwnd = buffer size − data not yet read by the app = 64 KB − 48 KB = 16 KB</Equation>
+
+## Advertised in every segment
+
+The receiver puts its current window in the **Window** field of every segment it sends back (<Ch n="18">chapter 18</Ch>). So with each ACK, the sender learns both what arrived and how much more it may send. It must never go beyond the advertised window. In tcpdump it looks like this:
+
+```text
+IP 34.87.120.15.443 > 192.168.1.23.52814: Flags [.], ack 48001, win 16384
+IP 34.87.120.15.443 > 192.168.1.23.52814: Flags [.], ack 60001, win 4096
+IP 34.87.120.15.443 > 192.168.1.23.52814: Flags [.], ack 64001, win 0
+```
+
+<Caption>The ACKs move forward while the window shrinks: data is arriving faster than kade-api's app reads it. The last line says "stop".</Caption>
+
+## The sliding window
+
+From the sender's side, the byte stream is split into four regions. As ACKs arrive, the window moves right and lets new data go out, which is why it is called a <Term>sliding window</Term>:
+
+<Segments label="← already done|← the window = rwnd →|later →">
+  <Seg w={4} hue="green">sent and ACKed</Seg>
+  <Seg w={3} hue="amber">sent, not yet ACKed (in flight)</Seg>
+  <Seg w={3} dashed hue="teal">may be sent now</Seg>
+  <Seg w={5} muted>must wait</Seg>
+</Segments>
+
+Try it. The laptop uploads 16 KB-sized pieces to kade-api, whose receive buffer holds 8 of them. Send, deliver, and let the app read, in any order. Leave the app idle to see the window close:
+
+<SlideWin />
+
+## Window scaling and the bandwidth-delay product
+
+The Window field is only 16 bits, so it caps at 65,535 bytes (64 KB). At most one window can be in flight per round trip, so speed ≤ window ÷ RTT (<Ch n="18">chapter 18</Ch>). To keep a link full, the window must be at least the <Term>bandwidth-delay product</Term> (BDP): how much data fits "in the pipe" during one round trip.
+
+<BdpCalc />
+
+The **window scale** option fixes the 64 KB cap. In the handshake each side announces a shift count (0 to 14); the real window is the Window field × 2<sup>shift</sup>. The SYN in <Ch n="18">chapter 18</Ch> offered shift 7 (× 128), so a Window field of 16,384 means 2 MB. The largest possible window is about 1 GB.
+
+- **Both sides must offer it,** or neither uses it. A firewall that strips the option from SYNs quietly limits every connection to 64 KB windows: long-distance transfers become slow for no visible reason.
+- **Buffers grow on their own.** Modern OSes auto-tune the receive buffer, starting small and growing it (up to several MB) when a connection is fast and busy.
+
+## Zero window and window probes
+
+If the receiver's buffer is full, it advertises **Window = 0**: stop. The sender then waits, but it cannot just wait forever: if the "window open again" message were lost, both sides would wait for each other. So the sender starts a **persist timer** and sends tiny <Term>window probes</Term> to ask whether space has opened up:
+
+<SeqDiagram set="zerowin" />
+
+<Note>
+
+**Silly window syndrome.** If a receiver advertised every tiny bit of space ("I have 10 bytes free"), the sender would send tiny segments full of header overhead. So receivers wait until a useful amount is free (at least one MSS, or half the buffer) before reopening the window, and senders avoid sending tiny segments.
+
+</Note>
+
+## The same idea in your code: backpressure
+
+Flow control does not stop at the OS. If kade-api writes a large CSV export to a slow client, the client's window closes, kade-api's **send** buffer fills, and the OS stops accepting writes. Node tells you this with the return value of `write()`:
+
+```code
+for (const row of rows) {
+  const ok = res.write(toCsvLine(row));
+  if (!ok) await once(res, 'drain');  // buffer full: wait until TCP has room
+}
+res.end();
+```
+
+Ignore `false` and keep writing, and Node queues everything in memory: one slow phone can make kade-api use hundreds of MB. Streams with `pipe()` or `pipeline()` handle this for you. This chain, from app to OS buffer to TCP window and back, is called <Term>backpressure</Term>.
+
+It also works the other way. If kade-api's Node event loop is blocked by heavy work, it stops reading from its sockets, its receive buffers fill, and clients' uploads pause at Window = 0. That is TCP flow control doing its job, and a useful clue when uploads "freeze".
+
+## Flow control is not congestion control
+
+<Cols n={2}>
+
+<Col title="Flow control · rwnd">
+
+Protects the **receiver**: its buffer.
+
+The receiver sets the limit and tells the sender in every segment.
+
+</Col>
+
+<Col title="Congestion control · cwnd">
+
+Protects the **network**: the links in between.
+
+The sender guesses the limit itself; nobody tells it. Next chapter.
+
+</Col>
+
+</Cols>
+
+Same goal, smooth delivery, but different bottlenecks. The sender obeys both at once: <Ch n="20">chapter 20</Ch> ends with the rule that joins them.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Problem</td><td>Data waits in a receive buffer until the app reads it; it can fill</td><td>receive buffer</td></tr>
+    <tr><td>2</td><td>rwnd</td><td>Free buffer space = most unacked data allowed in flight</td><td>receive window</td></tr>
+    <tr><td>3</td><td>Advertised</td><td>Window field in every segment; the sender must obey it</td><td></td></tr>
+    <tr><td>4</td><td>Sliding</td><td>ACKs move the window right: done · in flight · may send · wait</td><td>sliding window</td></tr>
+    <tr><td>5</td><td>Scaling</td><td>16-bit cap of 64 KB; window scale × 2<sup>n</sup>; window ≥ BDP to fill a link</td><td>window scale, BDP, auto-tuning</td></tr>
+    <tr><td>6</td><td>Zero window</td><td>Stop; the sender probes on a persist timer</td><td>zero window, window probe, silly window syndrome</td></tr>
+    <tr><td>7</td><td>In code</td><td>write() returning false → wait for 'drain'</td><td>backpressure</td></tr>
+    <tr><td>8</td><td>Not congestion</td><td>rwnd protects the receiver; cwnd protects the network</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Per connection: Recv-Q and Send-Q">
+
+- **What to look for:** **Recv-Q** = bytes in the buffer the app has not read yet. Growing on kade-api = the app is not keeping up.
+- **Runs on:** Linux · macOS: netstat -an -p tcp
+- **From section:** [1. The problem: a buffer that can overflow](#the-problem-a-buffer-that-can-overflow)
+
+```sh
+ss -tn
+```
+
+</TryIt>
+
+<TryIt n={2} title="Buffers and windows">
+
+- **What to look for:** `skmem:(r…,rb…)` buffer use and size, `rcv_space`, `snd_wnd`.
+- **Runs on:** Linux
+- **From section:** [5. Window scaling and the bandwidth-delay product](#window-scaling-and-the-bandwidth-delay-product)
+
+```sh
+ss -tmi
+```
+
+</TryIt>
+
+<TryIt n={3} title="Advertised windows live">
+
+- **What to look for:** The `win` value on every line.
+- **From section:** [3. Advertised in every segment](#advertised-in-every-segment)
+
+```sh
+sudo tcpdump -n -i en0 host example.com
+```
+
+</TryIt>
+
+<TryIt n={4} title="Flow control in action">
+
+- **Steps:** Wireshark filter `tcp.analysis.zero_window || tcp.analysis.window_full`
+- **What to look for:** "TCP ZeroWindow", "TCP Window Full", "ZeroWindowProbe".
+- **From section:** [6. Zero window and window probes](#zero-window-and-window-probes)
+
+```sh
+tcp.analysis.zero_window || tcp.analysis.window_full
+```
+
+</TryIt>
+
+<TryIt n={5} title="Auto-tuning limits and scaling">
+
+- **What to look for:** Three numbers: min, default, max buffer; scaling = 1 (on).
+- **Runs on:** Linux
+- **From section:** [5. Window scaling and the bandwidth-delay product](#window-scaling-and-the-bandwidth-delay-product)
+
+```sh
+sysctl net.ipv4.tcp_rmem net.ipv4.tcp_window_scaling
+```
+
+</TryIt>

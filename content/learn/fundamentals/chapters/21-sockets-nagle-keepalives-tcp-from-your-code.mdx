@@ -1,0 +1,271 @@
+import { SeqToggle } from "@/components/learn/widgets/lazy";
+import { FigQueues } from "@content/learn/fundamentals/figures/21-sockets-nagle-keepalives-tcp-from-your-code";
+
+## A socket is your app's handle
+
+Apps never build segments themselves. They ask the OS for a <Term>socket</Term>, a handle for one endpoint of communication, and call a few functions on it. Each call maps to something you already know from the wire:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Call</th><th>Side</th><th>What the OS does</th><th>In Node.js</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`socket()`</td><td>both</td><td>Creates the handle (TCP or UDP)</td><td>done for you</td></tr>
+    <tr><td>2</td><td>`bind(ip, port)`</td><td>server</td><td>Claims the port (443)</td><td>`server.listen(443)` does bind + listen</td></tr>
+    <tr><td>3</td><td>`listen(backlog)`</td><td>server</td><td>State → LISTEN; creates the queues (section 3)</td><td>backlog defaults to 511</td></tr>
+    <tr><td>4</td><td>`connect(ip, port)`</td><td>client</td><td>Picks an ephemeral port, sends SYN, waits for the handshake</td><td>`net.connect()`, `fetch()`, a `pg` pool</td></tr>
+    <tr><td>5</td><td>`accept()`</td><td>server</td><td>Takes one finished connection from the queue and returns a **new** socket for it</td><td>the `'connection'` event</td></tr>
+    <tr><td>6</td><td>`write()` / `read()`</td><td>both</td><td>Copy bytes into the send buffer / out of the receive buffer (<Ch n="19">chapter 19</Ch>)</td><td>`socket.write()`, `'data'` events</td></tr>
+    <tr><td>7</td><td>`close()`</td><td>both</td><td>Sends FIN (<Ch n="16">chapter 16</Ch>)</td><td>`socket.end()`; `destroy()` may send RST</td></tr>
+  </tbody>
+</Table>
+
+## One listening socket, many connected sockets
+
+kade-api has **one** listening socket on port 443. Every accepted connection gets its own new socket, told apart by the 4 values from <Ch n="1">chapter 1</Ch>. So thousands of clients can all talk to port 443 at once: the server port is never "used up".
+
+```text
+$ ss -tn state all '( sport = :443 )'
+State       Local Address:Port    Peer Address:Port
+LISTEN      0.0.0.0:443           0.0.0.0:*
+ESTAB       10.10.1.10:443        203.0.113.45:40001     ← your laptop (after home NAT)
+ESTAB       10.10.1.10:443        203.0.113.45:40003     ← your phone, same public IP
+ESTAB       10.10.1.10:443        198.51.100.20:40117    ← the office front desk PC
+```
+
+<Caption>Port limits (<Ch n="10">chapter 10</Ch>) only hit the **client** side: each outgoing connection needs its own ephemeral port toward the same destination.</Caption>
+
+## The two queues behind listen()
+
+Between the SYN arriving and your code seeing a connection, it waits in two kernel queues:
+
+<Figure hues={["plum", "green", "amber"]} drawing={<FigQueues />} />
+
+If kade-api's event loop is blocked (a big synchronous JSON parse, say), it stops accepting. The accept queue fills up to the backlog, and the kernel then **ignores** new handshakes. Clients see slow connects and timeouts, even though the VM looks fine. Two things to know:
+
+- The backlog you ask for is capped by the OS (`net.core.somaxconn`, 4096 on current Linux).
+- `ss -lnt` shows it live: on a LISTEN line, **Recv-Q** is how many connections are waiting now, **Send-Q** is the backlog. Recv-Q near Send-Q means the app is falling behind.
+
+## "Address already in use"
+
+You restart kade-api and get `EADDRINUSE`. Two possible causes:
+
+<Table>
+  <tbody>
+    <tr><td>**Old connections in TIME-WAIT**</td><td>Connections the old process closed are still in TIME-WAIT (<Ch n="16">chapter 16</Ch>) on port 443. Without the `SO_REUSEADDR` socket option, the OS refuses to bind the port again for up to a minute. Node sets this option for you on listening sockets, so this is mostly a problem in other languages.</td></tr>
+    <tr><td>**Something is still listening**</td><td>The usual cause in Node: the old process has not exited yet, or a second copy is running. Check with `lsof -iTCP:443 -sTCP:LISTEN`.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>`SO_REUSEPORT` is different: it lets several processes listen on the same port on purpose, and the kernel spreads connections between them.</Caption>
+
+## Nagle's algorithm and the 40 ms mystery
+
+<Term>Nagle's algorithm</Term> was built to stop apps from flooding networks with tiny packets (each 1-byte write would otherwise cost 40 bytes of headers). The rule: **while any sent data is still unacknowledged, hold new small writes** and send them together later.
+
+On its own that is fine. Combined with **delayed ACK** on the other side (<Ch n="17">chapter 17</Ch>), it creates a classic stall. kade-api sends a request to a service as two small writes, headers then body:
+
+<SeqToggle sets="nagleon,nagleoff" labels="Nagle on (default for raw sockets),TCP_NODELAY" />
+
+The fix is the `TCP_NODELAY` socket option, which turns Nagle off, or writing each message in one go. In Node:
+
+```code
+socket.setNoDelay(true);   // raw net sockets: Nagle is on by default
+// Node's http module, and most database drivers (e.g. pg), already turn it off for you.
+```
+
+## TCP keepalive (not HTTP keep-alive)
+
+Two features with nearly the same name do completely different things:
+
+<Cols n={2}>
+
+<Col title="TCP keepalive">
+
+After a connection sits idle for a while, the OS sends a tiny empty probe to check the other side is alive, and keeps NAT and firewall rows fresh.
+
+Off by default. Linux defaults when on: first probe after 2 hours (!), then every 75 s, give up after 9.
+
+</Col>
+
+<Col title="HTTP keep-alive">
+
+Reusing one TCP connection for many HTTP requests instead of opening a new one each time (<Ch n="16">chapter 16</Ch>'s handshake cost).
+
+An HTTP feature. Sends nothing while idle.
+
+</Col>
+
+</Cols>
+
+The Linux default of 2 hours is far longer than any NAT or firewall timeout (next section), so on its own it saves nothing. Set a short delay per socket:
+
+```code
+socket.setKeepAlive(true, 60_000);          // first probe after 60 s idle
+new pg.Pool({ keepAlive: true, keepAliveInitialDelayMillis: 60_000 });
+```
+
+## Who drops idle connections
+
+An idle TCP connection passes through many boxes that each forget it after their own timeout. When one forgets, the next packet gets a RST or silence (<Ch n="10">chapters 10</Ch> and <Ch n="16">16</Ch>). For Kadé:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Where</th><th>Idle timeout (defaults)</th><th>Affects</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Home / office routers (NAT)</td><td>varies: minutes to hours</td><td>Long-lived connections from laptops and PCs</td></tr>
+    <tr><td>2</td><td>GCP firewall connection tracking</td><td>about 10 minutes for established TCP</td><td>kade-api ⇄ kade-db, and anything through VPC firewall rules</td></tr>
+    <tr><td>3</td><td>Cloud NAT (planned)</td><td>20 minutes for established TCP (<Ch n="10">chapter 10</Ch>)</td><td>kade-api → PayGate after the load balancer arrives</td></tr>
+    <tr><td>4</td><td>GCP external application load balancer (planned)</td><td>keeps idle client and backend connections about 10 minutes (610 s at the time of writing)</td><td>Browsers and apps → api.kade.lk</td></tr>
+    <tr><td>5</td><td>Node HTTP server</td><td>`server.keepAliveTimeout` = 5 s</td><td>kade-api closes idle HTTP connections after 5 s</td></tr>
+    <tr><td>6</td><td>node-postgres pool</td><td>`idleTimeoutMillis` = 10 s</td><td>kade-api's idle DB connections</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Cloud defaults change; confirm current values in GCP's documentation before relying on them.</Caption>
+
+<Key title="Two rules">
+
+1. Make the side that owns the connection close it (or ping it) **before** anything in between forgets it: pool idle timeout or keepalive shorter than the smallest timeout on the path. 2. Behind a load balancer, the **server** must keep idle connections open **longer** than the load balancer does. With Node's 5 s default behind a 610 s load balancer, the load balancer sometimes sends a request on a connection Node just closed, and users get random 502 errors. Set `server.keepAliveTimeout` to about 620 s (and `headersTimeout` a little higher).
+
+</Key>
+
+## Connection pools
+
+Everything in Section 2 argues for reusing connections: every new connection costs a handshake (and TLS), starts in slow start (<Ch n="20">chapter 20</Ch>), uses an ephemeral port and leaves a TIME-WAIT behind. So kade-api keeps pools of open connections:
+
+```code
+const db = new pg.Pool({
+  max: 20,                          // at most 20 connections to kade-db
+  idleTimeoutMillis: 30_000,          // close idle ones well before the ~10 min firewall timeout
+  keepAlive: true,
+});
+
+const payGate = new https.Agent({ keepAlive: true, maxSockets: 50 });  // reuse connections to PayGate
+```
+
+<Caption>Node 19 and later turn HTTP keep-alive on by default for the global agent. Fetch (undici) pools connections by default too.</Caption>
+
+## Errors you will see, and what they mean
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Error</th><th>What happened on the wire</th><th>Usual cause</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`ECONNREFUSED`</td><td>SYN answered with RST</td><td>Nothing listening on that port (<Ch n="16">chapter 16</Ch>)</td></tr>
+    <tr><td>2</td><td>`ETIMEDOUT`</td><td>SYNs, or data, got no answer</td><td>Firewall dropping packets; host down; full accept queue</td></tr>
+    <tr><td>3</td><td>`ECONNRESET`</td><td>RST arrived on an open connection</td><td>Peer crashed or closed abruptly; a NAT or firewall forgot an idle connection</td></tr>
+    <tr><td>4</td><td>`EPIPE`</td><td>Writing to a connection the other side already closed</td><td>Same as above, noticed while writing</td></tr>
+    <tr><td>5</td><td>`EADDRINUSE`</td><td>bind() refused</td><td>Another process listening; old process not dead (section 4)</td></tr>
+    <tr><td>6</td><td>Steady ~40 ms extra on small requests</td><td>Nagle + delayed ACK</td><td>TCP\_NODELAY off (section 5)</td></tr>
+    <tr><td>7</td><td>Random 502s behind a load balancer</td><td>LB reused a connection the server had just closed</td><td>Server keep-alive timeout shorter than the LB's (section 7)</td></tr>
+    <tr><td>8</td><td>First query after a quiet period hangs, then fails</td><td>Middlebox forgot the idle connection</td><td>Pool idle timeout or keepalive too long (sections 6-7)</td></tr>
+  </tbody>
+</Table>
+
+## Section 2 complete
+
+This chapter closes Section 2. One request from your laptop to kade-api is now explained end to end below HTTP, from both the network's side and your code's side:
+
+<Hops>
+  <Hop sub="ch 11">Layers</Hop>
+  <Hop sub="ch 12">Routing</Hop>
+  <Hop sub="ch 13">ICMP</Hop>
+  <Hop sub="ch 14-15">UDP</Hop>
+  <Hop sub="ch 16-20">TCP</Hop>
+  <Hop sub="ch 21" state="on">TCP in code</Hop>
+  <Hop sub="DNS, WebSocket …" state="next">Section 3</Hop>
+</Hops>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Sockets</td><td>socket, bind, listen, connect, accept, read/write, close</td><td>socket</td></tr>
+    <tr><td>2</td><td>Many connections</td><td>One listening socket; a new socket per connection</td><td></td></tr>
+    <tr><td>3</td><td>Queues</td><td>SYN queue, accept queue (backlog); a slow app overflows the second</td><td>backlog, somaxconn</td></tr>
+    <tr><td>4</td><td>EADDRINUSE</td><td>TIME-WAIT or a live listener; SO\_REUSEADDR, SO\_REUSEPORT</td><td>SO\_REUSEADDR</td></tr>
+    <tr><td>5</td><td>Nagle</td><td>Holds small writes; with delayed ACK = ~40 ms stalls; fix with TCP\_NODELAY</td><td>Nagle, TCP\_NODELAY</td></tr>
+    <tr><td>6</td><td>Keepalive</td><td>TCP keepalive probes idle connections; HTTP keep-alive reuses them</td><td>TCP keepalive</td></tr>
+    <tr><td>7</td><td>Idle timeouts</td><td>Close or ping before the middlebox forgets; server outlives the LB</td><td></td></tr>
+    <tr><td>8</td><td>Pools</td><td>Reuse connections: fewer handshakes, warm windows, fewer ports</td><td>connection pool</td></tr>
+    <tr><td>9</td><td>Errors</td><td>REFUSED, TIMEDOUT, RESET, EPIPE, ADDRINUSE mapped to the wire</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Listening sockets and their queues">
+
+- **What to look for:** For `:443`: Recv-Q (waiting now) vs Send-Q (backlog).
+- **Runs on:** Linux, on kade-api
+- **From section:** [3. The two queues behind listen()](#the-two-queues-behind-listen)
+
+```sh
+ss -lnt
+```
+
+</TryIt>
+
+<TryIt n={2} title="Accept queue overflows since boot">
+
+- **What to look for:** Anything above 0 and growing = the app is too slow to accept.
+- **Runs on:** Linux
+- **From section:** [3. The two queues behind listen()](#the-two-queues-behind-listen)
+
+```sh
+nstat -az TcpExtListenOverflows TcpExtListenDrops
+```
+
+</TryIt>
+
+<TryIt n={3} title="Who holds the port">
+
+- **What to look for:** The PID of the old process, if it is still alive.
+- **From section:** [4. "Address already in use"](#address-already-in-use)
+
+```sh
+lsof -iTCP:443 -sTCP:LISTEN -n -P
+```
+
+</TryIt>
+
+<TryIt n={4} title="Connections with their timers">
+
+- **What to look for:** `timer:(keepalive,…)` on sockets with keepalive on.
+- **Runs on:** Linux
+- **From section:** [6. TCP keepalive (not HTTP keep-alive)](#tcp-keepalive-not-http-keep-alive)
+
+```sh
+ss -tno state established
+```
+
+</TryIt>
+
+<TryIt n={5} title="System keepalive defaults">
+
+- **What to look for:** `7200`, `75`, `9`.
+- **From section:** [6. TCP keepalive (not HTTP keep-alive)](#tcp-keepalive-not-http-keep-alive)
+
+```sh
+sysctl net.ipv4.tcp_keepalive_time net.ipv4.tcp_keepalive_intvl net.ipv4.tcp_keepalive_probes
+```
+
+</TryIt>
+
+<TryIt n={6} title="Time between packets">
+
+- **What to look for:** A ~40 ms gap before the second write with Nagle on; none with NODELAY.
+- **Runs on:** while a test client writes twice to a local server
+- **From section:** [5. Nagle's algorithm and the 40 ms mystery](#nagle-s-algorithm-and-the-40-ms-mystery)
+
+```sh
+sudo tcpdump -n -ttt -i lo port 9000
+```
+
+</TryIt>

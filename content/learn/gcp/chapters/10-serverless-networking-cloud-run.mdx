@@ -1,0 +1,323 @@
+import { RunPaths } from "@/components/learn/widgets/lazy";
+
+<Box kind="problem" title="The problem">
+
+Kadé is moving the API from the two VMs to a Cloud Run service, `kade-api`. After the move, it must still:
+
+- reach the database on a private IP (kade-db today, Cloud SQL `kade-sql` from <Ch n="9">chapter 9</Ch>);
+- call PayGate from `34.87.200.7`, the only address on PayGate's allow-list (<Ch n="7">chapter 7</Ch>);
+- be reachable only through the load balancer, not through its own public `run.app` address.
+
+Background jobs move to a small VM, `kade-worker`, which keeps using what <Ch n="6">chapters 6</Ch> and <Ch n="7">7</Ch> built.
+
+</Box>
+
+## Cloud Run lives outside your VPC
+
+A VM has a network card in your subnet. It has an internal IP, it is part of the VPC, and <Ch n="1">chapters 1</Ch> to 7 apply to it directly. Cloud Run has none of that. It runs containers that Google starts and stops on demand, on Google's own infrastructure, **outside your VPC**.
+
+By default, an outgoing call from Cloud Run goes straight to the internet from Google's serverless infrastructure. It never touches your VPC, routes, firewall or Cloud NAT. Two problems follow:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Problem</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>It cannot reach private things</td><td>kade-db's `10.10.2.5` exists only inside kade-vpc, and Cloud Run is not in it</td></tr>
+    <tr><td>2</td><td>Its outgoing IP is unpredictable</td><td>Traffic leaves from a shared pool of Google addresses that changes all the time. There is nothing to put on PayGate's allow-list</td></tr>
+  </tbody>
+</Table>
+
+A real backend, one that talks to a private database and needs a fixed outgoing IP, must be connected to the VPC.
+
+<Note>
+
+**Not everything belongs on Cloud Run.** Software that needs OS-level setup, steady all-day load, long-lived connections or a large local cache often fits VMs better. <Ch n="12.2">Chapter 12.2</Ch> covers running VMs behind the same load balancer, in a managed instance group that scales and heals itself.
+
+</Note>
+
+## Two ways to connect to the VPC
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Serverless VPC Access connector</th><th>Direct VPC egress</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>How it works</td><td>A group of managed VMs that forward traffic from Cloud Run into your VPC</td><td>Each Cloud Run instance gets its own internal IP in a subnet you choose</td></tr>
+    <tr><td>2</td><td>Addresses used</td><td>A dedicated `/28` for the connector VMs</td><td>About 2 per instance, from your subnet (below)</td></tr>
+    <tr><td>3</td><td>Cost</td><td>The connector VMs are billed all the time, used or not</td><td>No extra charge; network traffic only</td></tr>
+    <tr><td>4</td><td>Throughput</td><td>Limited by how many connector VMs you allow</td><td>Grows with the service</td></tr>
+    <tr><td>5</td><td>Latency</td><td>An extra hop</td><td>Lower</td></tr>
+    <tr><td>6</td><td>Something to run</td><td>Yes, the connector</td><td>No</td></tr>
+    <tr><td>7</td><td>Status</td><td>The original method</td><td>**What Google now recommends**</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The connector's traffic uses the special path `35.199.224.0/19` from <Ch n="4">chapter 4</Ch>. Once traffic is inside the VPC by either method, it follows your routes and your firewall rules like any other VPC traffic.</Caption>
+
+### Sizing the subnet for Direct VPC egress
+
+This is the one planning step. Cloud Run takes addresses from the subnet in blocks of 16 (`/28`) so it can scale quickly, uses about **2 addresses per instance** in steady state, and keeps a scaled-down revision's addresses for up to 20 minutes. During a deploy, the old and new revisions can both hold addresses:
+
+```text
+Kadé: kade-api max 50 instances
+
+During a deploy:  (50 old + 50 new) × 2 = 200 addresses
+sn-run 10.10.3.0/24 → 252 usable (chapter 2)  → fits, with a small margin
+
+A /26 (60 usable) would run out during the first deploy under load.
+```
+
+The addresses change all the time, so never write firewall rules for single Cloud Run IPs. Use the whole subnet range, the service's network tags, or its service account.
+
+## Egress: which traffic goes through the VPC
+
+There are two layers of setting. First, is the service connected to the VPC at all? Second, if it is, which of its traffic uses that connection: `private-ranges-only` or `all-traffic`?
+
+<Box kind="console" title="Default · Not connected">
+
+```text
+kade-api ──▶ internet            (source = random Google pool IP)
+         ──▶ ✗ 10.10.2.5         (cannot reach it: not in the VPC)
+```
+
+</Box>
+
+<Box kind="console" title="Direct VPC egress + private-ranges-only">
+
+```text
+                          ┌─▶ private destination (10.10.2.5, other VMs)
+kade-api ──▶ kade-vpc ────┤     through sn-run, your routes, your firewall
+                          └─▶ (internet-bound traffic does NOT come here)
+
+kade-api ──▶ internet directly     (source = random Google pool IP)
+```
+
+Only traffic to private ranges (RFC 1918, plus the Private Google Access addresses) goes through the VPC. It can reach the database, but its internet IP is still unpredictable. Fine for a service that needs a private database and calls nothing that checks its IP.
+
+</Box>
+
+<Box kind="console" title="Direct VPC egress + all-traffic">
+
+```text
+                          ┌─▶ private destination (10.10.2.5)   via sn-run + firewall
+kade-api ──▶ kade-vpc ────┤
+                          └─▶ internet destination → Cloud NAT → internet
+                                                     (source = 34.87.200.7)
+```
+
+Everything goes through the VPC. It reaches private things **and** leaves from a fixed, known IP. Required when something allow-lists your outgoing address, like PayGate.
+
+</Box>
+
+<Key title="The one-line difference">
+
+`private-ranges-only` sends only private traffic through the VPC, so internet traffic still leaves from a random IP. `all-traffic` sends everything through the VPC, so internet traffic leaves from your NAT IP. **Only `all-traffic` gives a fixed outgoing IP**, and only if Cloud NAT covers the subnet.
+
+</Key>
+
+Two things to add when you choose `all-traffic`:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Need</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Cloud NAT must cover `sn-run`</td><td>Otherwise internet calls enter the VPC and find no way out. Add sn-run to `kade-nat` (<Ch n="7">chapter 7</Ch> section 03)</td></tr>
+    <tr><td>2</td><td>Google APIs still work</td><td>Calls to Google APIs now go through the VPC too. Private Google Access handles them, and Cloud NAT turns it on for sn-run automatically (<Ch n="7">chapter 7</Ch> section 02)</td></tr>
+  </tbody>
+</Table>
+
+## Firewall rules for Cloud Run traffic
+
+Once kade-api's traffic enters kade-vpc from sn-run, kade-db's ingress rules judge it like any other packet (<Ch n="5.1">chapter 5.1</Ch>). The rule `kade-api-to-db` allowed traffic from VMs running as `sa-kade-api`. Cloud Run is not a VM, so give it a rule of its own:
+
+<Box kind="console" title="Rule · Cloud Run to the database">
+
+```text
+name:      kade-run-to-db
+direction: INGRESS   priority: 1000   action: allow
+target:    service account sa-kade-db
+source:    10.10.3.0/24          ← all of sn-run
+protocol:  tcp:5432
+```
+
+"Anything in sn-run may reach kade-db on PostgreSQL." Because only kade-api uses sn-run, the subnet range is a fair stand-in for the service. If other services later share sn-run, give kade-api network tags (`--network-tags`) and use them as the source, so each service gets its own rule.
+
+</Box>
+
+## Ingress: who may reach the service
+
+Ingress is a completely separate setting. It controls who may reach the service, whatever the egress settings are.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Ingress value</th><th>Reachable from</th><th>Blocked</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`all`</td><td>Anyone on the internet, directly at the `run.app` address</td><td>Nothing</td></tr>
+    <tr><td>2</td><td>`internal`</td><td>Your VPC, plus a few Google services such as Pub/Sub and Eventarc</td><td>The `run.app` address from the internet</td></tr>
+    <tr><td>3</td><td>`internal-and-cloud-load-balancing`</td><td>Your VPC, plus a load balancer in front</td><td>Direct internet access to `run.app`</td></tr>
+  </tbody>
+</Table>
+
+<Caption>"Your VPC" here means requests that arrive from inside it, for example from a VM without an external IP, which reaches Cloud Run through Private Google Access.</Caption>
+
+```text
+ingress: all
+  internet ──▶ https://kade-api-xxxx.run.app ──▶ kade-api   ✓ open to the world
+
+ingress: internal
+  kade-vpc ──▶ kade-api   ✓
+  internet ──▶ run.app    ✗ blocked
+
+ingress: internal-and-cloud-load-balancing
+  internet ──▶ load balancer (+ Cloud Armor) ──▶ kade-api   ✓
+  internet ──▶ https://kade-api-xxxx.run.app               ✗ blocked
+  kade-vpc ──▶ kade-api                                     ✓
+```
+
+<Box kind="console" title={"The trap · ingress left at \"all\""}>
+
+```text
+Intended:   shopper ──▶ Cloudflare ──▶ load balancer + Cloud Armor ──▶ kade-api   ✓ protected
+Also open:  attacker ──▶ kade-api-xxxx.run.app ───────────────────▶ kade-api   ✗ skips all of it
+```
+
+If a service is meant to sit behind a load balancer, with a web application firewall or behind a CDN, but its ingress is left at `all`, the `run.app` address is a second, unprotected way in. The fix is `internal-and-cloud-load-balancing`, which closes the bypass and leaves only the front door.
+
+</Box>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Layer</th><th>Question it answers</th><th>Set with</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Ingress setting</td><td>Can this **network path** reach the service at all?</td><td>`--ingress`</td></tr>
+    <tr><td>2</td><td>IAM invoker check</td><td>Is this **caller** allowed to invoke it?</td><td>`roles/run.invoker`, or `--allow-unauthenticated` for public services</td></tr>
+    <tr><td>3</td><td>Default URL</td><td>Does the `run.app` address exist at all?</td><td>`--no-default-url` removes it</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A public shop API behind a load balancer must allow unauthenticated calls, because shoppers have no Google identity. That makes the ingress setting the thing that protects it, which is why getting it right matters so much.</Caption>
+
+## Quick reference
+
+Read any Cloud Run service's networking as two separate questions:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Direction</th><th>Question</th><th>Options</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Ingress**</td><td>The door in: who can reach it?</td><td>`all` · `internal` · `internal-and-cloud-load-balancing`</td></tr>
+    <tr><td>2</td><td>**Egress**</td><td>The door out: what can it reach, and from which IP?</td><td>Not connected, or connected with `private-ranges-only` or `all-traffic`</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Ingress</th><th>Egress</th><th>Reaches private IPs</th><th>Internet egress IP</th><th>Fits</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`all`</td><td>none</td><td>✗</td><td>Random Google pool</td><td>Public API with nothing private, and no load balancer protection</td></tr>
+    <tr><td>2</td><td>`all`</td><td>`private-ranges-only`</td><td>✓</td><td>Random Google pool</td><td>Public service with a private database; nothing allow-lists it</td></tr>
+    <tr><td>3</td><td>`internal-and-cloud-load-balancing`</td><td>`all-traffic`</td><td>✓</td><td>Fixed NAT IP</td><td>**The hardened production shape**: behind a load balancer and WAF, private database, allow-listable egress. Kadé's choice</td></tr>
+    <tr><td>4</td><td>`internal`</td><td>`all-traffic`</td><td>✓</td><td>Fixed NAT IP</td><td>An internal-only service calling an allow-listed partner API</td></tr>
+  </tbody>
+</Table>
+
+### Try it: what can reach kade-api, and what can it reach?
+
+<RunPaths />
+
+<Box kind="exam" title="Exam angle">
+
+"Cloud Run must reach a Cloud SQL private IP" is answered with Direct VPC egress (or a connector). "…and calls must come from a static IP" adds `all-traffic` and Cloud NAT with a reserved IP. "Only reachable through the load balancer" is ingress `internal-and-cloud-load-balancing`.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Moved: the API runs on Cloud Run">
+
+- **1. Subnet.** Create `sn-run 10.10.3.0/24` (planned in <Ch n="0">chapter 0</Ch>), and add it to `kade-nat`.
+- **2. Firewall.** Add `kade-run-to-db`: tcp:5432 from `10.10.3.0/24` to `sa-kade-db`.
+- **3. Deploy** `kade-api` with Direct VPC egress into sn-run, `--vpc-egress=all-traffic`, `--ingress=internal-and-cloud-load-balancing`.
+- **4. Verify** before any shopper traffic moves: the service reaches kade-db, a test call to an IP-echo endpoint shows `34.87.200.7`, PayGate accepts a test payment, and the `run.app` address returns 404 from your laptop.
+- **5. Switch the load balancer** to a serverless backend for kade-api (<Ch n="11">chapters 11</Ch> and <Ch n="12">12</Ch>), then retire kade-api-1 and kade-api-2. Their firewall rules `kade-lb-to-api` and `kade-api-to-db` go with them.
+- **6. Background jobs** move to `kade-worker` at `10.10.1.20` (reserved in <Ch n="3">chapter 3</Ch>), with no external IP, IAP for admin, and Cloud NAT for PayGate refunds.
+
+After <Ch n="9">chapter 9</Ch>, the database address in the service's config changes from `10.10.2.5` to `db.kade.internal` (<Ch n="8">chapter 8</Ch>), which points at Cloud SQL's private IP. Nothing in this chapter's network setup changes when that happens.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 and 2 are read-only. Commands 3 to 5 change the project.
+
+<TryIt n={1} title="See a service's ingress and egress settings">
+
+- **What it shows:** The ingress value and the VPC settings of kade-api's current revision.
+- **What to look for:** The `run.googleapis.com/ingress` annotation, and `run.googleapis.com/network-interfaces` and `vpc-access-egress` in the revision template.
+
+```sh
+gcloud run services describe kade-api --region=asia-southeast1 --format=yaml \
+  | grep -E "ingress|network-interfaces|vpc-access-egress"
+```
+
+</TryIt>
+
+<TryIt n={2} title={"Find every service with ingress \"all\""}>
+
+- **What it shows:** Each Cloud Run service in the region with its ingress setting.
+- **What to look for:** `all` on anything that has a load balancer in front of it (the trap in section 05).
+
+```sh
+gcloud run services list --region=asia-southeast1 \
+  --format="table(metadata.name,metadata.annotations['run.googleapis.com/ingress'])"
+```
+
+</TryIt>
+
+<TryIt n={3} title="Create the Cloud Run subnet and add it to the NAT (changes the project)">
+
+- **What it shows:** Step 1: sn-run exists and Cloud NAT covers it.
+- **What to look for:** The NAT's subnet list now includes sn-run. The `--nat-custom-subnet-ip-ranges` flag replaces the list, so name all three.
+
+```sh
+gcloud compute networks subnets create sn-run \
+  --network=kade-vpc --region=asia-southeast1 --range=10.10.3.0/24
+gcloud compute routers nats update kade-nat \
+  --router=kade-router --region=asia-southeast1 \
+  --nat-custom-subnet-ip-ranges=sn-app,sn-data,sn-run
+```
+
+</TryIt>
+
+<TryIt n={4} title="Deploy with Direct VPC egress and locked ingress (changes the project)">
+
+- **What it shows:** Step 3: all outgoing traffic through kade-vpc, reachable only from the VPC and the load balancer.
+- **What to look for:** Command 1 shows both settings. Replace the image path with your own.
+
+```sh
+gcloud run deploy kade-api --region=asia-southeast1 \
+  --image=asia-southeast1-docker.pkg.dev/kade-prod/kade/api:latest \
+  --network=kade-vpc --subnet=sn-run --vpc-egress=all-traffic \
+  --ingress=internal-and-cloud-load-balancing \
+  --allow-unauthenticated --max-instances=50
+```
+
+</TryIt>
+
+<TryIt n={5} title="Close the run.app bypass on an existing service (changes the project)">
+
+- **What it shows:** The one-line fix for the trap in section 05.
+- **What to look for:** The `run.app` address returns 404 from outside, while the site still works through the load balancer. Set up the load balancer first, or the service becomes unreachable.
+
+```sh
+gcloud run services update kade-api --region=asia-southeast1 \
+  --ingress=internal-and-cloud-load-balancing
+```
+
+</TryIt>

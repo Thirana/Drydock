@@ -1,0 +1,69 @@
+import { Cap1, Quiz1 } from "@/components/learn/widgets/lazy";
+
+<Box kind="problem" title="The request">
+
+A shopper in Colombo opens a product page. The page asks for a resized photo: `https://www.kade.lk/media/rice-640w.jpg`. kade-media (<Ch n="12.2">chapter 12.2</Ch>) looks up the photo's details in Cloud SQL, reads the original from Cloud Storage, resizes it, and sends it back. It is the first time anyone has asked for this size, so no cache has it yet.
+
+</Box>
+
+## How to use this chapter
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Mode</th><th>What it shows</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Request path**</td><td>Eight hops from the shopper to the database and back to the VM. Step with "Next hop"</td></tr>
+    <tr><td>2</td><td>**Return path**</td><td>The answer travelling back, where stateful firewalls, caches and logs do their part</td></tr>
+    <tr><td>3</td><td>**Break it**</td><td>Seven real misconfigurations from earlier chapters: where the request fails, what the shopper sees, and the log line that gives it away</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Watch the **Packet** box as you step: the source and destination change at every proxy. Shopper, Cloudflare, Google's front end and the VM each see a different "client".</Caption>
+
+## The walk
+
+<Cap1 />
+
+## Who sees which address
+
+The same request has four different "clients", depending on who is looking. Most "wrong IP in the logs" confusion comes from mixing these up:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Who is looking</th><th>Sees the client as</th><th>Real shopper's IP is in</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Cloudflare</td><td>`203.0.113.99`, the shopper</td><td>The connection itself</td><td className="whitespace-nowrap">13</td></tr>
+    <tr><td>2</td><td>Google's front end, Cloud Armor</td><td>`104.23.211.40`, a Cloudflare edge</td><td>`CF-Connecting-IP`</td><td className="whitespace-nowrap">13</td></tr>
+    <tr><td>3</td><td>kade-media's VM (TCP)</td><td>`35.191.8.20`, Google's front end</td><td>`CF-Connecting-IP`, or `X-Forwarded-For` counted from the right</td><td className="whitespace-nowrap">12.1</td></tr>
+    <tr><td>4</td><td>Cloud SQL, Cloud Storage</td><td>`10.10.1.31`, the VM</td><td>Nowhere: they serve the VM, not the shopper</td><td className="whitespace-nowrap">9</td></tr>
+  </tbody>
+</Table>
+
+## Every layer that protected this request
+
+Nine separate controls touched this one photo request. Each one covers a gap the others leave:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Control</th><th>Stops</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Cloudflare WAF and DDoS</td><td>Attacks and floods, before they reach Google</td><td className="whitespace-nowrap">13</td></tr>
+    <tr><td>2</td><td>Full (strict) TLS on both legs</td><td>Anyone reading or changing traffic between Cloudflare and Google</td><td className="whitespace-nowrap">13</td></tr>
+    <tr><td>3</td><td>Cloud Armor origin lock</td><td>Anyone going around Cloudflare to the load balancer</td><td className="whitespace-nowrap">13</td></tr>
+    <tr><td>4</td><td>Cloud Armor WAF rules</td><td>Attacks that got past Cloudflare</td><td className="whitespace-nowrap">12.1</td></tr>
+    <tr><td>5</td><td>No external IP on any VM</td><td>Anyone reaching kade-media without the load balancer</td><td className="whitespace-nowrap">3, 12.2</td></tr>
+    <tr><td>6</td><td>Firewall by service account</td><td>Anything but Google's front ends reaching port 8080</td><td className="whitespace-nowrap">5.1</td></tr>
+    <tr><td>7</td><td>Cloud SQL: private IP, encrypted only</td><td>The database being reachable or readable from outside</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>8</td><td>Private Google Access, IAM on the bucket</td><td>The VM needing the internet, or any key file, to read photos</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>9</td><td>Org policies and folder firewall policy</td><td>Someone undoing items 5 to 7 with a console click</td><td className="whitespace-nowrap">17</td></tr>
+  </tbody>
+</Table>
+
+## Self-check
+
+Six questions about this path. Each answer links back to the chapter that explains it:
+
+<Quiz1 />

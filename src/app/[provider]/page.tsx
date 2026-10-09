@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { LabList } from "@/components/site/lab-list";
 import { PageShell } from "@/components/site/page-shell";
-import { StatPills } from "@/components/site/stat-pills";
-import { ButtonLink } from "@/components/ui/button";
-import { IconArrow } from "@/components/ui/icons";
-import { getProvider, labHref, providers } from "@/lib/content/registry";
-import { labStats } from "@/lib/content/stats";
+import { getProvider, providers } from "@/lib/content/registry";
 
 export const dynamicParams = false;
 
@@ -42,41 +39,7 @@ export default async function ProviderPage({
       </section>
 
       <section aria-label="Labs" className="pb-20 sm:pb-24">
-        <ul className="border-rule border-t">
-          {provider.labs.map((lab, i) => {
-            const ctx = { provider, lab };
-            const stats = labStats(lab);
-            return (
-              <li
-                key={lab.slug}
-                className="border-rule grid gap-8 border-b py-10 lg:grid-cols-12 lg:items-end"
-              >
-                <div className="lg:col-span-8">
-                  <span className="text-ink-faint font-mono text-[18px] font-bold">
-                    {i + 1}.
-                  </span>
-                  <h2 className="dd-head text-ink mt-1 text-[36px]">
-                    {lab.title}
-                  </h2>
-                  <p className="text-ink-body mt-3 max-w-[56ch] text-[17px] leading-[1.55] text-pretty">
-                    {lab.summary}
-                    {lab.disclaimer && <> {lab.disclaimer}</>}
-                  </p>
-                  {stats && <StatPills stats={stats} className="mt-5" />}
-                </div>
-                <div className="lg:col-span-4 lg:flex lg:justify-end">
-                  <ButtonLink
-                    href={labHref(ctx)}
-                    size="lg"
-                    trailing={<IconArrow size={14} />}
-                  >
-                    Open {lab.title}
-                  </ButtonLink>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <LabList labs={provider.labs.map((lab) => ({ provider, lab }))} />
       </section>
     </PageShell>
   );

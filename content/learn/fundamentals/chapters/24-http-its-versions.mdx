@@ -1,0 +1,342 @@
+import { Waterfall } from "@/components/learn/widgets/lazy";
+
+<Part n="A">The protocol</Part>
+
+## Request and response, no memory
+
+<Term>HTTP</Term> (HyperText Transfer Protocol) is a request/response protocol: the client sends a request, the server returns one response. It is <Term>stateless</Term>: each request stands alone, and the server does not remember the previous one. That is why cookies and tokens exist, to carry "who you are" on every request (section 6).
+
+## Anatomy of a URL
+
+<Segments>
+  <Seg w={1}>https://</Seg>
+  <Seg w={1.3} hue="green">api.kade.lk</Seg>
+  <Seg w={.6} muted>:443</Seg>
+  <Seg w={1.8} hue="plum">/orders/1042</Seg>
+  <Seg w={1.6} hue="amber">?include=items</Seg>
+  <Seg w={1} muted>#summary</Seg>
+</Segments>
+
+<Segments>
+  <Seg w={1}>scheme</Seg>
+  <Seg w={1.3} hue="green">host (DNS, <Ch n="22">ch 22</Ch>)</Seg>
+  <Seg w={.6} muted>port</Seg>
+  <Seg w={1.8} hue="plum">path</Seg>
+  <Seg w={1.6} hue="amber">query string</Seg>
+  <Seg w={1} muted>fragment</Seg>
+</Segments>
+
+<Caption>The port is usually left out: https means 443, http means 80. The fragment (`#summary`) is never sent to the server; only the browser uses it.</Caption>
+
+## What a request and a response contain
+
+Both have the same shape: a start line, headers, a blank line, and an optional body. Here is the Kadé app placing an order:
+
+<Cols n={2}>
+
+<Col title="Request">
+
+```text
+POST /orders HTTP/1.1
+Host: api.kade.lk
+Authorization: Bearer eyJhbGci…
+Content-Type: application/json
+Content-Length: 58
+
+{"items":[{"sku":"RICE-5KG","qty":2}],"slot":"evening"}
+```
+
+Request line: method + path + version. Then headers, a blank line, the body.
+
+</Col>
+
+<Col title="Response">
+
+```text
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /orders/1042
+Cache-Control: no-store
+Content-Length: 41
+
+{"id":1042,"status":"confirmed","total":…}
+```
+
+Status line: version + status code + reason. Then headers, a blank line, the body.
+
+</Col>
+
+</Cols>
+
+The body's size is given by `Content-Length`. When the server does not know the size in advance (streaming a CSV export, <Ch n="19">chapter 19</Ch>), it uses `Transfer-Encoding: chunked` in HTTP/1.1 and sends the body in pieces, each with its own length.
+
+## Methods
+
+The method states the request's intent. Two properties decide what is safe to **retry** automatically, which matters a lot when connections drop (<Ch n="21">chapter 21</Ch>):
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Method</th><th>Intent</th><th>Kadé example</th><th>Safe?</th><th>Idempotent?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**GET**</td><td>Read something</td><td>`GET /orders/1042`</td><td>yes</td><td>yes</td></tr>
+    <tr><td>2</td><td>**POST**</td><td>Create, or run an action</td><td>`POST /orders`</td><td>no</td><td>no</td></tr>
+    <tr><td>3</td><td>**PUT**</td><td>Replace a resource entirely</td><td>`PUT /users/me/address`</td><td>no</td><td>yes</td></tr>
+    <tr><td>4</td><td>**PATCH**</td><td>Change part of a resource</td><td>`PATCH /orders/1042 {"slot":"morning"}`</td><td>no</td><td>not guaranteed</td></tr>
+    <tr><td>5</td><td>**DELETE**</td><td>Remove</td><td>`DELETE /cart/items/9`</td><td>no</td><td>yes</td></tr>
+    <tr><td>6</td><td>HEAD</td><td>Like GET, headers only</td><td>checking a file's size</td><td>yes</td><td>yes</td></tr>
+    <tr><td>7</td><td>OPTIONS</td><td>Ask what is allowed</td><td>the browser's CORS "preflight" before a cross-site call</td><td>yes</td><td>yes</td></tr>
+  </tbody>
+</Table>
+
+<Caption>**Safe** = changes nothing on the server. **Idempotent** = doing it twice has the same effect as once. If a POST /orders times out, retrying it might create two orders. That is why payment APIs like PayGate accept an **idempotency key** header: the same key twice means "same request", and the server does not repeat it.</Caption>
+
+## Status codes
+
+The first digit gives the family. Learn the families, and API debugging gets much faster:
+
+<Table>
+  <thead>
+    <tr><th>Code</th><th>Meaning</th><th>When kade-api (or something in front of it) sends it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**2xx · success**</td></tr>
+    <tr><td>200</td><td>OK</td><td>GET /orders/1042 worked</td></tr>
+    <tr><td>201</td><td>Created</td><td>POST /orders created order 1042 (with a Location header)</td></tr>
+    <tr><td>204</td><td>No Content</td><td>DELETE /cart/items/9 worked, nothing to return</td></tr>
+    <tr><td>**3xx · go somewhere else**</td></tr>
+    <tr><td>301 / 308</td><td>Moved permanently</td><td>http://kade.lk → https://kade.lk (308 keeps the method)</td></tr>
+    <tr><td>302 / 307</td><td>Moved temporarily</td><td>After login, back to the page you came from</td></tr>
+    <tr><td>304</td><td>Not Modified</td><td>"Your cached copy is still good" (section 7)</td></tr>
+    <tr><td>**4xx · the client got something wrong**</td></tr>
+    <tr><td>400</td><td>Bad Request</td><td>Broken JSON</td></tr>
+    <tr><td>401</td><td>Unauthorized</td><td>No token, or an expired one: "who are you?"</td></tr>
+    <tr><td>403</td><td>Forbidden</td><td>Valid token, but a shopper calling an admin endpoint: "I know you; not allowed"</td></tr>
+    <tr><td>404</td><td>Not Found</td><td>GET /orders/99999</td></tr>
+    <tr><td>409</td><td>Conflict</td><td>Order already paid</td></tr>
+    <tr><td>422</td><td>Unprocessable</td><td>JSON is valid, but qty is −3</td></tr>
+    <tr><td>429</td><td>Too Many Requests</td><td>Rate limit hit (remember the whole office shares one IP, <Ch n="10">chapter 10</Ch>)</td></tr>
+    <tr><td>**5xx · the server side broke**</td></tr>
+    <tr><td>500</td><td>Internal Server Error</td><td>An unhandled exception in kade-api</td></tr>
+    <tr><td>502</td><td>Bad Gateway</td><td>The load balancer got a bad or no reply from kade-api (the keep-alive race in <Ch n="21">chapter 21</Ch>)</td></tr>
+    <tr><td>503</td><td>Service Unavailable</td><td>kade-api is down or overloaded; often with `Retry-After`</td></tr>
+    <tr><td>504</td><td>Gateway Timeout</td><td>The load balancer waited too long for kade-api</td></tr>
+  </tbody>
+</Table>
+
+<Caption>502, 503 and 504 usually come from a proxy or load balancer **in front of** your app, not from your code. Check which box wrote the response.</Caption>
+
+## Headers, and remembering who you are
+
+Headers carry metadata. The ones you meet daily:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>Host</Mono></td><td>Which site. One IP can serve many sites (**virtual hosting**); the Host header picks one. Required in HTTP/1.1.</td></tr>
+    <tr><td><Mono>Content-Type / Accept</Mono></td><td>What the body is / what the client wants back (application/json, text/html …)</td></tr>
+    <tr><td><Mono>Authorization</Mono></td><td>Credentials, usually `Bearer <token>`</td></tr>
+    <tr><td><Mono>Cookie / Set-Cookie</Mono></td><td>The server sets a cookie; the browser sends it back on every later request</td></tr>
+    <tr><td><Mono>Cache-Control, ETag</Mono></td><td>How long a response may be reused (section 7)</td></tr>
+    <tr><td><Mono>Content-Encoding</Mono></td><td>Compression: gzip or br (Brotli). JSON often shrinks to a fifth.</td></tr>
+    <tr><td><Mono>Location</Mono></td><td>Where to go (redirects), or where a new resource is (201)</td></tr>
+    <tr><td><Mono>Access-Control-Allow-Origin</Mono></td><td>CORS: which other websites may call this API from a browser</td></tr>
+  </tbody>
+</Table>
+
+Because HTTP is stateless, identity travels with every request, in one of two ways:
+
+<Cols n={2}>
+
+<Col title="Cookies">
+
+Set-Cookie: sid=8f2a91c; HttpOnly; Secure; SameSite=Lax; Max-Age=86400
+
+The browser stores it and sends `Cookie: sid=8f2a91c` automatically. **HttpOnly**: JavaScript cannot read it. **Secure**: HTTPS only. **SameSite**: not sent on most cross-site requests (blocks CSRF).
+
+</Col>
+
+<Col title="Tokens">
+
+Authorization: Bearer eyJhbGciOi…
+
+The app stores the token and adds the header itself. Common for mobile apps and APIs. Often a JWT: signed data the server can check without a database lookup.
+
+</Col>
+
+</Cols>
+
+## Caching in one minute
+
+`Cache-Control: max-age=86400` on a product image lets the browser (and any CDN) reuse it for a day without asking. When it expires, the browser asks again with `If-None-Match: "a1b2"` (the `ETag` it got before). If nothing changed, kade-api answers **304 Not Modified** with no body. `Cache-Control: no-store` on order details means "never keep this". Caching skips whole requests, which beats any protocol speed-up.
+
+<Part n="B">The versions</Part>
+
+## Same meaning, better delivery
+
+Every version keeps the same methods, status codes and headers. Only the way messages are carried changes:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Version</th><th>Year</th><th>Carried as</th><th>Connections</th><th>Transport</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>HTTP/1.0</td><td>1996</td><td>text</td><td>a new TCP connection for every request</td><td>TCP</td></tr>
+    <tr><td>2</td><td>HTTP/1.1</td><td>1997</td><td>text</td><td>reused (keep-alive); one request at a time each</td><td>TCP</td></tr>
+    <tr><td>3</td><td>HTTP/2</td><td>2015</td><td>binary frames</td><td>one connection, many streams at once</td><td>TCP (+ TLS)</td></tr>
+    <tr><td>4</td><td>HTTP/3</td><td>2022</td><td>binary frames</td><td>one connection, fully independent streams</td><td>QUIC over UDP (TLS 1.3 built in)</td></tr>
+  </tbody>
+</Table>
+
+## HTTP/1.1: keep-alive and head-of-line blocking
+
+HTTP/1.1 kept connections open so they could be reused (**keep-alive**, <Ch n="21">chapter 21</Ch>), saving a handshake per request. But on one connection, requests are answered **one at a time, in order**: a slow response blocks everything behind it. This is <Term>head-of-line blocking</Term> at the HTTP level.
+
+Browsers worked around it by opening up to **6 connections per host**, each paying its own TCP and TLS handshake and slow start (<Ch n="20">chapter 20</Ch>). Sites even split assets across several host names to get more connections ("domain sharding"). An idea to send several requests without waiting (pipelining) existed, but was too buggy and is not used.
+
+## HTTP/2: many streams on one connection
+
+HTTP/2 introduced <Term>multiplexing</Term>: many requests and responses share one connection as independent **streams**, cut into small binary **frames** and interleaved. Nothing waits in line at the HTTP level.
+
+<Segments label="one TCP connection, frames from three streams interleaved">
+  <Seg w={1} hue="plum">HEADERS s1</Seg>
+  <Seg w={1} hue="amber">HEADERS s3</Seg>
+  <Seg w={1} hue="plum">DATA s1</Seg>
+  <Seg w={1} hue="green">HEADERS s5</Seg>
+  <Seg w={1} hue="amber">DATA s3</Seg>
+  <Seg w={1} hue="green">DATA s5</Seg>
+  <Seg w={1} hue="plum">DATA s1</Seg>
+  <Seg w={1} hue="amber">DATA s3 end</Seg>
+</Segments>
+
+<Caption>s1 = the page's CSS, s3 = a script, s5 = a product image. Each frame carries its stream number, so the receiver sorts them back out.</Caption>
+
+- **Binary, not text:** faster and less error-prone to parse.
+- **Header compression (HPACK):** headers repeat on every request (cookies, user agent). HPACK sends them once and then refers to them by number.
+- **Per-stream flow control and priorities:** the same idea as <Ch n="19">chapter 19</Ch>, per stream.
+- **Server push** (sending files before they are asked for) was part of HTTP/2 but proved unhelpful, and browsers have removed it.
+
+## The problem HTTP/2 could not fix
+
+HTTP/2 still runs on TCP, and TCP delivers **one ordered byte stream** (<Ch n="17">chapter 17</Ch>). If a single packet is lost, TCP holds back **everything** behind it until the resend arrives, including frames of streams that had nothing to do with the lost packet. HTTP/2 removed head-of-line blocking at the HTTP level but not at the TCP level. On lossy mobile networks, it can even do worse than HTTP/1.1's six connections, where one loss stalls only one of them.
+
+## HTTP/3 on QUIC
+
+HTTP/3 runs on <Term>QUIC</Term>, a transport built on UDP (<Ch n="14">chapter 14</Ch>) that does TCP's job itself, differently:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Feature</th><th>What it gives</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Independent streams</td><td>Each stream has its own ordering. A lost packet delays only the stream it belonged to.</td></tr>
+    <tr><td>2</td><td>TLS 1.3 built in</td><td>Transport and encryption handshakes are one: a new connection is ready in 1 round trip instead of 2 (<Ch n="25">chapter 25</Ch>). A returning client can even send data in the first flight ("0-RTT").</td></tr>
+    <tr><td>3</td><td>Connection IDs</td><td>A connection is identified by an ID, not by the four addresses and ports. When the delivery rider's phone moves from WiFi to mobile data (new IP), the connection keeps going instead of breaking.</td></tr>
+    <tr><td>4</td><td>Encrypted transport headers</td><td>Even packet numbers are encrypted, so middleboxes cannot interfere with it the way they sometimes do with TCP.</td></tr>
+    <tr><td>5</td><td>QPACK</td><td>Header compression that works with out-of-order streams</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Browsers learn a server speaks HTTP/3 from an `Alt-Svc` header on an earlier response, or from a DNS HTTPS record. They race QUIC against TCP and fall back to HTTP/2 if UDP 443 is blocked, as it is on some office networks.</Caption>
+
+## Watch it: loading the Kadé home page
+
+The home page needs its HTML, then 18 more files (CSS, scripts, a font, product images). Compare how each version loads them from home (41 ms round trip), then lose one packet:
+
+<Waterfall />
+
+## Versions are per connection
+
+Each connection picks its own version, agreed during the TLS handshake (a field called ALPN, <Ch n="25">chapter 25</Ch>). So one request can use several versions along the way:
+
+<Hops>
+  <Hop>Shopper's browser</Hop>
+  <Hop sub="HTTP/3 or HTTP/2">Google load balancer</Hop>
+  <Hop sub="HTTP/1.1 or HTTP/2 inside GCP">kade-api</Hop>
+</Hops>
+
+<Caption>The slow, lossy part (the shopper's mobile network) gets the newest protocol. Inside Google's network, round trips are tiny, so the backend version matters much less.</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>HTTP</td><td>Request/response, stateless</td><td>stateless</td></tr>
+    <tr><td>2-3</td><td>Messages</td><td>URL parts; start line, headers, blank line, body</td><td>Content-Length, chunked</td></tr>
+    <tr><td>4</td><td>Methods</td><td>GET, POST, PUT, PATCH, DELETE; safe and idempotent decide retries</td><td>idempotency key</td></tr>
+    <tr><td>5</td><td>Status</td><td>2xx ok, 3xx elsewhere, 4xx client, 5xx server (often a proxy)</td><td></td></tr>
+    <tr><td>6-7</td><td>Headers</td><td>Host, auth, cookies with flags, tokens, caching with ETag/304</td><td>virtual hosting, HttpOnly, SameSite, ETag</td></tr>
+    <tr><td>9</td><td>HTTP/1.1</td><td>Keep-alive, one request at a time, 6 connections</td><td>head-of-line blocking</td></tr>
+    <tr><td>10-11</td><td>HTTP/2</td><td>Binary streams multiplexed on one TCP connection; TCP still blocks on loss</td><td>multiplexing, frame, HPACK</td></tr>
+    <tr><td>12</td><td>HTTP/3</td><td>QUIC on UDP: independent streams, 1-RTT setup, connection migration</td><td>QUIC, 0-RTT, Alt-Svc</td></tr>
+    <tr><td>14</td><td>Per hop</td><td>Each connection negotiates its own version</td><td>ALPN</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="The full request and response">
+
+- **What to look for:** `>` lines are your request, `<` lines the response headers.
+- **From section:** [3. What a request and a response contain](#what-a-request-and-a-response-contain)
+
+```sh
+curl -v https://example.com
+```
+
+</TryIt>
+
+<TryIt n={2} title="Headers only (HEAD)">
+
+- **What to look for:** `set-cookie`, `cache-control`, `alt-svc: h3=":443"`.
+- **From section:** [6. Headers, and remembering who you are](#headers-and-remembering-who-you-are)
+
+```sh
+curl -I https://www.google.com
+```
+
+</TryIt>
+
+<TryIt n={3} title="Which version was used">
+
+- **What to look for:** `2`; add `--http1.1` to force the old one.
+- **From section:** [14. Versions are per connection](#versions-are-per-connection)
+
+```sh
+curl -s -o /dev/null -w '%{http_version}\n' https://www.google.com
+```
+
+</TryIt>
+
+<TryIt n={4} title="An HTTP/3 request">
+
+- **What to look for:** `HTTP/3 200`.
+- **Runs on:** needs a curl built with HTTP/3
+- **From section:** [12. HTTP/3 on QUIC](#http-3-on-quic)
+
+```sh
+curl --http3 -I https://www.google.com
+```
+
+</TryIt>
+
+<TryIt n={5} title="The version per request">
+
+- **Steps:** Chrome DevTools → Network → right-click the columns → **Protocol**
+- **What to look for:** `h3`, `h2`, `http/1.1` side by side; the Waterfall column shows waiting vs downloading.
+- **From section:** [13. Watch it: loading the Kadé home page](#watch-it-loading-the-kad-home-page)
+
+</TryIt>
+
+<TryIt n={6} title="A conditional request">
+
+- **What to look for:** `304 Not Modified` when the ETag still matches.
+- **From section:** [7. Caching in one minute](#caching-in-one-minute)
+
+```sh
+curl -I -H 'If-None-Match: "etag-value"' URL
+```
+
+</TryIt>

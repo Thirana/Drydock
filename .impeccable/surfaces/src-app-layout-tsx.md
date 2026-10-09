@@ -21,7 +21,7 @@ OWN-WORLD: Neutral white page (dark: near-black), near-black ink, one blue for t
 
 STORY: The reader sees the order first as a line of numbered moves, then reads each move and its marks; nothing competes with the text.
 
-FIRST VIEWPORT: Home - quiet top bar; large sans headline left-aligned, lead and one ink button; beneath, the Harbour score as a notation line of moves 0-6 with defects listed under each move, the current move in blue, played moves' defects struck through; the map follows below. Track views - top bar, the views as a notation line "1. About 2. Map ...", then title and lead in the reading column.
+FIRST VIEWPORT: Home (since the courses shipped, 2026-10) - quiet top bar; the tagline as the display headline, lead, one ink button "Start with chapter 1" and a ghost "Jump to GCP"; beneath, the learning path as three numbered moves on one hairline (fundamentals, GCP, Harbour). Below the fold: one live widget from chapter 4, both courses' parts, then Harbour condensed - its score and map, and one defect's three steps pointing into the lab page, which now holds the long walkthrough. Track views - top bar, the views as a notation line "1. About 2. Map ...", then title and lead in the reading column.
 
 FORM: Annotated Score (assigned candidate 4 of 7, re-roll round 1 steered minimal), seed key ca464d4d. Raises: restraint (one headline per view), two-value text contrast, plain literal labels, one continuous column with a moving current edge.
 

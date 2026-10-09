@@ -1,0 +1,349 @@
+import { CertSim, DhCalc, SeqDiagram } from "@/components/learn/widgets/lazy";
+import { FigChain } from "@content/learn/fundamentals/figures/25-tls-https";
+
+<Part n="A">Where TLS fits</Part>
+
+## HTTPS = HTTP inside TLS
+
+<Term>TLS</Term> (Transport Layer Security) wraps a connection so that traffic is private and tamper-evident. <Term>HTTPS</Term> is not a different protocol: it is plain HTTP (<Ch n="24">chapter 24</Ch>) running inside a TLS-encrypted connection. Everything about HTTP still applies; TLS just protects it in transit. (SSL is TLS's old name; all SSL versions are broken and switched off.)
+
+## How HTTP, TLS and TCP fit together
+
+TLS sits between HTTP and TCP. HTTP hands its bytes to TLS; TLS encrypts them into **records** and hands those to TCP; TCP delivers them reliably (<Ch n="16">chapters 16</Ch>-<Ch n="20">20</Ch>):
+
+<Segments label="one HTTPS packet on the wire">
+  <Seg w={1} hue="teal">frame</Seg>
+  <Seg w={1.3} hue="green">IP header</Seg>
+  <Seg w={1.3} hue="amber">TCP header</Seg>
+  <Seg w={1.3}>TLS record header</Seg>
+  <Seg w={3} hue="plum">encrypted HTTP request</Seg>
+  <Seg w={.9}>auth tag</Seg>
+</Segments>
+
+<Table>
+  <thead>
+    <tr><th>Layer</th><th>Job here</th><th>Visible to someone on the path?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>HTTP</td><td>GET /orders/1042, the token, the JSON</td><td>No: encrypted</td></tr>
+    <tr><td>TLS</td><td>Encrypts, checks integrity, proves identity</td><td>Only the record headers, plus the handshake's first messages</td></tr>
+    <tr><td>TCP</td><td>Ports, sequence numbers, retransmission</td><td>Yes: port 443, sizes, timing</td></tr>
+    <tr><td>IP</td><td>Addresses, routing</td><td>Yes: 34.87.120.15</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The café can still see **that** you talk to 34.87.120.15 on 443, how much and when, and (see section 12) the site name. It cannot see what you send. HTTP/3 is the exception to this stack: QUIC builds TLS 1.3 into the transport itself (<Ch n="24">chapter 24</Ch>).</Caption>
+
+## Three guarantees
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Guarantee</th><th>Means</th><th>Provided by</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Confidentiality**</td><td>Eavesdroppers see only scrambled data</td><td>Symmetric encryption (AES or ChaCha20)</td></tr>
+    <tr><td>2</td><td>**Integrity**</td><td>Any change on the way is detected</td><td>An authentication tag on every record (AEAD)</td></tr>
+    <tr><td>3</td><td>**Authentication**</td><td>You are really talking to api.kade.lk</td><td>The server's certificate and a signature made with its private key</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Encryption alone is not enough. Without authentication you could have a perfectly encrypted conversation with an attacker. Part C is about how the third guarantee works.</Caption>
+
+<Part n="B">The cryptography</Part>
+
+## Symmetric encryption: fast, one shared key
+
+In <Term>symmetric encryption</Term>, the same key locks and unlocks. Modern ciphers like **AES** (sped up by special CPU instructions) and **ChaCha20** (fast on phones without them) encrypt gigabytes per second per CPU core. TLS 1.3 uses them in **AEAD** mode ("authenticated encryption"): each record is encrypted and gets a tag that proves it was not changed, in one step.
+
+The catch: **both sides need the same key**, and they have never met. Sending the key over the network would let anyone listening read everything after it.
+
+## Asymmetric cryptography: key pairs
+
+In <Term>asymmetric</Term> (public-key) cryptography, each party has a **key pair**: a **private key** kept secret and a **public key** shared with everyone. What one key does, only the other can undo. It is used in two ways:
+
+<Cols n={2}>
+
+<Col title="Signatures">
+
+Sign with the **private** key; anyone checks with the **public** key. Proves "the owner of this key made this, and it was not changed".
+
+TLS use: kade-api proves it owns its certificate.
+
+</Col>
+
+<Col title="Key exchange">
+
+Two sides each combine their own private value with the other's public value and arrive at the **same secret**, without ever sending it.
+
+TLS use: laptop and kade-api agree on the symmetric key.
+
+</Col>
+
+</Cols>
+
+Asymmetric operations rely on hard maths (large-number and elliptic-curve problems), which makes them **thousands of times slower** than symmetric encryption. Fine for a few operations per connection; far too slow for every byte of a video.
+
+## Key exchange: agreeing on a secret in public
+
+The idea behind TLS's key exchange is <Term>Diffie-Hellman</Term>. Both sides agree on public numbers, each picks a private number, and they swap only the results. Anyone listening sees the swapped values but cannot work out the shared secret, because undoing the maths is extremely hard at real sizes. Try it with tiny numbers:
+
+<DhCalc />
+
+Real TLS uses the elliptic-curve version (ECDHE, usually the curve X25519) with 256-bit numbers. The "E" means **ephemeral**: fresh private numbers for every connection, thrown away afterwards (section 9).
+
+## Why TLS uses both
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Phase</th><th>Crypto</th><th>Used for</th><th>Why this kind</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Handshake</td><td>Asymmetric: ECDHE key exchange</td><td>Agree on a shared secret over an open network</td><td>Solves "how do we share a key we never met to swap"</td></tr>
+    <tr><td>2</td><td>Handshake</td><td>Asymmetric: signature with the certificate's key</td><td>Prove the server is api.kade.lk</td><td>Only the real private key can make it</td></tr>
+    <tr><td>3</td><td>Handshake</td><td>Hash-based key derivation (HKDF)</td><td>Turn the shared secret into separate keys for each direction</td><td>One secret, many keys, all unguessable</td></tr>
+    <tr><td>4</td><td>Every record after</td><td>Symmetric AEAD (AES-GCM or ChaCha20-Poly1305)</td><td>Encrypt and protect all HTTP data</td><td>Fast enough for every byte</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Slow, clever maths a few times per connection to set things up; fast, simple maths for everything else. This split is called **hybrid encryption**.</Caption>
+
+## The TLS 1.3 handshake
+
+After the TCP handshake, the laptop and kade-api run the TLS handshake:
+
+<SeqDiagram set="tls13" />
+
+<Table>
+  <tbody>
+    <tr><td>**ClientHello**</td><td>Supported TLS versions and **cipher suites**; a **key share** (the laptop's public ECDHE value); the server name **SNI** = api.kade.lk (section 12); **ALPN** = "h2, http/1.1" (<Ch n="24">chapter 24</Ch>); a random number.</td></tr>
+    <tr><td>**ServerHello**</td><td>The chosen suite (e.g. `TLS_AES_128_GCM_SHA256`) and kade-api's key share. Both sides can now compute the shared secret: **everything after this is encrypted**.</td></tr>
+    <tr><td>**Certificate**</td><td>kade-api's certificate chain (Part C).</td></tr>
+    <tr><td>**CertificateVerify**</td><td>A signature over the whole handshake so far, made with the certificate's private key. This is the proof: a stolen copy of the certificate is useless without the private key.</td></tr>
+    <tr><td>**Finished**</td><td>Each side sends a check value over the whole handshake, so any tampering with the hellos (like forcing a weaker cipher) is detected.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>TLS 1.3 needs **1 round trip**. TLS 1.2 needed 2 and sent the certificate unencrypted. TLS 1.0 and 1.1 are switched off everywhere; allow 1.2 and 1.3 only.</Caption>
+
+## Forward secrecy
+
+Because the key-exchange numbers are ephemeral, each connection's keys exist only in memory for that connection. If an attacker records today's traffic and steals kade-api's private key next year, they **still cannot decrypt** the recording: the private key was only used to _sign_, never to protect the session keys. This is <Term>forward secrecy</Term>. TLS 1.3 always has it. Old TLS 1.2 setups with "RSA key exchange" did not: there, one stolen key opened every recorded session.
+
+## The full timeline: TCP + TLS + HTTP
+
+A brand-new HTTPS request from home to kade-api (41 ms round trip), counted in round trips:
+
+<SeqDiagram set="https" />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setup</th><th>Round trips before the response arrives</th><th>From home</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>TCP + TLS 1.2 + HTTP</td><td>1 + 2 + 1 = 4</td><td>~164 ms</td></tr>
+    <tr><td>2</td><td>TCP + TLS 1.3 + HTTP</td><td>1 + 1 + 1 = 3</td><td>~123 ms</td></tr>
+    <tr><td>3</td><td>QUIC (HTTP/3), new</td><td>1 + 1 = 2</td><td>~82 ms</td></tr>
+    <tr><td>4</td><td>QUIC or TLS 1.3 resumed with 0-RTT</td><td>1</td><td>~41 ms</td></tr>
+    <tr><td>5</td><td>Reused keep-alive connection</td><td>1</td><td>~41 ms</td></tr>
+  </tbody>
+</Table>
+
+<Caption>**0-RTT** lets a returning client send its request with the first handshake message, using keys from an earlier session. The risk: an attacker can replay that first flight, so servers accept 0-RTT only for safe requests like GET (<Ch n="24">chapter 24</Ch>'s "safe methods"). Row 5 is the cheapest of all, and it is why connection reuse matters so much (<Ch n="21">chapter 21</Ch>).</Caption>
+
+<Part n="C">Certificates</Part>
+
+## What a certificate is
+
+A <Term>certificate</Term> is a signed statement: "this public key belongs to api.kade.lk", signed by someone the browser already trusts. The format is called **X.509**. kade-api's certificate (as issued for the load balancer later):
+
+<Table>
+  <tbody>
+    <tr><td><Mono>Subject</Mono></td><td><Mono>CN = api.kade.lk</Mono></td></tr>
+    <tr><td><Mono>Subject Alternative Names (SAN)</Mono></td><td><Mono>api.kade.lk, kade.lk, www.kade.lk <Sub>the names browsers actually check</Sub></Mono></td></tr>
+    <tr><td><Mono>Issuer</Mono></td><td><Mono>an intermediate CA of Google Trust Services <Sub>allowed by the CAA record (<Ch n="23">chapter 23</Ch>)</Sub></Mono></td></tr>
+    <tr><td><Mono>Validity</Mono></td><td><Mono>not before 2026-09-01 · not after 2026-11-30 <Sub>90 days</Sub></Mono></td></tr>
+    <tr><td><Mono>Public key</Mono></td><td><Mono>ECDSA P-256 (the matching private key never leaves the server)</Mono></td></tr>
+    <tr><td><Mono>Key usage</Mono></td><td><Mono>digital signature · TLS server authentication</Mono></td></tr>
+    <tr><td><Mono>Serial number</Mono></td><td><Mono>unique per issuer; used for revocation</Mono></td></tr>
+    <tr><td><Mono>Signature</Mono></td><td><Mono>the issuer's signature over all of the above</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>The certificate is public: the server sends it to everyone. The **private key** is the secret, and protecting it is what matters.</Caption>
+
+## The chain of trust, and SNI
+
+Browsers and operating systems ship with a **trust store** of about 150 root CA certificates. Roots are kept offline and rarely used; they sign **intermediate** CAs, which sign server certificates. The server sends its own certificate plus the intermediates; the client builds the chain up to a root it already trusts:
+
+<Figure hues={["plum", "green"]} drawing={<FigChain />} />
+
+One IP often serves many sites (a load balancer or Cloudflare). Before any certificate is sent, the server needs to know which one to pick, so the ClientHello includes the name: <Term>SNI</Term> (Server Name Indication). SNI is sent in clear text, which is how the café can see the site name even over HTTPS. A newer extension, Encrypted ClientHello (ECH), hides it where both sides support it.
+
+## Try it: will the browser trust this?
+
+Pick a situation. The checks run in the order a browser does them:
+
+<CertSim />
+
+## Getting a certificate
+
+A CA only signs for a name after you prove you control it. With **ACME**, the automated protocol used by Let's Encrypt, Google Trust Services and others, the whole process takes seconds:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>Create a key pair on the server. Build a **CSR** (certificate signing request): the names plus the public key, signed with the private key.</td></tr>
+    <tr><td><Mono>2</Mono></td><td>The CA gives you a challenge to prove control of each name.</td></tr>
+    <tr><td><Mono>3</Mono></td><td>You answer it (next table). The CA checks the CAA record too (<Ch n="23">chapter 23</Ch>).</td></tr>
+    <tr><td><Mono>4</Mono></td><td>The CA signs and returns the certificate and its chain, and logs it publicly (section 16).</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Challenge</th><th>How you prove control</th><th>Good for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>HTTP-01</td><td>Serve a given token at `http://api.kade.lk/.well-known/acme-challenge/…`</td><td>Simple setups with port 80 open</td></tr>
+    <tr><td>2</td><td>DNS-01</td><td>Create a TXT record at `_acme-challenge.api.kade.lk` (<Ch n="23">chapter 23</Ch>)</td><td>**Wildcards** (`*.kade.lk`) and servers not reachable from the internet</td></tr>
+    <tr><td>3</td><td>TLS-ALPN-01</td><td>Answer a special TLS handshake on port 443</td><td>When only 443 is open</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Free, automated certificates are why almost the whole web is now HTTPS. On GCP, a **Google-managed certificate** on the load balancer does all of this for you and renews automatically.</Caption>
+
+<Table>
+  <tbody>
+    <tr><td>DV (domain validated)</td><td>Proves control of the name only. What ACME issues, and what almost everyone uses.</td></tr>
+    <tr><td>OV / EV</td><td>The CA also checks the organisation. Browsers no longer show it differently, so it adds little for websites.</td></tr>
+    <tr><td>Wildcard</td><td>`*.kade.lk` covers api, www, admin … but one level only, and not kade.lk itself.</td></tr>
+  </tbody>
+</Table>
+
+## Lifetimes, renewal and revocation
+
+- **Short lifetimes.** ACME certificates last 90 days, and the industry has agreed to cut the maximum for all public certificates in steps, down to 47 days by 2029. Short lives limit the damage from a leaked key. Renewal must be automated: an expired certificate is one of the most common causes of outages.
+- **Revocation.** If a private key leaks, the certificate should be revoked before it expires. Clients learn about revocations through lists (CRLs) or an online check (OCSP), which the server can attach to its handshake ("OCSP stapling"). In practice browsers check unevenly, which is another reason for short lifetimes.
+
+## Certificate Transparency
+
+Every publicly trusted certificate must be written to public, append-only **Certificate Transparency** (CT) logs, and browsers refuse certificates that are not logged. So Kadé can search the logs (for example on crt.sh) for every certificate ever issued for kade.lk, and spot one it did not request. Attackers use the same logs to discover new subdomains, so do not rely on a secret-sounding name like `admin-7f3.kade.lk` to hide anything.
+
+## Common certificate errors
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Browser says</th><th>Cause</th><th>Fix</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`NET::ERR_CERT_DATE_INVALID`</td><td>Expired, or the client's clock is wrong</td><td>Automate renewal; check the device clock</td></tr>
+    <tr><td>2</td><td>`NET::ERR_CERT_COMMON_NAME_INVALID`</td><td>The name is not in the SAN list</td><td>Add the name (e.g. www) to the certificate</td></tr>
+    <tr><td>3</td><td>`NET::ERR_CERT_AUTHORITY_INVALID`</td><td>Self-signed, or a CA the client does not trust</td><td>Use a public CA; for internal services, install your own root on your own machines</td></tr>
+    <tr><td>4</td><td>Works in Chrome, fails in curl or an Android app</td><td>The server does not send the intermediate (missing chain)</td><td>Serve the full chain file, not just the leaf</td></tr>
+    <tr><td>5</td><td>Every site shows the company's name as issuer</td><td>A corporate proxy decrypts traffic with its own root installed on work laptops (TLS inspection)</td><td>Expected on managed devices; apps with pinned certificates break there</td></tr>
+  </tbody>
+</Table>
+
+## TLS in the Kadé setup
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Where TLS ends</th><th>Certificate</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Today: on kade-api itself</td><td>From Let's Encrypt, renewed by a cron job on the VM</td><td>The private key lives on the VM; Node does the TLS work</td></tr>
+    <tr><td>2</td><td>Later: at the Google load balancer</td><td>Google-managed, auto-renewed</td><td>"TLS termination" at the edge. The load balancer → kade-api hop runs inside Google's network, as HTTP or re-encrypted HTTPS.</td></tr>
+    <tr><td>3</td><td>If Cloudflare sits in front</td><td>Cloudflare's edge certificate + an origin certificate</td><td>Use "Full (strict)": Cloudflare also checks the origin's certificate. "Flexible" sends the second hop unencrypted.</td></tr>
+    <tr><td>4</td><td>kade-api → PayGate</td><td>PayGate's certificate, plus optionally Kadé's own **client certificate**</td><td>**Mutual TLS** (mTLS): both sides show certificates. Common for server-to-server APIs.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>One more header: `Strict-Transport-Security: max-age=31536000` (**HSTS**) tells browsers to use HTTPS for kade.lk for a year, even if someone types http://. It closes the gap where the very first plain-HTTP request could be intercepted before the redirect.</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1-2</td><td>HTTPS</td><td>HTTP inside TLS, on top of TCP; IPs, ports and SNI stay visible</td><td>TLS, HTTPS, TLS record</td></tr>
+    <tr><td>3</td><td>Guarantees</td><td>Confidentiality, integrity, authentication</td><td>AEAD</td></tr>
+    <tr><td>4-5</td><td>Crypto kinds</td><td>Symmetric: fast, one shared key. Asymmetric: key pairs, slow; signatures and key exchange.</td><td>public/private key, signature</td></tr>
+    <tr><td>6-7</td><td>Hybrid</td><td>ECDHE agrees on a secret; the certificate key signs; AES/ChaCha20 protects the data</td><td>Diffie-Hellman, ECDHE, HKDF</td></tr>
+    <tr><td>8</td><td>Handshake</td><td>ClientHello, ServerHello, Certificate, CertificateVerify, Finished: 1 RTT</td><td>cipher suite, key share, ALPN</td></tr>
+    <tr><td>9</td><td>Forward secrecy</td><td>Ephemeral keys: a stolen private key cannot open old recordings</td><td>forward secrecy</td></tr>
+    <tr><td>10</td><td>Timeline</td><td>TCP + TLS 1.3 + HTTP = 3 RTT; QUIC 2; 0-RTT or reuse 1</td><td>0-RTT</td></tr>
+    <tr><td>11-12</td><td>Certificates</td><td>X.509: SAN names, issuer, dates, key; chain to a trusted root; SNI picks the certificate</td><td>X.509, SAN, trust store, intermediate, SNI</td></tr>
+    <tr><td>14-16</td><td>Lifecycle</td><td>ACME challenges, DV/wildcard, short lifetimes, revocation, CT logs</td><td>ACME, CSR, OCSP, CT</td></tr>
+    <tr><td>17-18</td><td>Practice</td><td>Common errors; where TLS terminates; mTLS; HSTS</td><td>TLS termination, mTLS, HSTS</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="A full TLS handshake">
+
+- **What to look for:** The certificate chain (depth 0, 1, 2), `Protocol: TLSv1.3`, the cipher.
+- **From section:** [8. The TLS 1.3 handshake](#the-tls-1-3-handshake)
+
+```sh
+openssl s_client -connect example.com:443 -servername example.com
+```
+
+</TryIt>
+
+<TryIt n={2} title="The certificate's main fields">
+
+- **What to look for:** Subject, issuer, notBefore/notAfter, the SAN list.
+- **From section:** [11. What a certificate is](#what-a-certificate-is)
+
+```sh
+openssl s_client -connect example.com:443 -servername example.com </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+```
+
+</TryIt>
+
+<TryIt n={3} title="Where the time goes">
+
+- **What to look for:** Each step adds roughly one round trip.
+- **From section:** [10. The full timeline: TCP + TLS + HTTP](#the-full-timeline-tcp-tls-http)
+
+```sh
+curl -o /dev/null -s -w 'tcp %{time_connect} tls %{time_appconnect} first byte %{time_starttransfer}\n' https://example.com
+```
+
+</TryIt>
+
+<TryIt n={4} title="TLS version, ALPN result, certificate">
+
+- **What to look for:** `ALPN: server accepted h2`.
+- **From section:** [8. The TLS 1.3 handshake](#the-tls-1-3-handshake)
+
+```sh
+curl -v --tlsv1.3 https://example.com 2>&1 | grep -i -E 'SSL connection|ALPN|subject|issuer'
+```
+
+</TryIt>
+
+<TryIt n={5} title="Every certificate issued for it">
+
+- **Steps:** Search your domain at `crt.sh`
+- **What to look for:** Issuers and dates you recognise, and nothing you do not.
+- **From section:** [16. Certificate Transparency](#certificate-transparency)
+
+```sh
+crt.sh
+```
+
+</TryIt>
+
+<TryIt n={6} title="Certificates on GCP load balancers">
+
+- **What to look for:** Type MANAGED, status ACTIVE, expiry date.
+- **From section:** [18. TLS in the Kadé setup](#tls-in-the-kad-setup)
+
+```sh
+gcloud compute ssl-certificates list
+```
+
+</TryIt>

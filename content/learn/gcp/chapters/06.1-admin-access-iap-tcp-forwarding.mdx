@@ -1,0 +1,366 @@
+import { SshCheck } from "@/components/learn/widgets/lazy";
+import { FigWhat } from "@content/learn/gcp/figures/06.1-admin-access-iap-tcp-forwarding";
+
+<Box kind="problem" title="The problem">
+
+Finding 2: `kade-allow-ssh` allows port 22 from `0.0.0.0/0` to every VM. And because no VM has an external IP, the team's habit when they need a shell is to add a temporary external IP, SSH in, and (sometimes) remove it afterwards. For those minutes, the VM is open to every SSH scanner on the internet.
+
+The goal: SSH to any VM with no external IP, no open port, and no extra server to maintain. And without locking the team out while making the change.
+
+</Box>
+
+## How do you get into a private server?
+
+<Recalls><Recall n="29">SSH</Recall></Recalls>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Approach</th><th>Shape</th><th>Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Public SSH</td><td>Port 22 open to `0.0.0.0/0`; SSH straight to each VM's external IP</td><td>Every VM's SSH port is exposed and probed all day. The only thing between the internet and a shell is SSH authentication itself</td></tr>
+    <tr><td>2</td><td>Bastion host</td><td>One hardened VM with a public IP whose only job is accepting SSH; the others have no public SSH</td><td>Better, but not solved (below)</td></tr>
+    <tr><td>3</td><td>IAP TCP forwarding</td><td>No public SSH anywhere; Google builds an authenticated tunnel to the VM</td><td>Section 02</td></tr>
+  </tbody>
+</Table>
+
+```text
+Bastion pattern:
+  you ──▶ bastion (public IP, port 22) ──▶ kade-api-1 ──▶ kade-db
+          the one exposed box              (no public SSH)
+```
+
+A bastion's real costs: it is a VM you run, patch and secure; it is still an internet-facing SSH port, just one of them; and if it is broken into, the attacker is already inside the network. It reduces exposure to one box. It does not remove it.
+
+## What IAP TCP forwarding is
+
+<Term>Identity-Aware Proxy (IAP)</Term> TCP forwarding lets you reach a VM's SSH port, or any TCP port, with no public exposure and no bastion. Instead of a network path from the internet to your VM, IAP builds an authenticated tunnel through Google's network.
+
+<Figure wide hues={["plum", "green", "amber"]} drawing={<FigWhat />}>
+
+A bastion decides by network position: can you reach this IP, then that one. IAP decides by identity: are you someone allowed, proven by Google's login. That is what "identity-aware" means.
+
+</Figure>
+
+What `gcloud compute ssh kade-db --tunnel-through-iap` actually does:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>gcloud proves who you are</td><td>Using your gcloud login</td></tr>
+    <tr><td>2</td><td>It opens a tunnel to IAP</td><td>An HTTPS connection (a WebSocket) on port 443, so it works even from networks that block outgoing port 22</td></tr>
+    <tr><td>3</td><td>IAP checks IAM</td><td>Does your identity have permission to tunnel to this VM and port?</td></tr>
+    <tr><td>4</td><td>IAP connects to the VM</td><td>A normal TCP connection to `10.10.2.5:22`, from an address in `35.235.240.0/20`</td></tr>
+    <tr><td>5</td><td>SSH runs inside the tunnel</td><td>Your SSH client talks to the VM's SSH server through it, encrypted end to end</td></tr>
+  </tbody>
+</Table>
+
+## The fixed range: 35.235.240.0/20
+
+IAP's connections never come from your laptop's IP or a random Google address. They always come from `35.235.240.0/20`:
+
+```text
+Firewall rule for IAP SSH:
+  allow tcp:22 from 35.235.240.0/20     ← IAP's range, and nothing else
+
+The naive version:
+  allow tcp:22 from 0.0.0.0/0           ← the whole internet
+```
+
+This range is one of the special paths from <Ch n="4">chapter 4</Ch>: Google's edge routers drop any packet from the internet that pretends to come from it, and you cannot use it for your own subnets. So a connection from this range has always passed IAP's identity check first. The firewall narrows the **network path** to IAP only, and IAP narrows **access** to allowed identities only: two narrow layers instead of one wide-open one.
+
+## The three things that must all be true
+
+```text
+IAP SSH works ONLY IF all three are true:
+
+  1. The IAP API is enabled on the project      (iap.googleapis.com)
+  2. Your identity has the IAM role             (roles/iap.tunnelResourceAccessor,
+                                                 or roles/owner, which includes it)
+  3. A firewall rule allows IAP's range         (tcp:22 from 35.235.240.0/20)
+```
+
+They are independent. Miss one and IAP fails, but the failure often looks like a different problem:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Missing</th><th>What you see</th><th>Why it confuses</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The API</td><td>An authorization error, `4033: not authorized`</td><td>IAM and firewall can be perfect and it still fails. A disabled API is invisible unless you check for it</td></tr>
+    <tr><td>2</td><td>The IAM role</td><td>The same `4033: not authorized`</td><td>`roles/editor` does **not** include IAP tunnel access. People assume broad access covers it</td></tr>
+    <tr><td>3</td><td>The firewall rule</td><td>A pause, then `4003: failed to connect to backend`</td><td>IAP accepted you; it is the last hop, IAP to the VM, that fails. So the error shows up later than the real cause</td></tr>
+    <tr><td>4</td><td>(bonus) SSH is not running on the VM</td><td>Also `4003`</td><td>Same symptom as a missing rule. Check the VM's serial output</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+One command tests all of it, instead of checking two and assuming the third:
+
+```sh
+gcloud compute ssh kade-db --zone=asia-southeast1-b --tunnel-through-iap --troubleshoot
+```
+
+<Label>What it tells you</Label>
+
+It checks the API, your IAM permissions, the firewall path from IAP's range, and whether the VM is running, and reports each one. Make it the first move whenever IAP misbehaves.
+
+</Box>
+
+### Try it: why does my IAP SSH fail?
+
+<SshCheck full="0" />
+
+## Giving each person only what they need
+
+The IAM role can be granted at different levels, and with conditions:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Grant</th><th>Effect</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>On the project</td><td>Can open tunnels to every VM, on any port the firewall allows from IAP</td></tr>
+    <tr><td>2</td><td>On one VM</td><td>Can open tunnels to that VM only</td></tr>
+    <tr><td>3</td><td>With an IAM condition on the port</td><td>For example, only port 22, never 5432</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="console" title="Scenario A · You, the only infrastructure person">
+
+```text
+you@kade.lk → roles/iap.tunnelResourceAccessor on project kade-prod
+→ can tunnel to every VM, on 22 and on any other port IAP's range is allowed to reach
+```
+
+</Box>
+
+<Box kind="console" title="Scenario B · A freelancer fixing one background job">
+
+```text
+dev@freelance.example → roles/iap.tunnelResourceAccessor
+                        on VM kade-worker only
+                        condition: destination.port == 22
+→ can SSH to kade-worker, nothing else. Remove the grant when the job is done.
+```
+
+With a bastion, this would mean an SSH key on a machine that can reach every VM. Here the grant names one person, one VM and one port, and it shows up in IAM where it is easy to review and remove.
+
+</Box>
+
+<Note>
+
+**Keep a record.** Every tunnel is an IAM decision, so it can be logged: turn on IAP's Data Access audit logs to record who opened a tunnel to which VM, and when. This is the "every access tied to a named identity" part (<Ch n="16">chapter 16</Ch>).
+
+</Note>
+
+## IAP for more than SSH
+
+TCP forwarding carries any TCP port through the same authenticated tunnel:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Port</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>22</td><td>SSH: the main use, replacing bastions and public SSH</td></tr>
+    <tr><td>2</td><td>3389</td><td>RDP: the same pattern for Windows VMs</td></tr>
+    <tr><td>3</td><td>Anything else</td><td>A database, an internal admin panel, any internal TCP service. Tunnel to it instead of exposing it</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="console" title="Scenario C · Run a query on kade-db from your laptop">
+
+```text
+Option 1: tunnel straight to PostgreSQL
+  firewall:  allow tcp:5432 from 35.235.240.0/20 to SA sa-kade-db
+  laptop:    gcloud compute start-iap-tunnel kade-db 5432 \
+               --local-host-port=localhost:5433 --zone=asia-southeast1-b
+             psql -h localhost -p 5433 -U kade
+
+Option 2: no new rule; forward through SSH
+  laptop:    gcloud compute ssh kade-db --tunnel-through-iap \
+               -- -L 5433:localhost:5432
+             psql -h localhost -p 5433 -U kade
+```
+
+Option 2 reuses the SSH rule and needs nothing new, so it is the better default for occasional work. IAP tunnels are for admin work, not heavy traffic; do not route an application through one. <Ch n="9">Chapter 9</Ch> moves the database to Cloud SQL, which has its own private path.
+
+</Box>
+
+**IAP for HTTPS** is a related but separate feature. It protects web applications instead of TCP ports: people must sign in with their Google identity and pass an IAM check before the page loads. It suits an internal dashboard, a staging site or an admin tool, and it is cleaner than "put a login page in front and hope", because the check happens before the request reaches the app. It sits on a load balancer or directly on Cloud Run (<Ch n="10">chapters 10</Ch> and <Ch n="12">12</Ch>).
+
+## Why it beats the alternatives
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Public SSH</th><th>Bastion host</th><th>IAP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>SSH ports exposed to the internet</td><td>Every VM</td><td>One (the bastion)</td><td>**None**</td></tr>
+    <tr><td>2</td><td>An extra VM to run, patch and secure</td><td>No</td><td>Yes</td><td>**No**</td></tr>
+    <tr><td>3</td><td>Access decided by</td><td>SSH login only</td><td>Network position plus SSH login</td><td>**Identity, IAM and firewall**</td></tr>
+    <tr><td>4</td><td>Every access tied to a named person</td><td>No</td><td>Partly</td><td>**Yes, and logged**</td></tr>
+    <tr><td>5</td><td>Works with no external IP on the VM</td><td>No</td><td>Not for the bastion itself</td><td>**Yes**</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="exam" title="Exam angle">
+
+"Admins must SSH to VMs that have no external IPs, without a bastion" means IAP TCP forwarding: a firewall rule from `35.235.240.0/20` on port 22, plus `roles/iap.tunnelResourceAccessor`. Watch for answers offering `roles/editor`, which does not include it.
+
+</Box>
+
+## The change, without locking yourself out
+
+The most important thing about this change is the **order**. You are changing how you reach the VMs while using that same access to make the change.
+
+```text
+THE LOCKOUT TRAP
+  Delete kade-allow-ssh first, and if the IAP path does not work yet,
+  there is no way back in. Every VM is unreachable by SSH until someone
+  fixes it from the console.
+
+THE SAFE ORDER
+  1. Add the IAP rule
+  2. VERIFY IAP SSH works to every VM
+  3. Only then remove the wide rule
+```
+
+<Box kind="console" title="Why a new rule is needed even though IAP already works today">
+
+```text
+Today:   kade-allow-ssh: tcp:22 from 0.0.0.0/0
+         → IAP works, but only because 0.0.0.0/0 happens to include 35.235.240.0/20
+
+Step 1:  add kade-ssh-from-iap: tcp:22 from 35.235.240.0/20
+         → IAP has its own explicit path
+
+Step 3:  remove kade-allow-ssh
+         → IAP keeps working; the internet does not
+```
+
+</Box>
+
+<Note>
+
+**Break-glass.** If you do get locked out, the serial console is the way back in: it reaches the VM through Google's control plane, not the network, so no firewall rule applies. It is off by default and needs a login password set on the VM, so decide in advance whether you want it, and turn it off again afterwards.
+
+</Note>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: finding 2, and the temporary external IPs">
+
+- **Step 0, the other two requirements.** The IAP API is enabled, and you hold `roles/iap.tunnelResourceAccessor` on the project. Anyone else who needs SSH gets their own grant, as narrow as Scenario B.
+- **Step 1.** Add `kade-ssh-from-iap`: tcp:22 from `35.235.240.0/20`, all instances, priority 900, logging on.
+- **Step 2.** `gcloud compute ssh … --tunnel-through-iap --command="echo ok"` succeeds for kade-api-1, kade-api-2 and kade-db.
+- **Step 3.** Disable `kade-allow-ssh`, confirm step 2 still works, then delete it.
+- **Step 4.** Turn on the folder-level hierarchical policy from <Ch n="5.2">chapter 5.2</Ch>: deny 22 and 3389 from `0.0.0.0/0`, with `goto_next` for `35.235.240.0/20`. Now no project owner can reopen SSH to the internet.
+- **No more temporary external IPs for SSH.** The admin half of finding 5 is gone. The outgoing half (apt, PayGate) is <Ch n="7">chapter 7</Ch>.
+
+Who logs in, and as which Linux user, is still decided by SSH keys in metadata. <Ch n="6.2">Chapter 6.2</Ch> changes that.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 4 are read-only or only open your own session. Commands 5 to 8 change the project.
+
+<TryIt n={1} title="Check the IAP API is on">
+
+- **What it shows:** Whether `iap.googleapis.com` is enabled in the project.
+- **What to look for:** One line of output. Empty means it is off, and IAP will answer `4033` whatever IAM says.
+
+```sh
+gcloud services list --enabled --filter="name:iap.googleapis.com"
+```
+
+</TryIt>
+
+<TryIt n={2} title="Test every requirement at once">
+
+- **What it shows:** A pass or fail for the API, IAM, the firewall path and the VM state.
+- **What to look for:** The first failed check. Fix that one before looking at anything else.
+
+```sh
+gcloud compute ssh kade-db --zone=asia-southeast1-b --tunnel-through-iap --troubleshoot
+```
+
+</TryIt>
+
+<TryIt n={3} title="SSH through IAP and run one command">
+
+- **What it shows:** Whether IAP SSH works end to end, without opening an interactive shell.
+- **What to look for:** `ok`. Run it for every VM before removing the old rule.
+
+```sh
+gcloud compute ssh kade-api-1 --zone=asia-southeast1-a --tunnel-through-iap --command="echo ok"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Tunnel another port to your laptop">
+
+- **What it shows:** Makes kade-db's PostgreSQL appear at `localhost:5433` while the command runs.
+- **What to look for:** "Listening on port \[5433\]". Needs a firewall rule for 5432 from IAP's range; otherwise use SSH forwarding (Scenario C, option 2).
+
+```sh
+gcloud compute start-iap-tunnel kade-db 5432 \
+  --local-host-port=localhost:5433 --zone=asia-southeast1-b
+```
+
+</TryIt>
+
+<TryIt n={5} title="Enable the IAP API (changes the project)">
+
+- **What it shows:** Turns on requirement 1.
+- **What to look for:** Command 1 now prints the service.
+
+```sh
+gcloud services enable iap.googleapis.com
+```
+
+</TryIt>
+
+<TryIt n={6} title="Grant IAP tunnel access to one person on one VM (changes the project)">
+
+- **What it shows:** Scenario B: the freelancer may tunnel to kade-worker only. For project-wide access, use `gcloud projects add-iam-policy-binding` with the same role.
+- **What to look for:** The binding appears on the VM's IAM policy. Remove it with `remove-iam-policy-binding` when the work ends.
+
+```sh
+gcloud compute instances add-iam-policy-binding kade-worker \
+  --zone=asia-southeast1-a \
+  --member=user:dev@freelance.example \
+  --role=roles/iap.tunnelResourceAccessor
+```
+
+</TryIt>
+
+<TryIt n={7} title="Add the IAP-only SSH rule (changes the project)">
+
+- **What it shows:** Step 1 of the runbook. Adds a path; opens nothing new to the internet.
+- **What to look for:** The rule in the firewall list, and command 3 working for every VM.
+
+```sh
+gcloud compute firewall-rules create kade-ssh-from-iap \
+  --network=kade-vpc --direction=INGRESS --action=ALLOW --priority=900 \
+  --rules=tcp:22 --source-ranges=35.235.240.0/20 --enable-logging
+```
+
+</TryIt>
+
+<TryIt n={8} title="Remove the world-open rule (changes the project)">
+
+- **What it shows:** Step 3 of the runbook: disable, check again, then delete.
+- **What to look for:** Command 3 still works after the disable. Only then run the delete.
+
+```sh
+gcloud compute firewall-rules update kade-allow-ssh --disabled
+gcloud compute firewall-rules delete kade-allow-ssh
+```
+
+</TryIt>

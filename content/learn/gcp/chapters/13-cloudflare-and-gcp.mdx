@@ -1,0 +1,361 @@
+import { CfCache, CfErrors, CfMigrate, CfOverview, CfRecords, OriginLock, TlsModes } from "@/components/learn/widgets/lazy";
+
+<Box kind="problem" title="The problem">
+
+Moving `kade.lk` to Cloudflare is easy to start and easy to get half right. The common results:
+
+- Some records go through Cloudflare (orange) and some do not (grey), so some shoppers skip the WAF entirely.
+- The load balancer's IP is still open to the whole internet, so anyone who finds it skips Cloudflare.
+- The wrong SSL/TLS mode causes an endless redirect loop, or encrypts only half of the trip.
+- Cloud Armor and the app suddenly see every shopper as a handful of Cloudflare addresses.
+
+</Box>
+
+## Two jobs: DNS and proxy
+
+<Recalls><Recall n="22">DNS</Recall><Recall n="33">Reverse proxies and CDNs</Recall></Recalls>
+
+Cloudflare does two separate jobs for Kadé, and most confusion comes from mixing them up:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Job</th><th>What it means</th><th>Chapter link</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Authoritative DNS** for `kade.lk`</td><td>Cloudflare answers "what is the IP of api.kade.lk?". This replaces Cloud DNS's public zone</td><td className="whitespace-nowrap">8</td></tr>
+    <tr><td>2</td><td>**Reverse proxy** for chosen hostnames</td><td>For "proxied" records, Cloudflare answers with its own IPs, so shoppers connect to Cloudflare, which then connects to the GCP load balancer</td><td className="whitespace-nowrap">11, 12</td></tr>
+  </tbody>
+</Table>
+
+<CfOverview />
+
+Cloudflare is a **proxy** in exactly the <Ch n="11">chapter 11</Ch> sense: it ends the shopper's connection at its nearest edge location and opens a new one to Kadé's load balancer. Everything else in this chapter follows from that: two TLS connections, a second set of forwarding headers, and the need to stop people going around it.
+
+## Moving kade.lk's DNS to Cloudflare
+
+Making Cloudflare authoritative means changing the domain's name servers at the registrar. The order matters, mainly because of DNSSEC (<Ch n="8">chapter 8</Ch> section 09): if the registrar still holds a DS record for Cloud DNS's signing keys when the name servers change, resolvers that check DNSSEC will reject every answer, and the whole domain stops resolving.
+
+<CfMigrate />
+
+## Orange or grey: a choice per record
+
+Every DNS record in Cloudflare has a proxy setting, shown as a cloud icon:
+
+<Cols n={2}>
+
+<Col title="Orange: proxied">
+
+Cloudflare answers DNS questions with **its own** addresses. Visitors connect to Cloudflare, which applies its WAF, DDoS protection and cache, then connects to your origin. The origin's real IP is never published.
+
+</Col>
+
+<Col title="Grey: DNS only">
+
+Cloudflare is just the DNS server. It answers with the **real** address in the record, and visitors connect straight to it. No WAF, no cache, no hiding the origin.
+
+</Col>
+
+</Cols>
+
+Each tab is one of Kadé's records. The "what if" flips `api.kade.lk` between orange and grey.
+
+<CfRecords />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Record</th><th>Type and value</th><th>Proxy</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`kade.lk`</td><td>A → 34.120.88.10</td><td><St k="here">orange</St></td><td>Shoppers type the bare domain too. If it were grey, those visits would skip Cloudflare, and the origin lock (section 06) would block them</td></tr>
+    <tr><td>2</td><td>`www.kade.lk`</td><td>A → 34.120.88.10</td><td><St k="here">orange</St></td><td>The website</td></tr>
+    <tr><td>3</td><td>`api.kade.lk`</td><td>A → 34.120.88.10</td><td><St k="here">orange</St></td><td>The app and website call it</td></tr>
+    <tr><td>4</td><td>`status.kade.lk`</td><td>CNAME → a status page provider</td><td><St k="plan">grey</St></td><td>Not Kadé's server; the provider handles its own TLS</td></tr>
+    <tr><td>5</td><td>`kade.lk` MX</td><td>→ the mail provider</td><td><St k="plan">DNS only</St></td><td>Mail is not HTTP. MX and TXT records cannot be proxied</td></tr>
+    <tr><td>6</td><td>`_acme-challenge.kade.lk`</td><td>CNAME → Certificate Manager's DNS authorization</td><td><St k="plan">grey</St></td><td>Lets Google issue and renew the origin certificate (section 05). A proxied answer would break the check</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Cloudflare only proxies HTTP and HTTPS, on ports 80 and 443 and a short list of others (such as 8080 and 8443). Anything else, like SSH or a database, must be grey, which is another reason to keep those off the internet altogether (<Ch n="6">chapter 6</Ch>).</Caption>
+
+## Two connections, two TLS legs: the SSL/TLS mode
+
+<Recalls><Recall n="25">TLS and certificates</Recall></Recalls>
+
+With an orange record there are two separate connections, each with its own TLS: the **edge leg** (shopper to Cloudflare) and the **origin leg** (Cloudflare to Kadé's load balancer). Cloudflare's **SSL/TLS encryption mode** controls only the origin leg. It is the most important single Cloudflare setting, and the names are easy to misread.
+
+<TlsModes />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Mode</th><th>Origin leg</th><th>Checks the origin's certificate?</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Off</td><td>HTTP, and the edge leg is HTTP too</td><td>-</td><td>Never</td></tr>
+    <tr><td>2</td><td>Flexible</td><td>HTTP (unencrypted)</td><td>-</td><td>Never for anything real: the padlock is a lie for the second half of the trip</td></tr>
+    <tr><td>3</td><td>Full</td><td>HTTPS</td><td><St k="bad">no</St> any certificate, even self-signed or expired</td><td>A stepping stone only</td></tr>
+    <tr><td>4</td><td>**Full (strict)**</td><td>HTTPS</td><td><St k="ok">yes</St> valid, unexpired, matching the hostname, from a trusted CA or Cloudflare's Origin CA</td><td>**Kadé's choice**</td></tr>
+    <tr><td>5</td><td>Strict (SSL-only origin pull)</td><td>Always HTTPS, as Full (strict), even for visitors who used HTTP</td><td><St k="ok">yes</St></td><td>When the origin should never receive plain HTTP</td></tr>
+  </tbody>
+</Table>
+
+Settings for the **edge leg** live elsewhere in Cloudflare and are worth turning on together:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Edge setting</th><th>What it does</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Always Use HTTPS</td><td>Cloudflare itself redirects `http://` to `https://`</td><td>on</td></tr>
+    <tr><td>2</td><td>Minimum TLS version</td><td>Refuses older TLS from visitors</td><td>TLS 1.2, matching `kade-tls` on the origin (<Ch n="12">chapter 12</Ch>)</td></tr>
+    <tr><td>3</td><td>TLS 1.3</td><td>Allows the newest, fastest handshake</td><td>on</td></tr>
+    <tr><td>4</td><td>HSTS</td><td>Tells browsers to use HTTPS only, for a set time</td><td>on, after HTTPS has worked for a few weeks. Hard to undo: browsers remember it</td></tr>
+  </tbody>
+</Table>
+
+## Certificates on each leg
+
+Each leg needs its own certificate, issued for the same hostnames but by different parties:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Leg</th><th>Certificate</th><th>Issued and renewed by</th><th>Covers</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Edge</td><td>Universal SSL</td><td>Cloudflare, automatically, free</td><td>`kade.lk` and one level of subdomains (`*.kade.lk`). Deeper names like `a.b.kade.lk` need an Advanced certificate (paid)</td></tr>
+    <tr><td>2</td><td>Origin, option A</td><td>Google-managed, DNS authorization (<Ch n="12">chapter 12</Ch>)</td><td>Google, automatically</td><td>Trusted by every browser, so it still works if a record is ever switched to grey</td></tr>
+    <tr><td>3</td><td>Origin, option B</td><td>Cloudflare Origin CA certificate</td><td>Cloudflare, free, valid up to 15 years; uploaded to GCP as a self-managed certificate</td><td>Trusted **only** by Cloudflare. Fine with Full (strict), but a grey record would show browsers an untrusted certificate</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Kadé uses option A: it renews itself, needs only the grey `_acme-challenge` CNAME, and never breaks if a record changes. The load balancer authorization flavour of Google-managed certificates is the one that fails behind orange records, because the domain no longer points at the load balancer.</Caption>
+
+<Key title="Authenticated Origin Pulls: TLS the other way round">
+
+Normally only the origin shows a certificate. With Authenticated Origin Pulls, Cloudflare also shows a **client certificate** to the origin, and the GCP load balancer's mTLS setting (<Ch n="12">chapter 12</Ch>) refuses connections without it. Two flavours: the zone-level one uses a certificate Cloudflare shares across **all** its customers, so it proves "this came from Cloudflare", not "from Kadé's Cloudflare account"; the per-hostname one uses a certificate you upload, which proves both. Section 06 uses a secret header instead, which is simpler and gives the same guarantee.
+
+</Key>
+
+## Origin lock: making Cloudflare the only way in
+
+Cloudflare protects only traffic that goes through Cloudflare. The load balancer's IP `34.120.88.10` is not secret: it is in old DNS records, in scanners' databases, and anyone can find it. So the origin must refuse anything that did not come through **Kadé's own** Cloudflare zone. That takes three layers, one for each way around:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Way around</th><th>Layer that closes it</th><th>Where</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Straight to `kade-api-xxxx.run.app`</td><td>Cloud Run ingress `internal-and-cloud-load-balancing`</td><td><Ch n="10">Chapter 10</Ch></td></tr>
+    <tr><td>2</td><td>Straight to `34.120.88.10`</td><td>Cloud Armor allows only Cloudflare's IP ranges; default rule denies</td><td>kade-edge-policy</td></tr>
+    <tr><td>3</td><td>Through **another** Cloudflare account, pointed at Kadé's IP</td><td>Cloud Armor also requires a secret header that only Kadé's zone adds (a Cloudflare Transform Rule)</td><td>kade-edge-policy</td></tr>
+  </tbody>
+</Table>
+
+Try each way in, and switch layers off to see which one stops it:
+
+<OriginLock />
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+A Cloud Armor Standard rule can list up to 10 IP ranges, and Cloudflare publishes 15 IPv4 ranges, so the allow-list needs two rules (Kadé's origin is IPv4 only, so Cloudflare connects over IPv4). Cloud Armor Enterprise offers a named list, `sourceiplist-cloudflare`, that Google keeps up to date. With Standard, re-check Cloudflare's published list (`cloudflare.com/ips`) every few months; a new Cloudflare range missing from the rule shows up as random 403 errors for some shoppers.
+
+</Box>
+
+## The real client IP, behind two proxies
+
+<Recalls><Recall n="33">X-Forwarded-For</Recall></Recalls>
+
+Google's front end now sees a Cloudflare edge address as "the client" (<Ch n="12">chapter 12</Ch> section 06, Cloudflare preview). Cloudflare passes the shopper's address in its own headers:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Header</th><th>Contains</th><th>Kadé's use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`CF-Connecting-IP`</td><td>The visitor's IP, one value, set by Cloudflare</td><td>The app's client IP, and Cloud Armor's rate-limit key</td></tr>
+    <tr><td>2</td><td>`X-Forwarded-For`</td><td>Visitor, then Cloudflare edge, then load balancer (GCP appends two)</td><td>Logs only</td></tr>
+    <tr><td>3</td><td>`CF-IPCountry`</td><td>Visitor's country code</td><td>Country rules in Cloud Armor, instead of `origin.region_code`, which now sees Cloudflare's location</td></tr>
+    <tr><td>4</td><td>`CF-Ray`</td><td>Cloudflare's ID for the request</td><td>Match a request across Cloudflare's and GCP's logs</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Two things that silently break when Cloudflare is added">
+
+- **Rate limiting by IP.** <Ch n="12">Chapter 12</Ch>'s login rate limit counted requests per source IP. Every request now comes from a few Cloudflare addresses, so one busy edge can block many shoppers, or none at all. Change the rule's key to the `CF-Connecting-IP` header (`--enforce-on-key=HTTP-HEADER`).
+- **Trusting the header.** `CF-Connecting-IP` is only trustworthy because the origin lock makes Cloudflare the only way in. Without section 06, anyone can send the header with any value.
+
+</Key>
+
+## Who blocks what: Cloudflare or Cloud Armor
+
+Both are web application firewalls. Running both is normal, but each rule should live in one place, decided by what that place can see:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Job</th><th>Cloudflare (edge)</th><th>Cloud Armor (origin)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Large DDoS attacks</td><td><St k="ok">yes</St> absorbed before reaching GCP</td><td>Backstop</td></tr>
+    <tr><td>2</td><td>Bots, managed WAF rules, country rules</td><td><St k="ok">yes</St> sees the real visitor</td><td>Only through Cloudflare's headers</td></tr>
+    <tr><td>3</td><td>Rate limiting by visitor</td><td><St k="ok">yes</St> native</td><td>By `CF-Connecting-IP` header</td></tr>
+    <tr><td>4</td><td>"Only Cloudflare may reach the origin"</td><td>Cannot: it is the thing being checked</td><td><St k="ok">yes</St> origin lock</td></tr>
+    <tr><td>5</td><td>Last line if Cloudflare is misconfigured or bypassed</td><td>-</td><td><St k="ok">yes</St> preconfigured WAF rules stay on</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Some Cloudflare features (the full managed rule sets, advanced rate limiting) need a paid plan. Check the plan before relying on them.</Caption>
+
+## Caching: one cache or two
+
+Kadé now has two CDNs in a row. Each request for a product image can be answered by Cloudflare's cache, by Cloud CDN's cache, or by the Cloud Storage bucket:
+
+<CfCache />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Cloudflare is the cache shoppers hit; Cloud CDN stays on `kade-static` only</td><td>Cloudflare is closer to shoppers. Cloud CDN then shields the bucket from Cloudflare's own cache misses across many edge locations</td></tr>
+    <tr><td>2</td><td>Never cache the API</td><td>A Cloudflare Cache Rule bypasses cache for `api.kade.lk`, and the API sends `Cache-Control: no-store`. Cloudflare does not cache JSON by default, but saying it explicitly avoids surprises</td></tr>
+    <tr><td>3</td><td>Let the origin's `Cache-Control` decide lifetimes</td><td>One source of truth for both caches</td></tr>
+    <tr><td>4</td><td>On release, purge both, inner first</td><td>Purge Cloud CDN, then Cloudflare. In the other order, Cloudflare can refill from Cloud CDN's old copy</td></tr>
+    <tr><td>5</td><td>Use versioned file names (`app.3f9c.js`)</td><td>New names never need purging at all</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Data GCP sends to Cloudflare counts as internet egress from the load balancer. Every Cloudflare cache hit is data GCP does not send.</Caption>
+
+## Other Cloudflare features worth knowing
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Feature</th><th>What it is</th><th>GCP equivalent or link</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Transform Rules</td><td>Add, change or remove request and response headers at the edge</td><td>Used for the secret origin header (section 06)</td></tr>
+    <tr><td>2</td><td>Cache Rules, Configuration Rules, Redirect Rules</td><td>Per-path control of caching, security level and redirects</td><td>URL map redirects and Cloud CDN settings (<Ch n="12">chapter 12</Ch>)</td></tr>
+    <tr><td>3</td><td>Cloudflare Tunnel</td><td>A small agent (`cloudflared`) on a VM opens an **outgoing** connection to Cloudflare, so the origin needs no public IP or load balancer at all</td><td>A different design: suits a VM-hosted app; it uses Cloud NAT for its outgoing connection (<Ch n="7">chapter 7</Ch>)</td></tr>
+    <tr><td>4</td><td>Cloudflare Access (Zero Trust)</td><td>Sign-in in front of an internal web app</td><td>IAP for HTTPS (<Ch n="6.1">chapter 6.1</Ch>)</td></tr>
+    <tr><td>5</td><td>Cloudflare Load Balancing</td><td>Health-checked failover between origins at the DNS or proxy level</td><td>Usually unnecessary with a global GCP load balancer</td></tr>
+    <tr><td>6</td><td>Workers</td><td>Code running at Cloudflare's edge</td><td>Out of scope here</td></tr>
+    <tr><td>7</td><td>Logs (Logpush)</td><td>Cloudflare's request logs sent to storage or a SIEM</td><td>Join with GCP logs by `CF-Ray` (<Ch n="16">chapter 16</Ch>)</td></tr>
+    <tr><td>8</td><td>Development Mode</td><td>Bypasses Cloudflare's cache for three hours</td><td>Handy while testing; remember it turns itself off</td></tr>
+  </tbody>
+</Table>
+
+## When it breaks: reading Cloudflare errors
+
+When the origin leg fails, Cloudflare shows its own error page with a 52x code. Each code points at a specific link, so it tells you where to look before you open any log. Pick one:
+
+<CfErrors />
+
+## Back to Kadé
+
+<Box kind="fixed" title="Done: Cloudflare in front, and the only way in">
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>Setting</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>DNS</td><td>Cloudflare authoritative for `kade.lk`; DNSSEC moved; Cloud DNS public zone `kade-lk` deleted, private zone `kade-internal` kept</td></tr>
+    <tr><td>2</td><td>Records</td><td>`kade.lk`, `www`, `api` orange; `status`, MX and `_acme-challenge` DNS only</td></tr>
+    <tr><td>3</td><td>TLS</td><td>Full (strict); edge minimum TLS 1.2, TLS 1.3 on, Always Use HTTPS; HSTS after a few weeks</td></tr>
+    <tr><td>4</td><td>Certificates</td><td>Universal SSL at the edge; Google-managed with DNS authorization at the origin</td></tr>
+    <tr><td>5</td><td>Origin lock</td><td>Cloud Run ingress closed (<Ch n="10">ch 10</Ch>); kade-edge-policy: allow Cloudflare ranges **and** secret header `x-kade-edge`, default deny</td></tr>
+    <tr><td>6</td><td>Client IP</td><td>App reads `CF-Connecting-IP`; login rate limit keyed on that header</td></tr>
+    <tr><td>7</td><td>Caching</td><td>Cloudflare for static files, API bypassed; Cloud CDN on kade-static only; purge inner first</td></tr>
+  </tbody>
+</Table>
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 4 are read-only. Commands 5 to 7 change the project.
+
+<TryIt n={1} title="Is a name proxied? Look at the DNS answer">
+
+- **What it shows:** The addresses visitors get for each name.
+- **What to look for:** Cloudflare addresses (for example in `104.16.0.0/13` or `172.64.0.0/13`) mean orange. `34.120.88.10` means grey, and that name skips Cloudflare.
+
+```sh
+dig +short kade.lk
+dig +short www.kade.lk
+dig +short api.kade.lk
+```
+
+</TryIt>
+
+<TryIt n={2} title="Did a response come through Cloudflare?">
+
+- **What it shows:** The response headers.
+- **What to look for:** `server: cloudflare` and a `cf-ray` header. `cf-cache-status: HIT` on images means Cloudflare's cache answered.
+
+```sh
+curl -sI https://www.kade.lk/images/rice.jpg | grep -iE "server|cf-ray|cf-cache-status|via"
+```
+
+</TryIt>
+
+<TryIt n={3} title="Test the origin lock from outside Cloudflare">
+
+- **What it shows:** What happens when you skip Cloudflare and call the load balancer IP directly, with the right hostname.
+- **What to look for:** `403` from Cloud Armor. A `200` means the lock is open.
+
+```sh
+curl -s -o /dev/null -w "%{http_code}\n" \
+  --resolve api.kade.lk:443:34.120.88.10 https://api.kade.lk/v1/health
+```
+
+</TryIt>
+
+<TryIt n={4} title="Check the DNSSEC chain after the move">
+
+- **What it shows:** Whether a validating resolver accepts the answer.
+- **What to look for:** The `ad` flag in the header line means validated. `SERVFAIL` from a validating resolver points at a stale DS record.
+
+```sh
+dig +dnssec kade.lk @1.1.1.1 | grep -E "flags|status"
+```
+
+</TryIt>
+
+<TryIt n={5} title="Allow only Cloudflare and Kadé's secret header (changes the project)">
+
+- **What it shows:** The origin lock in kade-edge-policy: two allow rules (Cloudflare's 15 ranges split across them), each also requiring the header, and a default deny.
+- **What to look for:** Command 3 returns 403, while the site still works through Cloudflare. Use your own long random header value, and add the same value in a Cloudflare Transform Rule first.
+
+```sh
+gcloud compute security-policies rules create 500 --security-policy=kade-edge-policy \
+  --expression="(inIpRange(origin.ip,'173.245.48.0/20') || inIpRange(origin.ip,'103.21.244.0/22') || ...) \
+    && request.headers['x-kade-edge'] == 'REPLACE-WITH-LONG-RANDOM-VALUE'" \
+  --action=allow
+gcloud compute security-policies rules update 2147483647 \
+  --security-policy=kade-edge-policy --action=deny-403
+```
+
+</TryIt>
+
+<TryIt n={6} title="Key the login rate limit on the real visitor (changes the project)">
+
+- **What it shows:** The <Ch n="12">chapter 12</Ch> rate limit, now counted per `CF-Connecting-IP` instead of per source IP.
+- **What to look for:** In the logs, blocked requests carry different visitor IPs instead of a few Cloudflare addresses.
+
+```sh
+gcloud compute security-policies rules update 100 --security-policy=kade-edge-policy \
+  --enforce-on-key=HTTP-HEADER --enforce-on-key-name=CF-Connecting-IP
+```
+
+</TryIt>
+
+<TryIt n={7} title="Purge Cloud CDN before Cloudflare (changes the project)">
+
+- **What it shows:** Clears Cloud CDN's copy of changed files. Then purge the same paths in Cloudflare.
+- **What to look for:** The command waits until the purge is done. Only then purge Cloudflare.
+
+```sh
+gcloud compute url-maps invalidate-cdn-cache kade-url-map --path="/assets/*"
+```
+
+</TryIt>

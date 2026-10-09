@@ -1,0 +1,333 @@
+import { MssCalc, SeqDiagram, SynDump, TcpHeader } from "@/components/learn/widgets/lazy";
+
+<Part n="A">The TCP header</Part>
+
+## The header layout
+
+A TCP header is **20 bytes** before options, and up to 60 with them. It carries everything TCP needs: ports, the two numbers from <Ch n="17">chapter 17</Ch>, control flags, the receive window and a checksum. Compare UDP's two rows (<Ch n="15">chapter 15</Ch>):
+
+<TcpHeader />
+
+## A real SYN, byte by byte
+
+Here is the first segment of the handshake from <Ch n="16">chapter 16</Ch>: the laptop's SYN to kade-api, as it leaves the laptop (before home NAT changes the source). Its checksum was computed for real, including the pseudo-header:
+
+<SynDump />
+
+## Every field
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Field</th><th>Size</th><th>In the SYN</th><th>Job</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Source port</td><td>16 bits</td><td>`ce 4e` = 52814</td><td>The sending program (a temporary port)</td></tr>
+    <tr><td>2</td><td>Destination port</td><td>16 bits</td><td>`01 bb` = 443</td><td>The receiving program (HTTPS)</td></tr>
+    <tr><td>3</td><td>Sequence number</td><td>32 bits</td><td>`9a 7c 41 f2` = 2,591,834,610</td><td>The random ISN (<Ch n="17">chapter 17</Ch>)</td></tr>
+    <tr><td>4</td><td>Acknowledgement number</td><td>32 bits</td><td>`00 00 00 00`</td><td>Unused: the ACK flag is off in a SYN</td></tr>
+    <tr><td>5</td><td>Data offset</td><td>4 bits</td><td>`a` = 10 → 10 × 4 = 40 bytes</td><td>Header length in 4-byte rows, so the receiver knows where data starts</td></tr>
+    <tr><td>6</td><td>Flags</td><td>9 bits (+3 reserved)</td><td>`002` = SYN only</td><td>Section 4</td></tr>
+    <tr><td>7</td><td>Window</td><td>16 bits</td><td>`fa f0` = 64,240</td><td>Receive buffer space: flow control (section 5)</td></tr>
+    <tr><td>8</td><td>Checksum</td><td>16 bits</td><td>`cc 12`</td><td>Same method as UDP; mandatory for TCP</td></tr>
+    <tr><td>9</td><td>Urgent pointer</td><td>16 bits</td><td>`00 00`</td><td>Only used with the URG flag (almost never)</td></tr>
+    <tr><td>10</td><td>Options</td><td>0-40 bytes</td><td>20 bytes: MSS, SACK, timestamps, window scale</td><td>Section 6</td></tr>
+  </tbody>
+</Table>
+
+## Control flags
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Flag</th><th>Meaning</th><th>tcpdump shows</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**SYN**</td><td>Start a connection (handshake)</td><td>`[S]`; with ACK: `[S.]`</td></tr>
+    <tr><td>2</td><td>**ACK**</td><td>The acknowledgement number is valid. Set on every segment after the first SYN.</td><td>`.`</td></tr>
+    <tr><td>3</td><td>**FIN**</td><td>Gracefully close this direction</td><td>`[F.]`</td></tr>
+    <tr><td>4</td><td>**RST**</td><td>Abort the connection right now</td><td>`[R]`</td></tr>
+    <tr><td>5</td><td>**PSH**</td><td>Push: hand this data to the app now, do not wait for more</td><td>`[P.]`</td></tr>
+    <tr><td>6</td><td>**URG**</td><td>Urgent data (see the urgent pointer). Legacy, almost unused.</td><td>`[U]`</td></tr>
+    <tr><td>7</td><td>ECE / CWR</td><td>Explicit congestion notification: routers mark packets instead of dropping them</td><td>`[E]` `[W]`</td></tr>
+  </tbody>
+</Table>
+
+Which flags each segment of a normal connection carries:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Segment</th><th>SYN</th><th>ACK</th><th>PSH</th><th>FIN</th><th>RST</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>SYN</td><td>●</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>2</td><td>SYN-ACK</td><td>●</td><td>●</td><td></td><td></td><td></td></tr>
+    <tr><td>3</td><td>ACK</td><td></td><td>●</td><td></td><td></td><td></td></tr>
+    <tr><td>4</td><td>HTTP request / response</td><td></td><td>●</td><td>●</td><td></td><td></td></tr>
+    <tr><td>5</td><td>FIN</td><td></td><td>●</td><td></td><td>●</td><td></td></tr>
+    <tr><td>6</td><td>Reset (refused, or aborted)</td><td></td><td>sometimes</td><td></td><td></td><td>●</td></tr>
+  </tbody>
+</Table>
+
+## The window: flow control
+
+Every segment carries the sender's <Term>receive window</Term>: "I have room for N more bytes". The other side must never have more than N unacknowledged bytes in flight. If kade-db is busy and its buffer fills, it advertises a smaller window, down to 0 ("stop"), then a bigger one again when it catches up. This is flow control from <Ch n="16">chapter 16</Ch>.
+
+The window also limits speed. At most one window of data can be sent per round trip, so:
+
+<Equation>max speed ≈ window ÷ round-trip time</Equation>
+
+<Table>
+  <tbody>
+    <tr><td>64 KB window, home → kade-api (41 ms)</td><td><Mono>65,535 × 8 bits ÷ 0.041 s ≈ **12.8 Mbit/s**, even on a 100 Mbit/s line</Mono></td></tr>
+    <tr><td>With window scaling (e.g. 3 MB)</td><td><Mono>≈ **600 Mbit/s**: now the line is the limit</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>The window field is only 16 bits (max 65,535). The **window scale** option (section 6) multiplies it, which is how fast long-distance transfers work today.</Caption>
+
+## Options, agreed in the handshake
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Option</th><th>Bytes in our SYN</th><th>Value</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>MSS</td><td>`02 04 05 b4`</td><td>1460</td><td>"Send me at most 1460 bytes of data per segment" (Part B)</td></tr>
+    <tr><td>2</td><td>SACK permitted</td><td>`04 02`</td><td>yes</td><td>Selective ACKs allowed (<Ch n="17">chapter 17</Ch>)</td></tr>
+    <tr><td>3</td><td>Timestamps</td><td>`08 0a …`</td><td>10 bytes</td><td>Better RTT measurement; protects against wrapped numbers (<Ch n="17">chapter 17</Ch>)</td></tr>
+    <tr><td>4</td><td>No-operation</td><td>`01`</td><td>-</td><td>Padding so the next option lines up</td></tr>
+    <tr><td>5</td><td>Window scale</td><td>`03 03 07`</td><td>× 2<sup>7</sup> = × 128</td><td>Real window = window field × 128</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Most options can only be set in the SYN and SYN-ACK. If one side does not offer an option, it is not used for the whole connection.</Caption>
+
+<Part n="B">How big can a segment be?</Part>
+
+## MTU
+
+The <Term>MTU</Term> (Maximum Transmission Unit) is the largest packet a link can carry in one piece. For classic Ethernet and most WiFi it is 1,500 bytes (<Ch n="1">chapter 1</Ch>). Anything bigger must be split before it can cross that link. Different links have different MTUs:
+
+<Table>
+  <tbody>
+    <tr><td>Home WiFi, office Ethernet</td><td><Mono>1,500</Mono></td></tr>
+    <tr><td>kade-vpc (GCP's default)</td><td><Mono>1,460 <Sub>can be set to 1,500 or up to 8,896</Sub></Mono></td></tr>
+    <tr><td>A VPN tunnel (office → cloud, later)</td><td><Mono>less, e.g. 1,400: the tunnel adds its own headers</Mono></td></tr>
+    <tr><td>Some home fibre / DSL links (PPPoE)</td><td><Mono>1,492</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>The **path MTU** is the smallest MTU of any link on the whole path. That is the real limit.</Caption>
+
+## MSS
+
+The <Term>MSS</Term> (Maximum Segment Size) is the largest amount of **application data** one TCP segment can carry. It is the MTU minus the IP and TCP headers:
+
+<Equation>1,500 MTU − 20 IP − 20 TCP = 1,460 MSS</Equation>
+
+- **Each side announces its MSS in the SYN** (section 6), based on its own link. Each then sends segments no bigger than what the other side announced.
+- **Options eat into it.** With the timestamp option on every segment (12 bytes with padding), each full segment really carries 1,448 bytes of data.
+- **Inside GCP**, MTU 1,460 gives MSS 1,420, so kade-api and kade-db use smaller segments than your laptop.
+
+TCP uses the MSS to slice your byte stream. When kade-api sends a 4,000-byte order list to your laptop:
+
+<Segments>
+  <Seg w={1460} hue="plum">SEQ 1 · 1,460 bytes</Seg>
+  <Seg w={1460} hue="plum">SEQ 1461 · 1,460 bytes</Seg>
+  <Seg w={1080} hue="plum">SEQ 2921 · 1,080</Seg>
+</Segments>
+
+<Caption>The same split as <Ch n="1">chapter 1</Ch>, now with the reason: 1,460 is the MSS your laptop announced (ignoring timestamps to keep the numbers round).</Caption>
+
+Try other links, tunnels and sizes:
+
+<MssCalc />
+
+## Fragmentation
+
+If an IP packet is still too big for a link's MTU, the IP layer can <Term>fragment</Term> it: split it into smaller IP packets, which are put back together only at the final destination. The IP header has fields just for this:
+
+<Table>
+  <tbody>
+    <tr><td>Identification</td><td>The same number on every fragment of one packet, so they can be matched</td></tr>
+    <tr><td>DF flag (Don't Fragment)</td><td>"Do not split me" (section 10)</td></tr>
+    <tr><td>MF flag (More Fragments)</td><td>1 on every fragment except the last</td></tr>
+    <tr><td>Fragment offset</td><td>Where this piece's data starts, counted in 8-byte units</td></tr>
+  </tbody>
+</Table>
+
+A 1,500-byte packet (1,480 bytes after its IP header) without DF reaches the 1,400-byte VPN link:
+
+<Segments label="before: one packet, 1,500 bytes">
+  <Seg w={20} hue="green">IP</Seg>
+  <Seg w={1480} hue="plum">data · 1,480 bytes</Seg>
+</Segments>
+
+<Segments>
+  <Seg w={20} hue="green">IP</Seg>
+  <Seg w={1376} hue="plum">data bytes 0-1375 · 1,376 bytes</Seg>
+  <Seg w={104} gap />
+</Segments>
+
+<Segments>
+  <Seg w={20} hue="green">IP</Seg>
+  <Seg w={1376} gap />
+  <Seg w={104} hue="plum">104</Seg>
+</Segments>
+
+<Caption>Fragment data must be a multiple of 8 bytes (except the last), so fragment 1 carries 1,376, not 1,380. Each fragment gets its own 20-byte IP header, so the total grows from 1,500 to 1,520.</Caption>
+
+Fragmentation works, but it is avoided:
+
+- **Lose one fragment, lose the whole packet.** TCP must resend the entire segment.
+- **Extra work** for routers and for the receiver, which must hold fragments until all arrive.
+- **Firewalls and NAT struggle:** only the first fragment contains the TCP/UDP ports.
+- **IPv6 routers never fragment at all.** Only the sender may.
+
+## DF and path MTU discovery
+
+To avoid fragmentation, hosts use <Term>PMTUD</Term> (Path MTU Discovery), which <Ch n="13">chapter 13</Ch> introduced from the ICMP side. TCP sends every packet with the **DF** bit set. A router that cannot forward it without splitting must drop it and send back ICMP type 3, code 4 ("fragmentation needed", with the next link's MTU). The sender lowers its segment size for that destination:
+
+<SeqDiagram set="pmtud" />
+
+<Note>
+
+**The classic mystery stall.** If a firewall blocks those ICMP messages, PMTUD breaks. The handshake works (small packets), the HTTP request works (small), then the first big response never arrives and the connection just hangs. Two fixes: allow ICMP type 3 through firewalls (<Ch n="13">chapter 13</Ch>), and on VPN routers use **MSS clamping**: the router rewrites the MSS option in passing SYNs to a size that fits the tunnel, so large segments are never sent at all. Newer systems can also probe for the right size without relying on ICMP.
+
+</Note>
+
+## Why tcpdump shows giant segments: NIC offloads
+
+Capture on your own laptop or on kade-api and you may see TCP segments of 30,000 or 64,000 bytes, far above the 1,460 MSS, and "bad checksum" warnings on packets you sent. Nothing is broken. Modern network cards take over some of TCP's work, and tcpdump watches from a point **before** the card does it:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Offload</th><th>Direction</th><th>What happens</th><th>What tcpdump shows</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**TSO / GSO** (segmentation offload)</td><td>sending</td><td>The OS hands the card one big chunk (up to 64 KB). The card cuts it into MSS-sized segments and copies the headers onto each.</td><td>One huge "segment", e.g. `length 65160`</td></tr>
+    <tr><td>2</td><td>**GRO / LRO** (receive offload)</td><td>receiving</td><td>The card or driver merges many arriving segments of one connection into one big one before the OS sees them.</td><td>Big segments arriving too</td></tr>
+    <tr><td>3</td><td>**Checksum offload**</td><td>sending</td><td>The card fills in the TCP/UDP checksum just before sending (<Ch n="15">chapter 15</Ch>).</td><td>`incorrect` or `bad` checksum on outgoing packets only</td></tr>
+  </tbody>
+</Table>
+
+<Segments label="what the OS gives the card, and what tcpdump sees">
+  <Seg w={1} hue="amber">one 64 KB chunk with one set of headers</Seg>
+</Segments>
+
+<Segments>
+  <Seg w={1} hue="plum">1448</Seg>
+  <Seg w={1} hue="plum">1448</Seg>
+  <Seg w={1} hue="plum">1448</Seg>
+  <Seg w={1} hue="plum">1448</Seg>
+  <Seg w={1} hue="plum">…</Seg>
+  <Seg w={1} hue="plum">1448</Seg>
+  <Seg w={1} hue="plum">1448</Seg>
+</Segments>
+
+<Caption>About 45 real segments, each with its own headers and sequence numbers worked out by the card. The saving is CPU: the OS builds headers once per chunk instead of once per segment.</Caption>
+
+To see the real on-the-wire segments, capture on another machine, a switch mirror port, or (for a quick test only) turn the offloads off with `ethtool`. Cloud VMs use the same tricks on their virtual network cards.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Header</td><td>20 bytes + up to 40 of options; data offset says where data starts</td><td>data offset</td></tr>
+    <tr><td>4</td><td>Flags</td><td>SYN, ACK, FIN, RST, PSH, URG (+ ECE, CWR)</td><td>control flags</td></tr>
+    <tr><td>5</td><td>Window</td><td>Flow control; speed ≤ window ÷ RTT</td><td>receive window, window scaling</td></tr>
+    <tr><td>6</td><td>Options</td><td>MSS, SACK, timestamps, window scale: set in the handshake</td><td></td></tr>
+    <tr><td>7</td><td>MTU</td><td>Largest packet per link; the path MTU is the smallest on the path</td><td>path MTU</td></tr>
+    <tr><td>8</td><td>MSS</td><td>MTU − IP − TCP = 1,460; announced in the SYN</td><td>MSS</td></tr>
+    <tr><td>9</td><td>Fragmentation</td><td>IP splits too-big packets; fragile, avoided</td><td>fragment, MF, offset</td></tr>
+    <tr><td>10</td><td>PMTUD</td><td>DF + ICMP 3/4 finds the right size; blocked ICMP = stalls</td><td>DF, PMTUD, MSS clamping</td></tr>
+    <tr><td>11</td><td>Offloads</td><td>The card cuts, merges and checksums; tcpdump sees the "before" view</td><td>TSO, GSO, GRO, checksum offload</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="SYNs with their options">
+
+- **Steps:** `sudo tcpdump -n -v -i en0 'tcp[tcpflags] & tcp-syn != 0'`, then open any site
+- **What to look for:** `options [mss 1460,sackOK,TS …,nop,wscale 7]`
+- **From section:** [6. Options, agreed in the handshake](#options-agreed-in-the-handshake)
+
+```sh
+sudo tcpdump -n -v -i en0 'tcp[tcpflags] & tcp-syn != 0'
+```
+
+</TryIt>
+
+<TryIt n={2} title="Your interface's MTU">
+
+- **What to look for:** `mtu 1500`.
+- **Runs on:** macOS · Linux: ip link show
+- **From section:** [7. MTU](#mtu)
+
+```sh
+ifconfig en0 | grep mtu
+```
+
+</TryIt>
+
+<TryIt n={3} title="The path MTU, hop by hop">
+
+- **What to look for:** `pmtu 1500`, or a smaller value where it drops.
+- **Runs on:** Linux
+- **From section:** [10. DF and path MTU discovery](#df-and-path-mtu-discovery)
+
+```sh
+tracepath api.kade.lk
+```
+
+</TryIt>
+
+<TryIt n={4} title="DF set, largest size that fits 1,500">
+
+- **What to look for:** 1,473 fails with "message too long" / "frag needed".
+- **Runs on:** macOS · Linux: ping -M do -s 1472
+- **From section:** [10. DF and path MTU discovery](#df-and-path-mtu-discovery)
+
+```sh
+ping -D -s 1472 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={5} title="Per-connection MSS and path MTU">
+
+- **What to look for:** `mss:1448` (timestamps on), `pmtu:1500`.
+- **Runs on:** Linux
+- **From section:** [8. MSS](#mss)
+
+```sh
+ss -ti
+```
+
+</TryIt>
+
+<TryIt n={6} title="Which offloads are on">
+
+- **What to look for:** `tcp-segmentation-offload: on`, `generic-receive-offload: on`.
+- **Runs on:** Linux, e.g. on kade-api (interface may be ens4)
+- **From section:** [11. Why tcpdump shows giant segments: NIC offloads](#why-tcpdump-shows-giant-segments-nic-offloads)
+
+```sh
+ethtool -k eth0 | grep -E 'segmentation|receive-offload|checksum'
+```
+
+</TryIt>
+
+<TryIt n={7} title="The VPC's MTU">
+
+- **What to look for:** `1460` unless changed.
+- **From section:** [7. MTU](#mtu)
+
+```sh
+gcloud compute networks describe kade-vpc --format='value(mtu)'
+```
+
+</TryIt>

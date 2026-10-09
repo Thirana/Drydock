@@ -1,0 +1,378 @@
+import { DkimFlow, MailSim, MxFlow } from "@/components/learn/widgets/lazy";
+
+<Part n="A">Records</Part>
+
+## What a record is
+
+A <Term>DNS record</Term> (also called a resource record) is one entry in a domain's zone. Each has a **name**, a **TTL**, a **class** (always IN, "internet", in practice), a **type** that decides what the value means, and the **value**. Here is Kadé's zone in the standard zone-file format:
+
+```code
+; kade.lk zone, hosted in GCP Cloud DNS
+; name                 TTL    class type  value
+kade.lk.               21600  IN    SOA   ns-cloud-a1.googledomains.com. cloud-dns-hostmaster.google.com. 3 21600 3600 259200 300
+kade.lk.               21600  IN    NS    ns-cloud-a1.googledomains.com.
+kade.lk.               21600  IN    NS    ns-cloud-a2.googledomains.com.  ; + a3, a4
+kade.lk.               300    IN    A     34.87.120.15
+www.kade.lk.           300    IN    CNAME kade.lk.
+api.kade.lk.           300    IN    A     34.87.120.15
+kade.lk.               3600   IN    MX    1 smtp.google.com.
+kade.lk.               3600   IN    TXT   "v=spf1 include:_spf.google.com include:sendgrid.net ~all"
+google._domainkey.kade.lk. 3600 IN  TXT   "v=DKIM1; k=rsa; p=MIIBIjANBgkqh…"
+_dmarc.kade.lk.        3600   IN    TXT   "v=DMARC1; p=quarantine; rua=mailto:dmarc@kade.lk"
+kade.lk.               3600   IN    CAA   0 issue "pki.goog"
+```
+
+<Caption>Every line is explained below. The zone has a dozen records; many real domains have fewer.</Caption>
+
+## The record types you need
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Type</th><th>Maps a name to</th><th>Kadé example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**A**</td><td>An IPv4 address</td><td>api.kade.lk → 34.87.120.15</td></tr>
+    <tr><td>2</td><td>**AAAA**</td><td>An IPv6 address ("quad A": 4× the size)</td><td>added once Kadé serves IPv6</td></tr>
+    <tr><td>3</td><td>**CNAME**</td><td>Another name (an alias)</td><td>www.kade.lk → kade.lk</td></tr>
+    <tr><td>4</td><td>**MX**</td><td>The mail servers that receive email for the domain</td><td>kade.lk → smtp.google.com</td></tr>
+    <tr><td>5</td><td>**NS**</td><td>The authoritative name servers</td><td>kade.lk → ns-cloud-a1…a4</td></tr>
+    <tr><td>6</td><td>**TXT**</td><td>Free text: verification and email security</td><td>SPF, DKIM, DMARC</td></tr>
+    <tr><td>7</td><td>SOA</td><td>Facts about the zone itself</td><td>one per zone (section 8)</td></tr>
+    <tr><td>8</td><td>PTR</td><td>An IP back to a name (reverse DNS)</td><td>section 8</td></tr>
+    <tr><td>9</td><td>SRV</td><td>Host and port for a named service</td><td>section 8</td></tr>
+    <tr><td>10</td><td>CAA</td><td>Which certificate authorities may issue TLS certificates</td><td>only Google's CA for kade.lk</td></tr>
+  </tbody>
+</Table>
+
+## A and AAAA
+
+The basic records: name → address. A few things worth knowing:
+
+- **One name, several addresses.** A name can have several A records. Clients get the list, usually in a rotating order (**round-robin DNS**), which spreads load crudely. It does not check whether each server is healthy; a load balancer does that properly.
+- **Both families.** A name can have A and AAAA records at the same time. Modern clients try IPv6 and IPv4 in parallel and use whichever connects first ("Happy Eyeballs").
+- **The apex** (kade.lk itself, with no prefix) can have A and AAAA records like any other name.
+
+## CNAME
+
+A <Term>CNAME</Term> (canonical name) says "this name is really that other name; look that one up instead". The resolver follows the chain and returns the final address:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td><Mono>www.kade.lk → CNAME → kade.lk</Mono></td></tr>
+    <tr><td><Mono>2</Mono></td><td><Mono>kade.lk → A → 34.87.120.15</Mono></td></tr>
+    <tr><td><Mono>✓</Mono></td><td>The browser gets 34.87.120.15. Change kade.lk's A record and www follows automatically.</td></tr>
+  </tbody>
+</Table>
+
+CNAMEs are also how you point a name at someone else's service: `shop.kade.lk CNAME kade-store.hosted-shop.example`. If that service changes its IPs, your record keeps working.
+
+<Note>
+
+**Two rules.** (1) A name with a CNAME can have **no other records**: the CNAME replaces the whole name. (2) So the **apex** kade.lk can never be a CNAME, because it must also have NS and SOA records. Providers work around this with "ALIAS" records or **CNAME flattening** (Cloudflare), which follow the target themselves and serve plain A records. On GCP, you simply point the apex's A record at the load balancer's IP.
+
+</Note>
+
+## MX
+
+An <Term>MX</Term> (mail exchanger) record says which servers receive email for the domain. When a shopper replies to an order email, their mail server does this:
+
+<MxFlow />
+
+- **The number is a priority**: lower is tried first. With several MX records, others are backups. Google Workspace today uses a single record, `1 smtp.google.com`.
+- **An MX must point to a name** with A/AAAA records, never to a CNAME or a bare IP.
+- MX only controls **receiving**. Sending is covered by SPF and DKIM (Part B).
+
+## NS and delegation
+
+<Term>NS</Term> records name the authoritative servers for a zone. They appear in two places, and both must agree:
+
+<Table>
+  <tbody>
+    <tr><td>In the parent (.lk)</td><td>The delegation: "kade.lk is served by ns-cloud-a1…a4". Set through the domain registrar. This is what resolvers follow (<Ch n="22">chapter 22</Ch>).</td></tr>
+    <tr><td>In the zone itself</td><td>The same list, served by Cloud DNS. Resolvers trust these once they arrive.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Moving DNS providers (say, to Cloudflare) means copying all records to the new provider first, then changing the NS records at the registrar. The parent's NS TTL (often a day) is how long some users keep asking the old provider, so leave it running during the switch.</Caption>
+
+You can also delegate a **sub-zone**: NS records for `dev.kade.lk` pointing to other servers hand that whole branch to someone else, the same way .lk handed kade.lk to Cloud DNS.
+
+## TXT
+
+<Term>TXT</Term> records hold free text. DNS does not care what is in them; other systems read them. Two common uses:
+
+- **Proving you own a domain.** Google, Microsoft or a certificate authority says "add this random string as a TXT record". Only the domain's owner can do that, so it proves control. Example: `google-site-verification=3fK9…`.
+- **Email security.** SPF, DKIM and DMARC all live in TXT records (Part B).
+
+Each string in a TXT record can be at most 255 characters; longer values (like DKIM keys) are split into several quoted strings that are joined back together.
+
+## SOA, PTR, SRV and CAA
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Type</th><th>What it holds</th><th>Why you care</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**SOA** (start of authority)</td><td>One per zone: the primary server, an admin contact, a serial number, timers, and the **negative-caching TTL** (the last number, 300 s for kade.lk)</td><td>That last number is how long "name does not exist" is cached (<Ch n="22">chapter 22</Ch>)</td></tr>
+    <tr><td>2</td><td>**PTR** (reverse DNS)</td><td>IP → name. 34.87.120.15 is looked up as `15.120.87.34.in-addr.arpa`</td><td>Mail servers check that a sending IP has a sensible reverse name. Controlled by whoever owns the IP (for a GCP external IP, set in GCP), not in your zone.</td></tr>
+    <tr><td>3</td><td>**SRV** (service)</td><td>Host and port for a service: `_sip._tcp.kade.lk → 10 5 5060 sip.kade.lk`</td><td>Used by VoIP, chat and some directory services to find servers and ports by name</td></tr>
+    <tr><td>4</td><td>**CAA** (certificate authority authorization)</td><td>Which certificate authorities may issue TLS certificates for the domain</td><td>A CA must refuse to issue for kade.lk unless it is listed. Here only Google Trust Services (`pki.goog`), used by Google's load balancers. Reduces the risk of a wrongly issued certificate (TLS chapter).</td></tr>
+  </tbody>
+</Table>
+
+<Part n="B">Email security</Part>
+
+## Why email is easy to fake
+
+Email is sent with **SMTP**, a protocol from 1982 that trusts whatever the sender writes. Anyone can run a mail server and send a message with `From: payments@kade.lk`. The shopper's mail app shows "Kadé Payments" and the scam begins: "your order failed, re-enter your card here".
+
+An email also has **two** sender addresses, which matters for what follows:
+
+<Table>
+  <thead>
+    <tr><th>Address</th><th>Where it lives</th><th>Who sees it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**Envelope sender**<Sub>also "Return-Path" or "MAIL FROM"</Sub></td><td>The SMTP conversation between servers; where bounces go</td><td>Servers only</td></tr>
+    <tr><td>**Header From**</td><td>The `From:` line inside the message</td><td>The person reading the email</td></tr>
+  </tbody>
+</Table>
+
+<Caption>They can be different. Bulk email providers often use their own envelope address to collect bounces. Attackers exploit exactly this gap.</Caption>
+
+Three DNS-based checks close the gap. Each is a TXT record Kadé publishes, and receiving servers read it:
+
+<Cols n={3}>
+
+<Col title="SPF">
+
+Which servers may send for this domain.
+
+</Col>
+
+<Col title="DKIM">
+
+A signature proving the message came from the domain, unchanged.
+
+</Col>
+
+<Col title="DMARC">
+
+The policy that ties both to the visible From, and says what to do on failure.
+
+</Col>
+
+</Cols>
+
+## SPF: who may send
+
+<Term>SPF</Term> (Sender Policy Framework) is a TXT record listing the servers allowed to send email for the domain. The receiving server checks whether the connecting IP is on the list:
+
+```text
+kade.lk.  TXT  "v=spf1 include:_spf.google.com include:sendgrid.net ~all"
+```
+
+<Table>
+  <tbody>
+    <tr><td><Mono>v=spf1</Mono></td><td>"This is an SPF record"</td></tr>
+    <tr><td><Mono>include:\_spf.google.com</Mono></td><td>Also allow every server Google lists for Workspace (staff mail)</td></tr>
+    <tr><td><Mono>include:sendgrid.net</Mono></td><td>Also allow the bulk email provider (order and marketing emails)</td></tr>
+    <tr><td><Mono>ip4:198.51.100.20</Mono></td><td>(optional) allow one IP directly, e.g. a printer that emails scans from the office</td></tr>
+    <tr><td><Mono>~all</Mono></td><td>Everything else: "softfail" (suspicious). `-all` = hard fail; `?all` = no opinion.</td></tr>
+  </tbody>
+</Table>
+
+- **SPF checks the envelope sender, not the visible From.** On its own it does not stop a fake `From:` line. DMARC fixes that (section 12).
+- **At most 10 DNS lookups.** Each `include` can contain more. Past 10 the whole check errors out, a common mistake as companies add services.
+- **Breaks on forwarding.** When a mailing list or a forwarding rule resends the message, it arrives from the forwarder's IP, which is not on Kadé's list.
+- **Only one SPF record per domain.** Two TXT records starting with `v=spf1` make both invalid.
+
+## DKIM: a signature on every email
+
+<Term>DKIM</Term> (DomainKeys Identified Mail) adds a cryptographic signature to each outgoing email. The sending service keeps a **private key**; Kadé publishes the matching **public key** in DNS. The receiver fetches it and checks the signature:
+
+<DkimFlow />
+
+- **The selector** (`s=google`) picks which key to fetch: `google._domainkey.kade.lk`. Different services use different selectors (e.g. `s1._domainkey` for the bulk provider), so each can have its own key, and keys can be rotated.
+- **What it proves:** the signing domain (`d=kade.lk`) sent it, and the signed headers and body were not changed on the way.
+- **Survives forwarding** as long as nobody edits the message. A mailing list that adds "\[list\]" to the subject or a footer breaks it.
+
+## DMARC: alignment and policy
+
+<Term>DMARC</Term> (Domain-based Message Authentication, Reporting and Conformance) ties SPF and DKIM to the address the reader actually sees. Its key idea is **alignment**: a passing check only counts if its domain matches the header From domain.
+
+```text
+_dmarc.kade.lk.  TXT  "v=DMARC1; p=quarantine; rua=mailto:dmarc@kade.lk"
+```
+
+<Table>
+  <tbody>
+    <tr><td><Mono>DMARC passes when</Mono></td><td>SPF passes **and** its domain aligns with the From domain, **or** DKIM passes **and** its `d=` domain aligns. One aligned pass is enough.</td></tr>
+    <tr><td><Mono>p=none</Mono></td><td>Monitor only: deliver normally, but send reports</td></tr>
+    <tr><td><Mono>p=quarantine</Mono></td><td>Failing mail goes to spam</td></tr>
+    <tr><td><Mono>p=reject</Mono></td><td>Failing mail is refused outright</td></tr>
+    <tr><td><Mono>rua=mailto:…</Mono></td><td>Where receivers send daily summary reports: which IPs sent mail as kade.lk and whether it passed. This is how Kadé discovers services it forgot to add to SPF.</td></tr>
+    <tr><td><Mono>Relaxed alignment</Mono></td><td>(the default) a subdomain counts: an envelope sender at `em.kade.lk` aligns with From `kade.lk`</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Safe rollout">
+
+Start with `p=none` and read the reports for a few weeks. Fix every legitimate sender (add it to SPF, set up DKIM with d=kade.lk). Then move to `quarantine`, and finally `reject`. Jumping straight to reject blocks your own forgotten senders, such as the office printer's scan-to-email.
+
+</Key>
+
+## Try it: will this email get through?
+
+Pick an email and a DMARC policy. The receiving server's checks run step by step:
+
+<MailSim />
+
+## Reading the results in a real email
+
+In Gmail, open a message and choose "Show original". The receiving server writes its verdicts into an `Authentication-Results` header:
+
+```text
+Authentication-Results: mx.google.com;
+   dkim=pass header.i=@kade.lk header.s=google;
+   spf=pass (google.com: domain of orders@kade.lk designates 209.85.220.41 as permitted sender) smtp.mailfrom=orders@kade.lk;
+   dmarc=pass (p=QUARANTINE) header.from=kade.lk
+```
+
+<Caption>Three lines to check: which domain signed (header.i / header.s), which envelope sender SPF checked (smtp.mailfrom), and the DMARC result against header.from.</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Record</td><td>Name, TTL, class, type, value; a zone is a set of them</td><td>resource record, zone file</td></tr>
+    <tr><td>3</td><td>A / AAAA</td><td>Name → IPv4 / IPv6; several = round-robin</td><td>round-robin DNS</td></tr>
+    <tr><td>4</td><td>CNAME</td><td>Alias; no other records beside it; not at the apex</td><td>apex, CNAME flattening</td></tr>
+    <tr><td>5</td><td>MX</td><td>Mail servers for receiving; lower number first</td><td>MX priority, SMTP</td></tr>
+    <tr><td>6</td><td>NS</td><td>Authoritative servers; parent and child must agree</td><td>delegation</td></tr>
+    <tr><td>7</td><td>TXT</td><td>Free text: ownership proof, email security</td><td></td></tr>
+    <tr><td>8</td><td>Others</td><td>SOA (zone facts, negative TTL), PTR (reverse), SRV (service), CAA (allowed CAs)</td><td>SOA, PTR, SRV, CAA</td></tr>
+    <tr><td>9</td><td>Spoofing</td><td>SMTP trusts the sender; envelope vs header From</td><td>envelope sender</td></tr>
+    <tr><td>10</td><td>SPF</td><td>Allowed sending IPs; checks the envelope; 10-lookup limit</td><td>SPF</td></tr>
+    <tr><td>11</td><td>DKIM</td><td>Signature; public key at selector.\_domainkey</td><td>DKIM, selector</td></tr>
+    <tr><td>12</td><td>DMARC</td><td>Aligned SPF or DKIM pass; none → quarantine → reject; reports</td><td>DMARC, alignment</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="IPv4 and IPv6 records">
+
+- **Steps:** `dig google.com A`, `dig google.com AAAA`
+- **What to look for:** Different addresses for the same name.
+- **From section:** [2. The record types you need](#the-record-types-you-need)
+
+```sh
+dig google.com A
+dig google.com AAAA
+```
+
+</TryIt>
+
+<TryIt n={2} title="A CNAME chain">
+
+- **What to look for:** A CNAME line, then the A record of its target.
+- **From section:** [4. CNAME](#cname)
+
+```sh
+dig www.github.com
+```
+
+</TryIt>
+
+<TryIt n={3} title="Mail servers">
+
+- **What to look for:** Several lines with priorities (5, 10, 20 …).
+- **From section:** [5. MX](#mx)
+
+```sh
+dig gmail.com MX +short
+```
+
+</TryIt>
+
+<TryIt n={4} title="Authoritative servers">
+
+- **What to look for:** The provider's name servers.
+- **Runs on:** try with any real domain
+- **From section:** [6. NS and delegation](#ns-and-delegation)
+
+```sh
+dig kade.lk NS +short
+```
+
+</TryIt>
+
+<TryIt n={5} title="TXT records">
+
+- **What to look for:** A `v=spf1 …` line and verification strings.
+- **From section:** [10. SPF: who may send](#spf-who-may-send)
+
+```sh
+dig google.com TXT +short
+```
+
+</TryIt>
+
+<TryIt n={6} title="A DMARC policy">
+
+- **What to look for:** `v=DMARC1; p=reject; …`
+- **From section:** [12. DMARC: alignment and policy](#dmarc-alignment-and-policy)
+
+```sh
+dig _dmarc.google.com TXT +short
+```
+
+</TryIt>
+
+<TryIt n={7} title="A DKIM public key">
+
+- **What to look for:** `v=DKIM1; k=rsa; p=…`
+- **From section:** [11. DKIM: a signature on every email](#dkim-a-signature-on-every-email)
+
+```sh
+dig google._domainkey.kade.lk TXT +short
+```
+
+</TryIt>
+
+<TryIt n={8} title="Reverse DNS (PTR)">
+
+- **What to look for:** `dns.google.`
+- **From section:** [8. SOA, PTR, SRV and CAA](#soa-ptr-srv-and-caa)
+
+```sh
+dig -x 8.8.8.8 +short
+```
+
+</TryIt>
+
+<TryIt n={9} title="Allowed certificate authorities">
+
+- **What to look for:** `0 issue "pki.goog"`
+- **From section:** [8. SOA, PTR, SRV and CAA](#soa-ptr-srv-and-caa)
+
+```sh
+dig google.com CAA +short
+```
+
+</TryIt>
+
+<TryIt n={10} title="All records in a Cloud DNS zone">
+
+- **What to look for:** The same records as the zone file in section 1.
+- **From section:** [1. What a record is](#what-a-record-is)
+
+```sh
+gcloud dns record-sets list --zone=kade-lk
+```
+
+</TryIt>

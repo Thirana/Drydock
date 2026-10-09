@@ -1,6 +1,7 @@
 import type { MDXComponents } from "mdx/types";
 import type { ReactNode } from "react";
 import type { ArchitectureModel } from "@/lib/architecture/types";
+import type { Lesson } from "@/lib/content/crosslinks";
 import { ComponentSheets } from "./component-sheets";
 import { DefectLink } from "./defect-link";
 import { DefectRegister } from "./defect-register";
@@ -16,6 +17,8 @@ import { PhaseSequence } from "./phase-sequence";
 export function architectureMdxComponents(
   model: ArchitectureModel,
   hrefs: { defects: string },
+  /** Course sections that teach each defect, by defect ID. */
+  lessons: Record<string, Lesson[]> = {},
 ): MDXComponents {
   return {
     MapExplorer: (props: {
@@ -26,7 +29,7 @@ export function architectureMdxComponents(
     JourneyExplorer: () => (
       <JourneyExplorer model={model} defectsHref={hrefs.defects} />
     ),
-    DefectRegister: () => <DefectRegister model={model} />,
+    DefectRegister: () => <DefectRegister model={model} lessons={lessons} />,
     LoadBalancerExplorer: () => (
       <LoadBalancerExplorer chain={model.loadBalancer} />
     ),

@@ -1,0 +1,213 @@
+import { AndGrid, CidrBar, SameNet } from "@/components/learn/widgets/lazy";
+import { FigQuestion } from "@content/learn/fundamentals/figures/04-subnet-masks";
+
+## The question before every send
+
+Before sending anything, a device must decide how to send it. If the target is on the same network, it sends directly: no router, no internet. If not, it hands the packet to the router (the default gateway). The <Term>subnet mask</Term> is the tool that makes this decision.
+
+<Figure wide hues={["plum", "green", "amber"]} drawing={<FigQuestion />} />
+
+## What a mask looks like
+
+A mask is written like an IP address. For a /24 network it is `255.255.255.0`. The laptop got this value from DHCP (<Ch n="3">chapter 3</Ch>). But a mask is not an address: you cannot give it to a device. It exists only to be applied to addresses.
+
+Its purpose is clear in binary. 255 is 11111111 (eight 1s) and 0 is 00000000 (eight 0s). So 255.255.255.0 is twenty-four 1s followed by eight 0s, the exact /24 split from <Ch n="3">chapter 3</Ch>:
+
+<CidrBar ip="255.255.255.0" prefix="24" labels="1s = network bits (24),0s = host bits (8)" />
+
+<Key title="Two ways to write the same thing">
+
+/24 and 255.255.255.0 say the same thing. The 1s mark the network bits and the 0s mark the host bits. CIDR counts the 1s; the mask writes them out.
+
+</Key>
+
+## Bitwise AND
+
+To use the mask, the device runs a <Term>bitwise AND</Term> between an IP and the mask: bit 1 of the IP with bit 1 of the mask, bit 2 with bit 2, and so on for all 32 bits. The rule for each pair:
+
+<Table>
+  <thead>
+    <tr><th>IP bit AND mask bit</th><th>Result</th><th>In words</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>1 AND <Bit k="net">1</Bit></Mono></td><td><Mono>1</Mono></td><td>AND with 1 keeps the original bit</td></tr>
+    <tr><td><Mono>0 AND <Bit k="net">1</Bit></Mono></td><td><Mono>0</Mono></td><td>AND with 1 keeps the original bit</td></tr>
+    <tr><td><Mono>1 AND <Bit k="host">0</Bit></Mono></td><td><Mono>0</Mono></td><td>AND with 0 always gives 0</td></tr>
+    <tr><td><Mono>0 AND <Bit k="host">0</Bit></Mono></td><td><Mono>0</Mono></td><td>AND with 0 always gives 0</td></tr>
+  </tbody>
+</Table>
+
+<Caption>So the mask keeps the network part of an IP and wipes the host part to zeros. What is left is the network address.</Caption>
+
+## Worked example: the laptop
+
+<AndGrid ip="192.168.1.23" prefix="24" label="laptop" wide />
+
+Octet by octet: 192 AND 255 = 192, 168 AND 255 = 168, 1 AND 255 = 1, and 23 AND 0 = 0. The result, `192.168.1.0`, is the network the laptop is on. This is the same address CIDR wrote as 192.168.1.0/24.
+
+## Same network or not?
+
+Now the laptop wants to send to two places: the phone (192.168.1.40) and Kadé's API (34.87.120.15). It uses its own mask for both, because its own mask is the only one it knows.
+
+<AndGrid ip="192.168.1.40" prefix="24" label="phone" wide />
+
+<AndGrid ip="34.87.120.15" prefix="24" label="kade-api" wide />
+
+<Table>
+  <thead>
+    <tr><th>Target</th><th>Target AND mask</th><th>Laptop's network</th><th>Result</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Phone</td><td><Mono>192.168.1.0</Mono></td><td><Mono>192.168.1.0</Mono></td><td>**equal → send directly**</td></tr>
+    <tr><td>kade-api</td><td><Mono>34.87.120.0</Mono></td><td><Mono>192.168.1.0</Mono></td><td>**different → gateway**</td></tr>
+  </tbody>
+</Table>
+
+<Key title="The decision">
+
+Compare (my IP AND mask) with (target IP AND mask). Equal → send directly. Not equal → send to the gateway.
+
+</Key>
+
+## What happens next (back to <Ch n="1">chapter 1</Ch>)
+
+The answer decides which MAC address goes into the frame, and so what the laptop asks ARP for:
+
+<Table>
+  <thead>
+    <tr><th>Target</th><th>Same?</th><th>Laptop ARPs for</th><th>Frame's destination MAC</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Printer<Sub>192.168.1.60</Sub></td><td>yes</td><td><Mono>192.168.1.60</Mono></td><td><Mono>00:1b:a9:44:7c:21<Sub>the printer itself</Sub></Mono></td></tr>
+    <tr><td>kade-api<Sub>34.87.120.15</Sub></td><td>no</td><td><Mono>192.168.1.1</Mono></td><td><Mono>3c:84:6a:10:ee:01<Sub>the router, which passes it on</Sub></Mono></td></tr>
+  </tbody>
+</Table>
+
+This is why the frame to Kadé's API in <Ch n="1">chapter 1</Ch> carried the router's MAC: the mask check had already said "different network".
+
+## Masks of other sizes
+
+A /16 mask is 255.255.0.0: two octets of 1s, two of 0s. Masks do not have to end on an octet boundary. The 1s always fill from the left with no gaps, so a partly-filled octet can only be one of a few values: 128, 192, 224, 240, 248, 252 or 254.
+
+<Table>
+  <thead>
+    <tr><th>CIDR</th><th>Mask</th><th>Last non-255 octet in binary</th><th>Addresses</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>/8</td><td>`255.0.0.0`</td><td>`00000000`</td><td>16,777,216</td></tr>
+    <tr><td>/16</td><td>`255.255.0.0`</td><td>`00000000`</td><td>65,536</td></tr>
+    <tr><td>/20</td><td>`255.255.240.0`</td><td>`11110000`</td><td>4,096</td></tr>
+    <tr><td>/24</td><td>`255.255.255.0`</td><td>`00000000`</td><td>256</td></tr>
+    <tr><td>/25</td><td>`255.255.255.128`</td><td>`10000000`</td><td>128</td></tr>
+    <tr><td>/26</td><td>`255.255.255.192`</td><td>`11000000`</td><td>64</td></tr>
+    <tr><td>/27</td><td>`255.255.255.224`</td><td>`11100000`</td><td>32</td></tr>
+    <tr><td>/28</td><td>`255.255.255.240`</td><td>`11110000`</td><td>16</td></tr>
+    <tr><td>/30</td><td>`255.255.255.252`</td><td>`11111100`</td><td>4</td></tr>
+    <tr><td>/32</td><td>`255.255.255.255`</td><td>`11111111`</td><td>1</td></tr>
+  </tbody>
+</Table>
+
+The mask also gives the last address of a range (the broadcast). Flip the mask so 1s become 0s and 0s become 1s (0.0.0.255 for a /24; this flipped form is called a <Term>wildcard mask</Term>). Then <Term>OR</Term> it with the network address (OR gives 1 if either bit is 1): 192.168.1.0 OR 0.0.0.255 = 192.168.1.255.
+
+## In the cloud: kade-api and kade-db
+
+The same check runs inside GCP. kade-api (10.10.1.10/24, in sn-app) wants to query kade-db (10.10.2.5, in sn-data). kade-api's network is 10.10.1.0. kade-db AND the mask is 10.10.2.0. Different, so kade-api sends to its gateway, 10.10.1.1. Change the values below to test other pairs:
+
+<SameNet a="10.10.1.10" b="10.10.2.5" prefix="24" wide />
+
+<Note>
+
+**Does a different subnet add latency?** On a physical network, going through a router adds a small delay, well under a millisecond on a local network. In GCP there is no physical router between subnets. The VPC is a software network, and the 10.10.1.1 gateway is handled by that software, not by a real box. Traffic between two subnets in the same region has practically the same latency as traffic inside one subnet. What does affect latency is distance: the same zone is fastest, then different zones in the same region, then different regions. So in the cloud, choose subnets for organisation and security (for example, separate firewall rules for the database), and keep the app and database in the same region, ideally the same zone.
+
+</Note>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The decision</td><td>Same network → direct. Different → default gateway.</td><td>subnet mask</td></tr>
+    <tr><td>2</td><td>Mask format</td><td>Looks like an IP; 1s = network bits, 0s = host bits; /24 = 255.255.255.0</td><td></td></tr>
+    <tr><td>3</td><td>AND</td><td>AND with 1 keeps the bit, AND with 0 clears it</td><td>bitwise AND</td></tr>
+    <tr><td>4</td><td>Network address</td><td>IP AND mask = the network the IP is on</td><td></td></tr>
+    <tr><td>5</td><td>Comparing</td><td>Equal network addresses = same network</td><td></td></tr>
+    <tr><td>6</td><td>Result</td><td>Same → ARP for the target. Different → ARP for the router.</td><td></td></tr>
+    <tr><td>7</td><td>Other sizes</td><td>1s fill from the left; broadcast = network OR wildcard</td><td>wildcard mask, OR</td></tr>
+    <tr><td>8</td><td>Cloud</td><td>Same logic in a VPC; latency depends on zone and region, not subnet</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Your mask">
+
+- **What to look for:** `255.255.255.0`, or on Linux the `/24` after your IP.
+- **Runs on:** macOS · Windows: ipconfig · Linux: ip -4 addr
+- **From section:** [2. What a mask looks like](#what-a-mask-looks-like)
+
+```sh
+ipconfig getoption en0 subnet_mask
+```
+
+</TryIt>
+
+<TryIt n={2} title="How a LAN target is reached">
+
+- **What to look for:** No `via`: sent directly.
+- **Runs on:** Linux
+- **From section:** [6. What happens next (back to chapter 1)](#what-happens-next-back-to-chapter-1)
+
+```sh
+ip route get 192.168.1.60
+```
+
+</TryIt>
+
+<TryIt n={3} title="How an outside target is reached">
+
+- **What to look for:** `via 192.168.1.1`: sent to the gateway. This is the mask decision, visible.
+- **Runs on:** Linux
+- **From section:** [6. What happens next (back to chapter 1)](#what-happens-next-back-to-chapter-1)
+
+```sh
+ip route get 34.87.120.15
+```
+
+</TryIt>
+
+<TryIt n={4} title="Same check on macOS">
+
+- **What to look for:** A `gateway: 192.168.1.1` line for outside targets.
+- **Runs on:** macOS
+- **From section:** [6. What happens next (back to chapter 1)](#what-happens-next-back-to-chapter-1)
+
+```sh
+route -n get 34.87.120.15
+```
+
+</TryIt>
+
+<TryIt n={5} title="Same check on Windows">
+
+- **What to look for:** `NextHop 192.168.1.1`.
+- **Runs on:** Windows PowerShell
+- **From section:** [6. What happens next (back to chapter 1)](#what-happens-next-back-to-chapter-1)
+
+```sh
+Find-NetRoute -RemoteIPAddress 34.87.120.15
+```
+
+</TryIt>
+
+<TryIt n={6} title="Is an IP inside a range?">
+
+- **What to look for:** `False`: kade-db is not in sn-app.
+- **From section:** [5. Same network or not?](#same-network-or-not)
+
+```sh
+python3 -c "import ipaddress as i; print(i.ip_address('10.10.2.5') in i.ip_network('10.10.1.0/24'))"
+```
+
+</TryIt>

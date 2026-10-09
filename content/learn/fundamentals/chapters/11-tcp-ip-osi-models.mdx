@@ -1,0 +1,237 @@
+import { LayerQuiz } from "@/components/learn/widgets/lazy";
+import { FigEncap, FigMap } from "@content/learn/fundamentals/figures/11-tcp-ip-osi-models";
+
+## Why layers
+
+Networking is hard because it does many jobs at once. When your laptop calls kade-api, something has to:
+
+<Table>
+  <thead>
+    <tr><th></th><th>Job</th><th>Solved in</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>Say what the app wants: "GET /profile"</td><td>HTTP (<Ch n="1">chapter 1</Ch>)</td></tr>
+    <tr><td><Mono>2</Mono></td><td>Reach the right program on the server, reliably and in order</td><td>TCP and ports (coming)</td></tr>
+    <tr><td><Mono>3</Mono></td><td>Find a way across many networks</td><td>IP, routing (<Ch n="2">chapters 2</Ch>-<Ch n="6">6</Ch>)</td></tr>
+    <tr><td><Mono>4</Mono></td><td>Get across one local link, as signals</td><td>MAC, ARP, WiFi (<Ch n="7">chapters 7</Ch>-<Ch n="9">9</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Term>Layering</Term> splits these jobs apart. Each job is handled by one layer, and each layer only talks to the layer directly above and below it.
+
+<Key title="Big idea">
+
+Each layer has one job and trusts the layer below to do its job. Your laptop can switch from home WiFi to office Ethernet, and the Kadé frontend's `fetch()` call does not change at all.
+
+</Key>
+
+## The TCP/IP model: 4 layers
+
+The model the internet actually runs on is the <Term>TCP/IP model</Term>. Top to bottom:
+
+<Table>
+  <thead>
+    <tr><th>Layer</th><th>Job</th><th>Protocols</th><th>Address used</th><th>Unit of data</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>4 · Application</td><td>What your program speaks</td><td><Mono>HTTP, DNS, TLS, SSH</Mono></td><td>names, URLs</td><td>message</td></tr>
+    <tr><td>3 · Transport</td><td>App-to-app delivery</td><td><Mono>TCP (reliable), UDP (fast)</Mono></td><td>ports</td><td>segment (TCP), datagram (UDP)</td></tr>
+    <tr><td>2 · Internet</td><td>Routing across networks</td><td><Mono>IP, ICMP</Mono></td><td>IP addresses</td><td>packet</td></tr>
+    <tr><td>1 · Link</td><td>One local hop, as signals</td><td><Mono>Ethernet, WiFi, ARP</Mono></td><td>MAC addresses</td><td>frame</td></tr>
+  </tbody>
+</Table>
+
+<Caption>These are the same colours used in every diagram since <Ch n="1">chapter 1</Ch>: plum application, amber transport, green IP, teal link.</Caption>
+
+## The OSI model: 7 layers
+
+The <Term>OSI model</Term> is the classic teaching model. It splits the top and bottom of TCP/IP into finer pieces:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Layer</th><th>Job</th><th>Examples</th><th>Unit</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>7</td><td>Application</td><td>Network services an app uses</td><td>HTTP, DNS, SSH</td><td>data</td></tr>
+    <tr><td>6</td><td>Presentation</td><td>Format of the data: encoding, encryption, compression</td><td>UTF-8, JSON, gzip, TLS (partly)</td><td>data</td></tr>
+    <tr><td>5</td><td>Session</td><td>Opening, keeping and closing a conversation</td><td>login sessions, TLS session resumption</td><td>data</td></tr>
+    <tr><td>4</td><td>Transport</td><td>App-to-app delivery</td><td>TCP, UDP</td><td>segment / datagram</td></tr>
+    <tr><td>3</td><td>Network</td><td>Routing across networks</td><td>IP, ICMP, routers</td><td>packet</td></tr>
+    <tr><td>2</td><td>Data link</td><td>Delivery on one local link</td><td>Ethernet, WiFi, MAC, switches</td><td>frame</td></tr>
+    <tr><td>1</td><td>Physical</td><td>Bits as signals</td><td>cables, radio, light, the NIC's transmitter</td><td>bits</td></tr>
+  </tbody>
+</Table>
+
+<Caption>In real software, layers 5 and 6 are rarely separate. HTTP and TLS do those jobs themselves. That is why TCP/IP folds them into one Application layer.</Caption>
+
+<Note>
+
+**Reality:** engineers use OSI layer numbers all the time ("a layer-4 load balancer", "a layer-7 proxy"), even though the internet runs on TCP/IP. Learn both: TCP/IP for how it works, OSI numbers for how people talk (section 5).
+
+</Note>
+
+## How the two line up
+
+The models are not rivals. They describe the same stack at different levels of detail:
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigMap />} />
+
+- OSI's top three (Application, Presentation, Session) → TCP/IP **Application**.
+- OSI Transport → TCP/IP **Transport**. OSI Network → TCP/IP **Internet**.
+- OSI's bottom two (Data link, Physical) → TCP/IP **Link**.
+
+## Layer numbers in everyday talk
+
+When people say "layer N", they mean the OSI number. Here is what the common phrases mean, with Kadé examples:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>You hear</th><th>It means</th><th>Kadé example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>2</td><td>"a layer-2 switch"</td><td>Moves frames by MAC address inside one network</td><td>The staff network's switch (<Ch n="6">chapter 6</Ch>)</td></tr>
+    <tr><td>3</td><td>"a layer-3 device"</td><td>Routes packets by IP address between networks</td><td>The office router</td></tr>
+    <tr><td>4</td><td>"a layer-4 load balancer"</td><td>Spreads connections using only IP and port; never reads HTTP</td><td>A GCP passthrough network load balancer</td></tr>
+    <tr><td>7</td><td>"a layer-7 proxy"</td><td>Reads the HTTP request (path, headers) to decide</td><td>A GCP application load balancer sending `/api/*` to kade-api</td></tr>
+    <tr><td>3/4</td><td>"a layer-3/4 firewall"</td><td>Allows or blocks by IP, protocol and port</td><td>GCP VPC firewall rules: only kade-api to kade-db on 5432</td></tr>
+    <tr><td>7</td><td>"a WAF"</td><td>Web application firewall: inspects HTTP content</td><td>Cloudflare or Cloud Armor blocking bad requests</td></tr>
+  </tbody>
+</Table>
+
+## Layers explain encapsulation
+
+<Ch n="1">Chapter 1</Ch>'s three envelopes were the layers at work. Going down the stack, each layer wraps what it got from above in its own header. At the receiver, each layer removes its own header and passes the rest up.
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigEncap />} />
+
+<Table>
+  <thead>
+    <tr><th>Layer</th><th>Adds</th><th>Result is called</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Application</td><td>the HTTP request itself</td><td>message (data)</td></tr>
+    <tr><td>Transport</td><td>TCP or UDP header: ports, sequence number</td><td>segment / datagram</td></tr>
+    <tr><td>Internet</td><td>IP header: source and destination IP, TTL</td><td>packet</td></tr>
+    <tr><td>Link</td><td>frame header and trailer: MACs, FCS</td><td>frame</td></tr>
+    <tr><td>(Physical)</td><td>nothing: turned into signals</td><td>bits</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Symmetry">
+
+Down the stack = wrap. Up the stack = unwrap. Each layer only reads its own header, and "talks" only to the same layer on the other side.
+
+</Key>
+
+## Remembering the OSI order
+
+<Cols n={2}>
+
+<Col title="Bottom → top (1 to 7)">
+
+**P**lease **D**o **N**ot **T**hrow **S**ausage **P**izza **A**way
+
+Physical, Data link, Network, Transport, Session, Presentation, Application
+
+</Col>
+
+<Col title="Top → bottom (7 to 1)">
+
+**A**ll **P**eople **S**eem **T**o **N**eed **D**ata **P**rocessing
+
+Application, Presentation, Session, Transport, Network, Data link, Physical
+
+</Col>
+
+</Cols>
+
+## The model as a filing system
+
+When you meet a new protocol, ask "what layer is this?" and you immediately know its job. Test yourself, including a few tricky ones:
+
+<LayerQuiz />
+
+<Note>
+
+**Not every protocol fits neatly.** ARP uses IP addresses but works only on one link. TLS sits between HTTP and TCP. DHCP and BGP do network jobs but are applications running over UDP and TCP. The model is a map, not a law: use it to guess a protocol's job, then learn the exceptions.
+
+</Note>
+
+## Debugging layer by layer
+
+Layers also give you a debugging order. When "kade-api is down" from the office, check from the bottom up. Each step only makes sense once the one below it works:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Layer</th><th>Question</th><th>Command</th><th>If it fails</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Link</td><td>Am I connected to the local network?</td><td>`ip link`, `arp -a`</td><td>Cable, WiFi or switch problem. Gateway MAC missing.</td></tr>
+    <tr><td>2</td><td>Internet</td><td>Can packets get there?</td><td>`ping 172.16.1.1`, `ping 1.1.1.1`, `traceroute`</td><td>Routing, gateway or ISP problem (<Ch n="5">chapters 5</Ch>, <Ch n="12">12</Ch>, <Ch n="13">13</Ch>)</td></tr>
+    <tr><td>3</td><td>Transport</td><td>Is the port open?</td><td>`nc -vz api.kade.lk 443`</td><td>Firewall rule, or the app is not listening</td></tr>
+    <tr><td>4</td><td>Application</td><td>Does the app answer correctly?</td><td>`dig api.kade.lk`, `curl -v https://api.kade.lk/health`</td><td>DNS, TLS certificate or app bug</td></tr>
+  </tbody>
+</Table>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Layering</td><td>One job per layer; each talks only to its neighbours</td><td>layer</td></tr>
+    <tr><td>2</td><td>TCP/IP</td><td>Application, Transport, Internet, Link: what the internet runs</td><td>TCP/IP model</td></tr>
+    <tr><td>3</td><td>OSI</td><td>7 layers for teaching and talking; 5 and 6 rarely separate</td><td>OSI model</td></tr>
+    <tr><td>4</td><td>Mapping</td><td>OSI 7-5 → Application, 4 → Transport, 3 → Internet, 2-1 → Link</td><td></td></tr>
+    <tr><td>5</td><td>Talk</td><td>"L4" = IP + port only; "L7" = reads HTTP</td><td>L4 / L7</td></tr>
+    <tr><td>6</td><td>Encapsulation</td><td>Wrap going down, unwrap going up; routers stop at the Internet layer</td><td>segment, datagram, packet, frame</td></tr>
+    <tr><td>8</td><td>Filing</td><td>Know the layer, know the job</td><td></td></tr>
+    <tr><td>9</td><td>Debugging</td><td>Check bottom-up: link, IP, port, app</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Three packets, all layers at once">
+
+- **What to look for:** `-e` adds the MACs (link), then IPs (internet), then ports and TCP flags (transport).
+- **Runs on:** macOS (Linux: -i wlan0 or eth0)
+- **From section:** [6. Layers explain encapsulation](#layers-explain-encapsulation)
+
+```sh
+sudo tcpdump -e -n -c 3 -i en0 port 443
+```
+
+</TryIt>
+
+<TryIt n={2} title="The same, as a tree">
+
+- **Steps:** Wireshark
+- **What to look for:** Click one packet: Frame → Ethernet → IP → TCP → TLS/HTTP, one layer per line.
+- **From section:** [6. Layers explain encapsulation](#layers-explain-encapsulation)
+
+</TryIt>
+
+<TryIt n={3} title="A transport-layer check">
+
+- **What to look for:** "succeeded" means the port is open, without speaking HTTP at all.
+- **Runs on:** any host and port
+- **From section:** [9. Debugging layer by layer](#debugging-layer-by-layer)
+
+```sh
+nc -vz api.kade.lk 443
+```
+
+</TryIt>
+
+<TryIt n={4} title="An application-layer check">
+
+- **What to look for:** Lines starting with `*` show TCP and TLS; `>` and `<` show HTTP.
+- **From section:** [9. Debugging layer by layer](#debugging-layer-by-layer)
+
+```sh
+curl -v https://example.com
+```
+
+</TryIt>

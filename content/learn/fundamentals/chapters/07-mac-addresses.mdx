@@ -1,0 +1,226 @@
+import { HexGrid, MacAnatomy, MacDecode } from "@/components/learn/widgets/lazy";
+
+## Two addresses on every interface
+
+MAC stands for <Term>Media Access Control</Term>. A <Term>MAC address</Term> identifies one piece of network hardware: a specific network interface. An IP address identifies where a device currently sits in a network, and it is given out by the network.
+
+<Cols n={2}>
+
+<Col title="IP address · logical">
+
+Given by the network (DHCP). Can change. Used to find the way across networks.
+
+<Mono>192.168.1.23</Mono>
+
+</Col>
+
+<Col title="MAC address · physical">
+
+Set by the hardware maker. Normally stays the same. Used for delivery inside one local network.
+
+a4:83:e7:2b:91:0c
+
+</Col>
+
+</Cols>
+
+<Note>
+
+**A small correction.** A MAC address tells you _which_ interface, not _where_ it is. Take the laptop to a café and it keeps the same MAC. Only its IP changes.
+
+</Note>
+
+A network interface is real hardware that sends and receives signals, so it needs an address of its own. Every hardware interface has a MAC, even when it has no IP:
+
+<Table>
+  <thead>
+    <tr><th>Interface</th><th>IP</th><th>MAC</th><th>Note</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**en0 · WiFi**</td><td><Mono>192.168.1.23</Mono></td><td><Mono>a4:83:e7:2b:91:0c</Mono></td><td>The one we follow<Sub>a chip with an antenna: radio signals</Sub></td></tr>
+    <tr><td>**en1 · Ethernet**</td><td><Mono>none</Mono></td><td><Mono>a4:83:e7:5c:02:7d</Mono></td><td>No cable, so no IP<Sub>but the hardware still has its MAC</Sub></td></tr>
+    <tr><td>**Bluetooth**</td><td><Mono>none</Mono></td><td><Mono>a4:83:e7:2b:91:0d</Mono></td><td>Short-range radio<Sub>its own interface, its own MAC</Sub></td></tr>
+    <tr><td>**lo0 · loopback**</td><td><Mono>127.0.0.1</Mono></td><td><Mono>none</Mono></td><td>Not hardware<Sub>nothing is sent on a wire, so no MAC is needed</Sub></td></tr>
+  </tbody>
+</Table>
+
+## Why an IP is not enough
+
+An IP address is given by whatever network you join, so the same laptop gets different IPs over one week:
+
+<Table>
+  <thead>
+    <tr><th>Where</th><th>IP</th><th>MAC (WiFi)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Home, Monday</td><td><Mono>192.168.1.23</Mono></td><td><Mono>a4:83:e7:2b:91:0c</Mono></td></tr>
+    <tr><td>Home, after router restart</td><td><Mono>**192.168.1.31**</Mono></td><td><Mono>a4:83:e7:2b:91:0c</Mono></td></tr>
+    <tr><td>Kadé office, staff WiFi</td><td><Mono>**172.16.1.12**</Mono></td><td><Mono>a4:83:e7:2b:91:0c</Mono></td></tr>
+    <tr><td>Café</td><td><Mono>**10.0.4.17**</Mono></td><td><Mono>a4:83:e7:2b:91:0c</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Bold = changed. The IP says where the laptop is right now. The MAC says which piece of hardware it is.</Caption>
+
+<Key title="The need">
+
+Hardware needs an identifier that does not depend on which network it joins. That is the MAC address.
+
+</Key>
+
+## The format: 6 bytes = 48 bits
+
+A MAC address is always **6 bytes = 48 bits**, everywhere. Each byte is written as two hex digits (so `a4` is one byte). Only the separator changes with the tool you use:
+
+<Table>
+  <thead>
+    <tr><th>Where you see it</th><th>Same address, written as</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>macOS, Linux</td><td><Mono>a4:83:e7:2b:91:0c</Mono></td></tr>
+    <tr><td>Windows</td><td><Mono>A4-83-E7-2B-91-0C</Mono></td></tr>
+    <tr><td>Cisco network gear</td><td><Mono>a483.e72b.910c</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Upper or lower case does not matter. a4 and A4 are the same byte.</Caption>
+
+## Hexadecimal in two minutes
+
+Decimal uses 10 symbols (0 to 9). Binary uses 2 (0 and 1). <Term>Hexadecimal</Term> (hex, base 16) uses 16: 0 to 9, then A, B, C, D, E, F. After 9, instead of moving to two digits, hex carries on with letters up to F, which is 15.
+
+<HexGrid />
+
+One hex digit is exactly 4 bits, so two hex digits are exactly one byte. That is why hex is used for MACs and for the byte dumps in <Ch n="1">chapter 1</Ch>. Reading `a4`: a = 1010, 4 = 0100, so the byte is 10100100, which is 10 × 16 + 4 = 164.
+
+## The two halves: maker and device
+
+A MAC address splits into two halves, much like an IP splits into network part and host part (<Ch n="3">chapter 3</Ch>):
+
+<MacAnatomy mac="a4:83:e7:2b:91:0c" />
+
+- **First 3 bytes: OUI** (Organizationally Unique Identifier). Assigned to a hardware maker by the IEEE, the body that runs this system. Every maker has one or more.
+- **Last 3 bytes: device part.** Chosen by the maker, different for every interface it builds.
+
+So devices from the same maker share the first half and differ in the second. The Kadé office bought its two PCs from the same maker:
+
+<Table>
+  <thead>
+    <tr><th>Device</th><th>MAC</th><th>Reading it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Front desk PC</td><td><Mono>3c:7c:3f:10:22:01</Mono></td><td>same maker, device 10:22:01</td></tr>
+    <tr><td>Packing PC</td><td><Mono>3c:7c:3f:10:9e:47</Mono></td><td>same maker, device 10:9e:47</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Look up the first 3 bytes in the IEEE's public OUI list and you get the maker's name. That is how router admin pages and network scanners show "Apple" or "Intel" next to a device.</Caption>
+
+## Two special bits in the first byte
+
+The last two bits of the first byte have fixed meanings. Your notes don't cover these, but they explain two things you will meet soon: broadcast MACs (used by ARP) and random MACs.
+
+<Table>
+  <thead>
+    <tr><th>Bit (of the first byte)</th><th>If 0</th><th>If 1</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Last bit<Sub>called I/G</Sub></td><td>Unicast: one interface</td><td>Group: multicast or broadcast<Sub>ff:ff:ff:ff:ff:ff (all 1s) = every device</Sub></td></tr>
+    <tr><td>Second-last bit<Sub>called U/L</Sub></td><td>Universal: set by the maker, uses a real OUI</td><td>Local: set by software<Sub>random "private" MACs, virtual machines</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>MAC</th><th>First byte in binary</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`a4:83:e7:2b:91:0c`<Os>laptop WiFi</Os></td><td>`10100100`</td><td>One interface, set by the maker</td></tr>
+    <tr><td>2</td><td>`5e:1a:0b:c3:77:e2`<Os>phone (<Ch n="3">chapter 3</Ch>)</Os></td><td>`01011110`</td><td>One interface, **locally set**: the phone uses a random "private" MAC</td></tr>
+    <tr><td>3</td><td>`42:01:0a:0a:01:0a`<Os>kade-api in GCP</Os></td><td>`01000010`</td><td>One interface, locally set by the cloud platform</td></tr>
+    <tr><td>4</td><td>`ff:ff:ff:ff:ff:ff`<Os>broadcast</Os></td><td>`11111111`</td><td>Every device on the local network (ARP uses this)</td></tr>
+  </tbody>
+</Table>
+
+## "Fixed" has an exception: private MACs
+
+A MAC is burned into the hardware, but the OS can send a different one. Modern phones and laptops (iOS, Android, Windows, macOS) do this on purpose: they use a random MAC for each WiFi network, so shops and cafés cannot track the same device across networks. The phone in the home DHCP table from <Ch n="3">chapter 3</Ch> (`5e:1a:…`) is doing exactly this.
+
+One practical effect: a DHCP reservation is tied to a MAC. If a device switches to a new random MAC, its reservation no longer matches. For the office printer this is not a problem (printers use their real MAC), but it can surprise you with phones.
+
+## Try a MAC address
+
+Paste any MAC in any format. The tool splits it and reads the two special bits.
+
+<MacDecode mac="5e:1a:0b:c3:77:e2" />
+
+## In the cloud
+
+A cloud VM has a virtual network card, so the platform picks its MAC. You never set it. In GCP a VM's MAC usually starts with `42:01` and ends with its internal IP written in hex. For kade-api (10.10.1.10): 10 = 0a, 10 = 0a, 1 = 01, 10 = 0a, giving `42:01:0a:0a:01:0a`. The `42` has the "locally set" bit on, as the table in section 6 shows.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>What it is</td><td>The hardware address of one network interface</td><td>MAC, Media Access Control</td></tr>
+    <tr><td>2</td><td>Why</td><td>IPs change with the network; hardware needs a fixed ID</td><td></td></tr>
+    <tr><td>3</td><td>Format</td><td>6 bytes = 48 bits, hex, colons or dashes</td><td></td></tr>
+    <tr><td>4</td><td>Hex</td><td>16 symbols 0-F; one digit = 4 bits; two = a byte</td><td>hexadecimal, nibble</td></tr>
+    <tr><td>5</td><td>Halves</td><td>First 3 bytes = maker (OUI), last 3 = device</td><td>OUI, IEEE</td></tr>
+    <tr><td>6</td><td>Special bits</td><td>Group vs one device; maker-set vs locally set</td><td>broadcast MAC, I/G, U/L</td></tr>
+    <tr><td>7</td><td>Exception</td><td>Phones and laptops use random private MACs per WiFi</td><td>private MAC, MAC spoofing</td></tr>
+    <tr><td>9</td><td>Cloud</td><td>The platform assigns VM MACs (GCP: 42:01 + IP in hex)</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Every hardware interface and its MAC">
+
+- **What to look for:** WiFi, Ethernet, Thunderbolt ports, each with an "Ethernet Address".
+- **Runs on:** macOS
+- **From section:** [1. Two addresses on every interface](#two-addresses-on-every-interface)
+
+```sh
+networksetup -listallhardwareports
+```
+
+</TryIt>
+
+<TryIt n={2} title="Interfaces with MACs">
+
+- **What to look for:** The `link/ether` (or `ether`) value. Loopback shows 00:00:00:00:00:00 or none.
+- **Runs on:** Linux · macOS: ifconfig · Windows: getmac /v
+- **From section:** [1. Two addresses on every interface](#two-addresses-on-every-interface)
+
+```sh
+ip link
+```
+
+</TryIt>
+
+<TryIt n={3} title="The first byte in binary">
+
+- **What to look for:** `01011110`: second-last bit is 1, so it is a locally set MAC.
+- **From section:** [6. Two special bits in the first byte](#two-special-bits-in-the-first-byte)
+
+```sh
+python3 -c "print(format(0x5e,'08b'))"
+```
+
+</TryIt>
+
+<TryIt n={4} title="The VM's MAC">
+
+- **What to look for:** Starts with `42:01`.
+- **Runs on:** on a GCP VM
+- **From section:** [9. In the cloud](#in-the-cloud)
+
+```sh
+curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/mac
+```
+
+</TryIt>

@@ -1,0 +1,422 @@
+import { Ipv4Dump, Ipv4Header, LatCalc, LpmBits, LpmTool, RouteHops } from "@/components/learn/widgets/lazy";
+import { FigAnycast, FigDynamic, FigPath, FigTtl } from "@content/learn/fundamentals/figures/12-how-routing-works-in-depth";
+
+## What routing is
+
+<Term>Routing</Term> is moving a packet across several networks toward its destination. No single router knows the whole path. Each one makes one decision: **given this destination IP, what is the best next hop?** Then it forgets about the packet.
+
+## The path we follow
+
+The front desk PC in the Kadé office loads an order from kade-api. The office uses an ISP called LankaNet (made up for this course). LankaNet connects straight to Google in Singapore, and also buys general internet access from a <Term>transit provider</Term>, a bigger network that carries traffic to everywhere else.
+
+<Figure hues={["plum", "teal", "green"]} drawing={<FigPath />}>
+
+Each link between two routers is its own tiny network (a /30 has room for exactly 2 devices). Router interfaces are named like ge0, ge1 (gigabit Ethernet). Addresses are documentation or private ranges; the AS numbers are explained in section 10.
+
+</Figure>
+
+## The routing table
+
+Every router keeps a <Term>routing table</Term>: a list of destination networks mapped to a next hop and an outgoing interface. You met small ones in <Ch n="5">chapters 5</Ch> and <Ch n="6">6</Ch>. Here is R1's:
+
+<Table>
+  <thead>
+    <tr><th>Destination</th><th>Next hop</th><th>Interface</th><th>Source of the route</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>172.16.1.0/24</Mono></td><td><Mono>direct</Mono></td><td><Mono>eth1</Mono></td><td>connected (eth1 is on this network)</td></tr>
+    <tr><td><Mono>172.16.2.0/24</Mono></td><td><Mono>direct</Mono></td><td><Mono>eth2</Mono></td><td>connected</td></tr>
+    <tr><td><Mono>198.51.100.0/24</Mono></td><td><Mono>direct</Mono></td><td><Mono>eth0</Mono></td><td>connected</td></tr>
+    <tr><td><Mono>0.0.0.0/0</Mono></td><td><Mono>198.51.100.1</Mono></td><td><Mono>eth0</Mono></td><td>static (typed in by whoever set up the router)</td></tr>
+  </tbody>
+</Table>
+
+- **Destination:** a network in CIDR form (<Ch n="3">chapter 3</Ch>).
+- **Next hop:** the IP of the next router, or "direct" when the destination is on a network this router is connected to.
+- **Interface:** which port to send it out of.
+
+For every packet, the router: (1) reads the destination IP, (2) finds every row it matches, (3) picks the most specific one (section 7), (4) runs ARP for the next hop (or for the target itself if "direct"), (5) builds a new frame and sends it out that interface.
+
+## Hop by hop
+
+Step through the trip. At each stop you see that router's table (the row it chose is marked), its decision, and the packet as it leaves:
+
+<RouteHops />
+
+## What changes, and what does not
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Field</th><th>PC → R1</th><th>R1 → R2</th><th>R2 → R3</th><th>R3 → R4</th><th>R4 → kade-api</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Destination IP</td><td>34.87.120.15</td><td>same</td><td>same</td><td>same</td><td>10.10.1.10 <Os>GCP's 1:1 NAT</Os></td></tr>
+    <tr><td>2</td><td>Source IP</td><td>172.16.1.10</td><td>198.51.100.20 <Os>R1's NAT</Os></td><td>same</td><td>same</td><td>same</td></tr>
+    <tr><td>3</td><td>TTL</td><td>64</td><td>63</td><td>62</td><td>61</td><td>60</td></tr>
+    <tr><td>4</td><td>IP header checksum</td><td>-</td><td>recalculated</td><td>recalculated</td><td>recalculated</td><td>recalculated</td></tr>
+    <tr><td>5</td><td>MAC addresses</td><td>PC → R1</td><td>R1 → R2</td><td>R2 → R3</td><td>R3 → R4</td><td>R4 side → kade-api</td></tr>
+    <tr><td>6</td><td>TCP ports, HTTP data</td><td>52814 → 443</td><td>40001 → 443 <Os>R1's NAT</Os></td><td>same</td><td>same</td><td>same</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Bold = changed at that hop. Every router lowers the TTL, and since TTL is part of the IP header, the header checksum must be recalculated at every hop too. Inside Google's network there are more routers; the table skips them.</Caption>
+
+<Key title="Remember">
+
+IP = the whole journey (only NAT changes it). MAC = only the current hop. This is exactly why you need both (<Ch n="8">chapter 8</Ch>).
+
+</Key>
+
+## TTL: the loop safety valve
+
+Routers make mistakes. Say LankaNet mistypes a route: R2 sends 203.0.113.99 to R3, and R3 sends it back to R2. Without a limit, a packet for that address would bounce forever, and millions of them would fill the links.
+
+<Figure hues={["plum", "amber"]} drawing={<FigTtl />} />
+
+So the IP header carries a <Term>TTL</Term> (Time To Live), a number that each router lowers by one. At 0 the router drops the packet and tells the sender with an ICMP message. Common starting values: 64 (Linux, macOS), 128 (Windows), 255 (many routers). <Ch n="13">Chapter 13</Ch> turns this safety valve into a tool: traceroute.
+
+## Longest prefix match
+
+A destination can match several rows. R3, LankaNet's border router, has these routes (among others):
+
+<Table>
+  <thead>
+    <tr><th>Destination</th><th>Next hop</th><th>Interface</th><th>Learned from</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>0.0.0.0/0</Mono></td><td><Mono>192.0.2.6</Mono></td><td><Mono>ge2</Mono></td><td>transit provider: "send me anything"</td></tr>
+    <tr><td><Mono>34.0.0.0/8</Mono></td><td><Mono>192.0.2.6</Mono></td><td><Mono>ge2</Mono></td><td>transit provider: "I can reach 34.x"</td></tr>
+    <tr><td><Mono>34.87.0.0/16</Mono></td><td><Mono>192.0.2.2</Mono></td><td><Mono>ge1</Mono></td><td>Google directly: "34.87.x is mine"</td></tr>
+  </tbody>
+</Table>
+
+34.87.120.15 matches all three. The router always picks the **most specific** match: the one with the longest prefix, meaning the most network bits that agree. Bit by bit:
+
+<LpmBits ip="34.87.120.15" routes="0.0.0.0/0,34.0.0.0/8,34.87.0.0/16,198.51.100.0/24" />
+
+The /16 wins, so the packet goes straight to Google over the direct link, not the long way through the transit provider. This is good for LankaNet too: direct links with Google are usually cheaper and faster than paid transit.
+
+<Key title="The rule">
+
+Of all matching routes, the longest prefix wins. A /32 beats a /24, which beats a /16, which beats a /8, which beats the /0 default. <Ch n="5">Chapter 5</Ch>'s laptop table works the same way: /24 for the LAN beats /0 for everything else.
+
+</Key>
+
+Try other destinations against R3's full table:
+
+<LpmTool />
+
+## When two routes have the same length
+
+Longest prefix match comes first. Only if two matching routes have the same prefix length does the router need a tie-breaker:
+
+<Table>
+  <tbody>
+    <tr><td>**1 · Trust in the source**</td><td>Routes learned in different ways get a trust score (Cisco calls it **administrative distance**; lower wins). Typical values: connected 0, static 1, BGP from another network 20, OSPF 110, RIP 120.</td></tr>
+    <tr><td>**2 · Metric**</td><td>Among routes from the same protocol, the one with the lower cost wins (fewer hops for RIP, faster links for OSPF).</td></tr>
+    <tr><td>**3 · Still equal: ECMP**</td><td>Equal-Cost Multi-Path: the router uses all of them and spreads traffic. It keeps each connection on one path, so packets are not reordered.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>GCP uses a simpler version: each VPC route has a **priority** number, and among routes of the same length the lowest number wins. Equal priorities are spread with ECMP.</Caption>
+
+## The default route
+
+What if nothing matches? Routers use a <Term>default route</Term>, 0.0.0.0/0: "when in doubt, send it here". It matches every address with 0 bits, so it always loses to anything more specific. It is the last resort, not the first choice.
+
+<Table>
+  <tbody>
+    <tr><td>Front desk PC</td><td><Mono>0.0.0.0/0 → 172.16.1.1 <Sub>its default gateway (<Ch n="5">chapter 5</Ch>)</Sub></Mono></td></tr>
+    <tr><td>R1 office</td><td><Mono>0.0.0.0/0 → 198.51.100.1 <Sub>LankaNet</Sub></Mono></td></tr>
+    <tr><td>R2 ISP edge</td><td><Mono>0.0.0.0/0 → 10.200.0.2 <Sub>R3, deeper in LankaNet</Sub></Mono></td></tr>
+    <tr><td>R3 ISP border</td><td><Mono>0.0.0.0/0 → 192.0.2.6 <Sub>the transit provider</Sub></Mono></td></tr>
+    <tr><td>Big backbone routers</td><td><Mono>no default at all <Sub>they know a route to every network: the "default-free zone"</Sub></Mono></td></tr>
+  </tbody>
+</Table>
+
+## Static and dynamic routing
+
+Routing tables are filled in two ways:
+
+<Cols n={2}>
+
+<Col title="Static routes">
+
+Typed in by hand. Simple and predictable. Fine for small setups like R1's one default route.
+
+Problem: if a link fails, nothing updates itself.
+
+</Col>
+
+<Col title="Dynamic routes">
+
+Routers tell each other which networks they can reach, using a <Term>routing protocol</Term>, and update their tables when links fail or return.
+
+</Col>
+
+</Cols>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Protocol</th><th>Used</th><th>How it chooses</th><th>In our path</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>RIP</td><td>Small, older networks</td><td>Fewest hops (max 15)</td><td>Not used</td></tr>
+    <tr><td>2</td><td>OSPF</td><td>Inside one organisation</td><td>Every router learns the full map of links and computes the fastest path</td><td>R2 and R3 inside LankaNet</td></tr>
+    <tr><td>3</td><td>BGP</td><td>Between organisations: the whole internet</td><td>Policies and paths between networks, not just speed</td><td>R3 with Google and the transit provider</td></tr>
+  </tbody>
+</Table>
+
+The internet is a network of networks. Each organisation that runs its own routing is an <Term>autonomous system</Term> (AS) with a number: Google is AS 15169. <Term>BGP</Term> is how they tell each other "these address ranges are reachable through me":
+
+<Figure hues={["teal", "green", "amber"]} drawing={<FigDynamic />}>
+
+Green: announcements that build R3's table from section 7. Amber: LankaNet's own announcement, which is how Google knows where to send kade-api's replies to 198.51.100.20. Traffic flows the opposite way to announcements. AS 64500 and 64510 are numbers reserved for examples.
+
+</Figure>
+
+## Routing in GCP
+
+A VPC has a routing table too, managed by GCP. For kade-vpc today, plus the office VPN that is coming later:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Destination</th><th>Next hop</th><th>Type</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`10.10.1.0/24`</td><td>the VPC network</td><td>subnet route (automatic)</td><td>-</td></tr>
+    <tr><td>2</td><td>`10.10.2.0/24`</td><td>the VPC network</td><td>subnet route (automatic)</td><td>-</td></tr>
+    <tr><td>3</td><td>`0.0.0.0/0`</td><td>default-internet-gateway</td><td>static (created with the VPC)</td><td>1000</td></tr>
+    <tr><td>4</td><td>`172.16.0.0/16` <Os>later</Os></td><td>VPN tunnel to the office</td><td>dynamic: learned by Cloud Router over BGP</td><td>set by BGP</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Same rules as everywhere else: longest prefix first, then lowest priority number. Cloud Router is GCP's BGP speaker: it learns the office's 172.16.0.0/16 over the VPN and tells the office about 10.10.0.0/16. The same Cloud Router hosts Cloud NAT (<Ch n="10">chapter 10</Ch>).</Caption>
+
+## Other routing ideas you will hear
+
+<Table>
+  <tbody>
+    <tr><td>**Asymmetric routing**</td><td>The reply may take a different path from the request. Each router decides on its own, and kade-api's reply is routed by Google's and LankaNet's tables, not by the original path. Keep this in mind when reading traceroute (<Ch n="13">chapter 13</Ch>).</td></tr>
+    <tr><td>**Route summarization**</td><td>Announcing one bigger range instead of many small ones. The office could announce 172.16.0.0/16 instead of 172.16.1.0/24 and 172.16.2.0/24. Smaller tables, fewer updates.</td></tr>
+    <tr><td>**Blackhole (null) route**</td><td>A route whose next hop is "drop it". Used to throw away attack traffic, or to stop a summary route from looping.</td></tr>
+    <tr><td>**Routing table vs forwarding table**</td><td>Protocols build the routing table (all known routes). The router copies only the winners into a fast forwarding table used for each packet.</td></tr>
+  </tbody>
+</Table>
+
+## The full IPv4 header
+
+This chapter used many IP header fields one at a time: TTL, protocol, the checksum. Here is the whole header, laid out like UDP's (<Ch n="15">chapter 15</Ch>) and TCP's (<Ch n="18">chapter 18</Ch>). It is 20 bytes without options, which is what almost every packet uses:
+
+<Ipv4Header />
+
+And the real bytes: the IP header around the SYN from <Ch n="18">chapter 18</Ch>, as it leaves the laptop toward kade-api:
+
+<Ipv4Dump />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Field</th><th>Size</th><th>In this packet</th><th>Job, and where you met it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Version</td><td>4 bits</td><td>`4`</td><td>IPv4. (IPv6 packets start with 6.)</td></tr>
+    <tr><td>2</td><td>IHL (header length)</td><td>4 bits</td><td>`5` → 5 × 4 = 20 bytes</td><td>Where the header ends, like TCP's data offset</td></tr>
+    <tr><td>3</td><td>DSCP</td><td>6 bits</td><td>`0`</td><td>Priority class. Networks can use it to put voice calls ahead of backups (QoS).</td></tr>
+    <tr><td>4</td><td>ECN</td><td>2 bits</td><td>`0`</td><td>Congestion marks (<Ch n="20">chapter 20</Ch>). 0 = not ECN-capable.</td></tr>
+    <tr><td>5</td><td>Total length</td><td>16 bits</td><td>`00 3c` = 60</td><td>Header + everything inside: 20 IP + 40 TCP</td></tr>
+    <tr><td>6</td><td>Identification</td><td>16 bits</td><td>`3c 1a`</td><td>Matches fragments of one packet (<Ch n="18">chapter 18</Ch>)</td></tr>
+    <tr><td>7</td><td>Flags</td><td>3 bits</td><td>`010` = DF</td><td>DF and MF (<Ch n="18">chapter 18</Ch>). TCP always sets DF.</td></tr>
+    <tr><td>8</td><td>Fragment offset</td><td>13 bits</td><td>`0`</td><td>Where a fragment's data starts, in 8-byte units</td></tr>
+    <tr><td>9</td><td>TTL</td><td>8 bits</td><td>`40` = 64</td><td>Lowered at every router (section 6)</td></tr>
+    <tr><td>10</td><td>Protocol</td><td>8 bits</td><td>`06` = TCP</td><td>What is inside: 1 ICMP, 6 TCP, 17 UDP (<Ch n="13">chapter 13</Ch>)</td></tr>
+    <tr><td>11</td><td>Header checksum</td><td>16 bits</td><td>`a2 7c`</td><td>Covers the IP header only. After R1 lowers TTL to 63 and NATs the source, it becomes `3a f4`.</td></tr>
+    <tr><td>12</td><td>Source address</td><td>32 bits</td><td>`c0 a8 01 17`</td><td>192.168.1.23 (<Ch n="2">chapter 2</Ch>)</td></tr>
+    <tr><td>13</td><td>Destination address</td><td>32 bits</td><td>`22 57 78 0f`</td><td>34.87.120.15, the only field routers look up</td></tr>
+    <tr><td>14</td><td>Options</td><td>0-40 bytes</td><td>none</td><td>Rarely used; many routers treat packets with options as suspicious</td></tr>
+  </tbody>
+</Table>
+
+## Where latency comes from
+
+Three words get mixed up all the time:
+
+<Table>
+  <thead>
+    <tr><th>Word</th><th>Meaning</th><th>Home → kade-api</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**Latency**</td><td>How long one piece of data takes to get there. Usually quoted as round-trip time (RTT).</td><td><Mono>41 ms RTT</Mono></td></tr>
+    <tr><td>**Bandwidth**</td><td>The most a link can carry per second. A property of the link.</td><td><Mono>100 Mbit/s (your plan)</Mono></td></tr>
+    <tr><td>**Throughput**</td><td>What you actually get per second, after windows, loss and sharing (<Ch n="19">chapters 19</Ch>-<Ch n="20">20</Ch>).</td><td><Mono>anything up to 100 Mbit/s</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>A faster plan raises bandwidth. It does not lower latency to Singapore at all.</Caption>
+
+Every packet's delay is the sum of four parts, at every hop:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Delay</th><th>Caused by</th><th>Size on our path</th><th>Can you reduce it?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Propagation**</td><td>Distance. Light in fibre covers about 200 km per millisecond.</td><td>~35 ms of the 41 (Colombo ⇄ Singapore)</td><td>Only by moving closer: a nearer region, a CDN, anycast (section 15)</td></tr>
+    <tr><td>2</td><td>**Transmission**</td><td>Pushing the bits onto the link: packet size ÷ link speed</td><td>1,500 bytes at 100 Mbit/s = 0.12 ms</td><td>Faster links; matters on slow links</td></tr>
+    <tr><td>3</td><td>**Queuing**</td><td>Waiting behind other packets in router queues</td><td>0 to hundreds of ms (bufferbloat, <Ch n="20">chapter 20</Ch>)</td><td>Better queues, less congestion</td></tr>
+    <tr><td>4</td><td>**Processing**</td><td>Routers reading headers; the server doing its work</td><td>microseconds per router; kade-api's own time on top</td><td>Faster code (for the server part)</td></tr>
+  </tbody>
+</Table>
+
+<Segments label="the 41 ms ping from home to kade-api, roughly split">
+  <Seg w={35} hue="green">propagation · ~35 ms</Seg>
+  <Seg w={3} hue="amber">queue ~3</Seg>
+  <Seg w={2}>proc</Seg>
+  <Seg w={1} hue="plum" />
+</Segments>
+
+<Caption>Most of the delay is simply distance. The last sliver is transmission across all the hops. An HTTP request adds kade-api's own processing time on top of this.</Caption>
+
+Try the physics yourself:
+
+<LatCalc />
+
+## Anycast: one IP, many places
+
+Normally one IP address belongs to one machine in one place: <Term>unicast</Term>. With <Term>anycast</Term>, the **same** address range is announced over BGP (section 10) from many locations at once. Every router simply follows its best route, so each user reaches the **nearest** location without knowing others exist.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>One sender reaches</th><th>Example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Unicast</td><td>one specific host</td><td>kade-api today at 34.87.120.15</td></tr>
+    <tr><td>2</td><td>Broadcast</td><td>every host on the local network</td><td>ARP requests, DHCP Discover</td></tr>
+    <tr><td>3</td><td>Multicast</td><td>every host that joined a group</td><td>Live video inside a company network</td></tr>
+    <tr><td>4</td><td>Anycast</td><td>the **nearest** of many hosts sharing one IP</td><td>1.1.1.1, 8.8.8.8, Cloudflare, Google's global load balancers</td></tr>
+  </tbody>
+</Table>
+
+<Figure hues={["plum", "green", "amber"]} drawing={<FigAnycast />}>
+
+Later in the course, api.kade.lk moves to a GCP global external load balancer, which gets one anycast IP (34.120.7.9 here is an example). TCP and TLS then end at the nearest Google edge, so the handshakes (<Ch n="16">chapter 16</Ch>) happen over a short distance, and the long part of the trip runs over Google's own network.
+
+</Figure>
+
+- **Failover for free:** if one location stops announcing the route, BGP sends users to the next-nearest one.
+- **Spreads attacks:** a DDoS aimed at one IP lands on many locations at once.
+- **Works for TCP** because internet routes rarely change in the middle of a connection. It was first used for DNS (short UDP exchanges), and still is.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Routing</td><td>One decision per router: best next hop for this destination IP</td><td>routing, next hop</td></tr>
+    <tr><td>3</td><td>Table</td><td>Destination (CIDR) → next hop + interface</td><td>connected, static route</td></tr>
+    <tr><td>5</td><td>Changes</td><td>IP stays (except NAT); MAC, TTL, checksum change every hop</td><td></td></tr>
+    <tr><td>6</td><td>TTL</td><td>Lowered by 1 per router; at 0 dropped + ICMP message</td><td>TTL, routing loop</td></tr>
+    <tr><td>7</td><td>Longest prefix</td><td>Most specific match wins</td><td>longest prefix match</td></tr>
+    <tr><td>8</td><td>Ties</td><td>Trust (admin distance), then metric, then ECMP</td><td>administrative distance, metric, ECMP</td></tr>
+    <tr><td>9</td><td>Default</td><td>0.0.0.0/0, the last resort</td><td>default-free zone</td></tr>
+    <tr><td>10</td><td>Filling tables</td><td>Static by hand; dynamic via RIP, OSPF, BGP</td><td>OSPF, BGP, AS, transit, peering</td></tr>
+    <tr><td>11</td><td>GCP</td><td>Subnet, static and dynamic routes; priority; Cloud Router for BGP</td><td>Cloud Router</td></tr>
+    <tr><td>13</td><td>IPv4 header</td><td>20 bytes: version, length, ID/flags/offset, TTL, protocol, checksum, addresses</td><td>IHL, DSCP</td></tr>
+    <tr><td>14</td><td>Latency</td><td>Propagation + transmission + queuing + processing; distance dominates</td><td>latency, bandwidth, throughput</td></tr>
+    <tr><td>15</td><td>Anycast</td><td>One IP announced from many places; BGP picks the nearest</td><td>unicast, anycast</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Your routing table">
+
+- **What to look for:** Connected route for your LAN, and the default route.
+- **Runs on:** Linux · macOS: netstat -rn -f inet · Windows: route print -4
+- **From section:** [3. The routing table](#the-routing-table)
+
+```sh
+ip route
+```
+
+</TryIt>
+
+<TryIt n={2} title="Which row wins for one destination">
+
+- **What to look for:** The chosen next hop and interface.
+- **Runs on:** Linux · macOS: route -n get 34.87.120.15
+- **From section:** [7. Longest prefix match](#longest-prefix-match)
+
+```sh
+ip route get 34.87.120.15
+```
+
+</TryIt>
+
+<TryIt n={3} title="The reply's TTL">
+
+- **What to look for:** `ttl=57` means the reply started at 64 and passed about 7 routers.
+- **From section:** [6. TTL: the loop safety valve](#ttl-the-loop-safety-valve)
+
+```sh
+ping -c 1 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={4} title="Who announces an IP range">
+
+- **What to look for:** The `origin:` line shows the AS number (AS15169 for Google).
+- **From section:** [10. Static and dynamic routing](#static-and-dynamic-routing)
+
+```sh
+whois -h whois.radb.net 8.8.8.8
+```
+
+</TryIt>
+
+<TryIt n={5} title="A VPC's routes">
+
+- **What to look for:** Destination range, next hop, priority.
+- **From section:** [11. Routing in GCP](#routing-in-gcp)
+
+```sh
+gcloud compute routes list --filter="network:kade-vpc"
+```
+
+</TryIt>
+
+<TryIt n={6} title="One packet's IP header decoded">
+
+- **What to look for:** `tos 0x0, ttl 64, id …, flags [DF], proto TCP (6), length …`
+- **From section:** [13. The full IPv4 header](#the-full-ipv4-header)
+
+```sh
+sudo tcpdump -n -v -c 1 -i en0 tcp
+```
+
+</TryIt>
+
+<TryIt n={7} title="Anycast in action">
+
+- **Steps:** `traceroute 1.1.1.1`, and ask a friend abroad to run it too
+- **What to look for:** Same destination, different last hops and much shorter RTTs than the distance to any one "home" of 1.1.1.1.
+- **From section:** [15. Anycast: one IP, many places](#anycast-one-ip-many-places)
+
+```sh
+traceroute 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={8} title="Routes a Cloud Router learned over BGP">
+
+- **What to look for:** The `bestRoutes` list, once the VPN exists.
+- **From section:** [11. Routing in GCP](#routing-in-gcp)
+
+```sh
+gcloud compute routers get-status ROUTER --region=REGION
+```
+
+</TryIt>

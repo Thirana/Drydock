@@ -9,6 +9,18 @@ export const defects: Defect[] = [
     phase: 6,
     severity: "critical",
     blockedBy: ["D2", "D6", "D9"],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "firewall-vpc-firewall-rules",
+        section: "The scoping trap",
+      },
+      {
+        course: "gcp",
+        chapter: "firewall-vpc-firewall-rules",
+        section: "Implied rules and priority",
+      },
+    ],
     symptom:
       "allow-all ingress from 0.0.0.0/0, all protocols, no target, priority 1000.",
     explanation:
@@ -34,6 +46,18 @@ export const defects: Defect[] = [
     phase: 2,
     severity: "high",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "admin-access-iap-tcp-forwarding",
+        section: "What IAP TCP forwarding is",
+      },
+      {
+        course: "gcp",
+        chapter: "admin-access-iap-tcp-forwarding",
+        section: "The change, without locking yourself out",
+      },
+    ],
     symptom: "Port 22 allowed from 0.0.0.0/0 on every VM.",
     explanation:
       "The fix is not a narrower IP list, it is removing the need for a public SSH port at all. IAP tunnels SSH through Google after an identity check, and all its traffic arrives from one fixed range - so the firewall narrows the network path to IAP only, and IAP narrows access to authorised identities only. Two narrow layers replacing one wide-open one. Three independent things must all be true for it to work: the iap.googleapis.com API enabled, roles/iap.tunnelResourceAccessor on the identity, and this firewall rule. roles/editor does not include the tunnel role.",
@@ -54,6 +78,18 @@ export const defects: Defect[] = [
     phase: 2,
     severity: "medium",
     blockedBy: ["D2"],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "admin-access-os-login-and-no-external-ips",
+        section: "Removing a VM's external IP: the full picture",
+      },
+      {
+        course: "gcp",
+        chapter: "admin-access-iap-tcp-forwarding",
+        section: "How do you get into a private server?",
+      },
+    ],
     symptom: "The bastion has a public address so that someone can SSH to it.",
     explanation:
       "That is the entire reason a bastion exists, and IAP removes the reason. A VM with no external IP needs three things to keep working: IAP for inbound admin access, Private Google Access for Google APIs, and Cloud NAT for the internet. The bastion needs almost nothing outbound, so IAP alone makes its public address unnecessary - which is why this closes now while D3b waits.",
@@ -76,6 +112,18 @@ export const defects: Defect[] = [
     phase: 4,
     severity: "medium",
     blockedBy: ["D4", "D5"],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "admin-access-os-login-and-no-external-ips",
+        section: "Removing a VM's external IP: the full picture",
+      },
+      {
+        course: "gcp",
+        chapter: "egress-and-cloud-nat",
+        section: "The core split: with or without an external IP",
+      },
+    ],
     symptom: "Every VM in the MIG has its own public address.",
     explanation:
       "Unlike the bastion, these VMs need real outbound access to Google APIs and the internet. Removing the addresses therefore depends on PGA being on, a NAT existing in the region, and the database migration in D5 so the VM reaches Postgres privately rather than through its whitelisted public address. Sequenced work, not a quick win.",
@@ -98,6 +146,13 @@ export const defects: Defect[] = [
     phase: 1,
     severity: "medium",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "private-access-to-google-services",
+        section: "Private Google Access",
+      },
+    ],
     symptom:
       "rabbitmq-1 cannot reach Secret Manager, Cloud Storage, or the logging API.",
     explanation:
@@ -120,6 +175,18 @@ export const defects: Defect[] = [
     phase: 4,
     severity: "critical",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "private-access-to-google-services",
+        section: "Private services access",
+      },
+      {
+        course: "gcp",
+        chapter: "private-access-to-google-services",
+        section: "Cloud SQL with private IP, in practice",
+      },
+    ],
     symptom:
       "A public address guarded by an authorized-networks list containing home broadband addresses.",
     explanation:
@@ -142,6 +209,13 @@ export const defects: Defect[] = [
     phase: 3,
     severity: "critical",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "serverless-networking-cloud-run",
+        section: "Ingress: who may reach the service",
+      },
+    ],
     symptom:
       "harbour-api is fronted by a load balancer, but its run.app URL still answers the internet.",
     explanation:
@@ -167,6 +241,13 @@ export const defects: Defect[] = [
     phase: 5,
     severity: "high",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "serverless-networking-cloud-run",
+        section: "Egress: which traffic goes through the VPC",
+      },
+    ],
     symptom: "Internet calls leave from Google’s shared serverless pool.",
     explanation:
       "The service reaches the private database fine, which is why nobody noticed. But PayGate sees an unpredictable source address, so whitelisting silently fails after a redeploy.",
@@ -188,6 +269,18 @@ export const defects: Defect[] = [
     phase: 3,
     severity: "high",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "cloudflare-and-gcp",
+        section: "Origin lock: making Cloudflare the only way in",
+      },
+      {
+        course: "gcp",
+        chapter: "firewall-firewall-policies",
+        section: "Matching objects: names instead of IP lists",
+      },
+    ],
     symptom: "The load balancer accepts connections from any source.",
     explanation:
       "Traffic can bypass the CDN and the WAF by hitting the load balancer directly. Locking it means allowing only Cloudflare’s published ranges, which change, which is exactly what an address group is for.",
@@ -212,6 +305,18 @@ export const defects: Defect[] = [
     phase: 5,
     severity: "high",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "firewall-firewall-policies",
+        section: "Matching objects: names instead of IP lists",
+      },
+      {
+        course: "gcp",
+        chapter: "firewall-vpc-firewall-rules",
+        section: "Implied rules and priority",
+      },
+    ],
     symptom:
       "No egress rules exist, so the implied allow at 65535 governs everything.",
     explanation:
@@ -235,6 +340,18 @@ export const defects: Defect[] = [
     phase: 6,
     severity: "medium",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "firewall-firewall-policies",
+        section: "The order of the layers",
+      },
+      {
+        course: "gcp",
+        chapter: "firewall-firewall-policies",
+        section: "The three kinds",
+      },
+    ],
     symptom:
       "Several identities hold owner, and any of them can delete any firewall rule.",
     explanation:
@@ -264,6 +381,18 @@ export const defects: Defect[] = [
     phase: 6,
     severity: "low",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "a-second-vpc-briefly",
+        section: "VPC peering, and its two rules",
+      },
+      {
+        course: "gcp",
+        chapter: "a-second-vpc-briefly",
+        section: "Private Service Connect, the narrow option",
+      },
+    ],
     symptom:
       "partner-vpc is peered in and assumes it can reach Cloud SQL through you.",
     explanation:
@@ -289,6 +418,13 @@ export const defects: Defect[] = [
     phase: 1,
     severity: "low",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "vpc-networks-and-subnets",
+        section: "Not every subnet is for VMs: purpose",
+      },
+    ],
     symptom: "The regional internal ALB cannot be created.",
     explanation:
       "Regional load balancer proxies need a subnet of their own, reserved for them and holding none of your resources. It is invisible until the create command fails with a message that does not obviously say this.",
@@ -316,6 +452,18 @@ export const defects: Defect[] = [
     phase: 5,
     severity: "medium",
     blockedBy: ["D12"],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "load-balancing-inside-the-https-load-balancer",
+        section: "Health checks",
+      },
+      {
+        course: "gcp",
+        chapter: "load-balancing-vms-behind-the-load-balancer",
+        section: "Two health checks with two different jobs",
+      },
+    ],
     symptom: "legacy-backend-service probes TCP on port 80.",
     explanation:
       "A hung application that still holds the port open passes the check, keeps receiving traffic, and is never replaced by the autohealer - because the MIG uses the same check. One weak setting breaks both rotation and healing.",
@@ -338,6 +486,13 @@ export const defects: Defect[] = [
     phase: 5,
     severity: "high",
     blockedBy: ["D12"],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "load-balancing-inside-the-https-load-balancer",
+        section: "Cloud Armor: the WAF",
+      },
+    ],
     symptom: "harbour-waf is attached to api-backend-service and nowhere else.",
     explanation:
       "Cloud Armor attaches to the backend service, several links down the chain, not to the load balancer. So one path is protected and the other is not, and nothing about the load balancer’s configuration makes that visible. Same outcome as the run.app bypass, opposite cause: there the WAF is walked around, here it was never attached.",
@@ -358,6 +513,13 @@ export const defects: Defect[] = [
     phase: 5,
     severity: "medium",
     blockedBy: [],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "load-balancing-inside-the-https-load-balancer",
+        section: "TLS and certificates",
+      },
+    ],
     symptom:
       "The target proxy uses the default policy, which is permissive for compatibility.",
     explanation:
@@ -380,6 +542,18 @@ export const defects: Defect[] = [
     phase: 2,
     severity: "medium",
     blockedBy: ["D2"],
+    learn: [
+      {
+        course: "gcp",
+        chapter: "admin-access-os-login-and-no-external-ips",
+        section: "The better way: OS Login",
+      },
+      {
+        course: "gcp",
+        chapter: "admin-access-os-login-and-no-external-ips",
+        section: "Switching to OS Login safely",
+      },
+    ],
     symptom:
       "Public keys live in project metadata, so a project-level key works on every VM.",
     explanation:

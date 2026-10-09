@@ -1,0 +1,345 @@
+import { DnsHybrid, DnsOrder, GcpDnsWalk, SplitEx, TtlEx } from "@/components/learn/widgets/lazy";
+import { FigZones } from "@content/learn/gcp/figures/08-dns-inside-gcp";
+
+<Box kind="problem" title="The problem">
+
+Finding 6 from <Ch n="0">chapter 0</Ch>: kade-api finds the database by a hardcoded IP, `10.10.2.5`. <Ch n="9">Chapter 9</Ch> moves the database to Cloud SQL at `10.10.32.3`, and <Ch n="10">chapter 10</Ch> moved the API to Cloud Run. Changing the address means changing config and redeploying everything that talks to the database, at the same moment as the cutover.
+
+What Kadé wants is one name, `db.kade.internal`, that only kade-vpc can see, and that can be pointed at the new database by changing one record.
+
+</Box>
+
+## The one idea: the answer depends on who asks
+
+<Recalls><Recall n="22">DNS</Recall><Recall n="23">Records and resolution</Recall></Recalls>
+
+DNS turns names into addresses. Everything else in GCP DNS is detail about **who answers, and whether the answer is public or private**. The same name can give different answers depending on where the question comes from:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Asked by</th><th>Name</th><th>Answer</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A shopper's phone</td><td>`api.kade.lk`</td><td>`34.120.88.10`, the load balancer</td></tr>
+    <tr><td>2</td><td>A shopper's phone</td><td>`db.kade.internal`</td><td>Does not exist</td></tr>
+    <tr><td>3</td><td>kade-worker, inside kade-vpc</td><td>`db.kade.internal`</td><td>`10.10.2.5`</td></tr>
+  </tbody>
+</Table>
+
+Every question a VM asks goes to the same place: the metadata server at `169.254.169.254`, which DHCP set as its DNS server (<Ch n="1">chapter 1</Ch> section 06). What the metadata server checks, and in what order, is section 04.
+
+<Key title="Do not change a VM's DNS server">
+
+If you point `/etc/resolv.conf` at another server (say `8.8.8.8`), the VM can still resolve public names, but it loses every internal name and every private zone, unless that other server forwards those names back to `169.254.169.254`. It is the DNS version of "never set a static IP inside the guest".
+
+</Key>
+
+## Internal DNS: names you get for free
+
+Every VM gets a DNS name automatically, with no setup. It is built from the VM's name, zone and project:
+
+```text
+VM_NAME.ZONE.c.PROJECT_ID.internal
+
+kade-db.asia-southeast1-b.c.kade-prod.internal     → 10.10.2.5
+kade-api-1.asia-southeast1-a.c.kade-prod.internal  → 10.10.1.10
+```
+
+Other VMs in the same project and network resolve these names to internal IPs. The metadata server also adds a search domain, so from inside kade-vpc the short name `kade-db` usually works too. Internal load balancers get names the same way.
+
+<Box kind="check" title="gcloud check">
+
+From kade-worker, over IAP:
+
+```text
+getent hosts kade-db.asia-southeast1-b.c.kade-prod.internal
+getent hosts kade-db
+```
+
+<Label>Output</Label>
+
+```text
+10.10.2.5       kade-db.asia-southeast1-b.c.kade-prod.internal
+10.10.2.5       kade-db.asia-southeast1-b.c.kade-prod.internal
+```
+
+<Label>What it tells you</Label>
+
+Both forms resolve, and the short name was expanded through the search domains in `/etc/resolv.conf` (<Ch n="1">chapter 1</Ch> section 07). `getent` uses the same lookup path as the app, which makes it a better test than `dig` for "can my app resolve this?".
+
+</Box>
+
+Why these names are not enough for Kadé:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Limit</th><th>Consequence</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Tied to the VM's name and zone</td><td>A new database VM, or one in another zone, has a different name. Everything that used the old name breaks</td></tr>
+    <tr><td>2</td><td>Only for VMs and internal load balancers</td><td>Cloud SQL, or anything outside Compute Engine, has no internal DNS name here</td></tr>
+    <tr><td>3</td><td>Only inside the project's network</td><td>Other VPCs or the office need peering or forwarding to use them (section 08)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>For a stable, friendly name that you control, use a private zone.</Caption>
+
+## Cloud DNS zones: public and private
+
+**Cloud DNS** is GCP's managed authoritative DNS. "Authoritative" means it is the source of truth for a domain: it gives the real answer, not a cached copy (<Ch course="fundamentals" n="22">Fundamentals ch 22</Ch>). A <Term>zone</Term> is the set of records for one domain. The most important thing about a zone is who may ask it questions:
+
+<Figure wide hues={["plum", "teal"]} drawing={<FigZones />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Public zone</th><th>Private zone</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Who can ask</td><td>The whole internet</td><td>Only the VPC networks you authorize</td></tr>
+    <tr><td>2</td><td>Used for</td><td>Your public domain, when GCP is your DNS provider</td><td>Stable, friendly names for internal services</td></tr>
+    <tr><td>3</td><td>Needs a registrar change</td><td>Yes: the domain's name servers must point at Cloud DNS</td><td>No: nobody outside needs to know it exists</td></tr>
+    <tr><td>4</td><td>Kadé's</td><td>`kade-lk` for `kade.lk` (<Ch course="fundamentals" n="22">Fundamentals ch 22</Ch>)</td><td>`kade-internal` for `kade.internal` (new)</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Why `.internal`?** The `.internal` top-level domain is reserved for private use and will never exist on the public internet, so a private zone under it can never clash with a real domain. GCP's own VM names already use it.
+
+</Note>
+
+## The order the metadata server follows
+
+When a VM asks the metadata server a question, the metadata server checks five places in a fixed order, and the first one that has an answer gives it. Each tab follows one name down the list.
+
+<DnsOrder />
+
+<Key title="A private zone is a wall, not a patch">
+
+If a private zone matches a name's suffix, that zone answers, even when the answer is "no such name". It never falls through to public DNS. So a private zone for `kade.lk` would hide **every** `kade.lk` name inside kade-vpc, not just the ones you put in it. This is the trap in section 05.
+
+</Key>
+
+## Split-horizon: the same name, two answers
+
+Run a public zone and a private zone for the **same** domain, and a name resolves differently depending on where the question comes from:
+
+```text
+Name: api.kade.lk
+
+From the internet      → public zone  kade-lk        → 34.120.88.10 (load balancer)
+From inside kade-vpc   → private zone kade-lk-inside → a private IP, straight to the backend
+```
+
+Internal services use the same names the outside world uses, but their traffic goes directly inside the VPC instead of out to the internet and back in through the load balancer. It is a common pattern, and it has one trap:
+
+Each tab is a different set of private zones. The left side shows every private zone kade-vpc can see and whether its suffix matches the name; the right side is public DNS. Use the "what if" buttons to change which name kade-worker asks for.
+
+<SplitEx />
+
+## Try it: which answer do I get?
+
+Choose who asks and which name. Switch the optional zones on to see how the answer changes. The office options only make sense once <Ch n="15">chapter 15</Ch>'s VPN exists.
+
+<GcpDnsWalk />
+
+## Changing an answer safely: TTL
+
+<Recalls><Recall n="23">TTL and caching</Recall></Recalls>
+
+Resolvers and apps cache answers for the record's TTL. Changing a record does not change what clients already cached; they only see the new address when their copy expires. The chart follows <Ch n="9">chapter 9</Ch>'s database cutover: `db.kade.internal` changes from `10.10.2.5` to `10.10.32.3` at time 0. Each row is something that looked the name up at a different moment.
+
+<TtlEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>When</th><th>Step</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A day before</td><td>Lower `db.kade.internal`'s TTL from 300 s to 30 s</td><td>So the old, long TTL has expired everywhere by cutover time</td></tr>
+    <tr><td>2</td><td>Cutover</td><td>Change the A record to `10.10.32.3`, then recycle connection pools</td><td>New lookups get Cloud SQL within 30 seconds; pools reconnect</td></tr>
+    <tr><td>3</td><td>A day after</td><td>Raise the TTL back to 300 s</td><td>Fewer lookups, and the setting is back to normal</td></tr>
+  </tbody>
+</Table>
+
+## Connecting GCP DNS to other DNS systems
+
+The remaining zone and policy types all exist for one reason: joining GCP's DNS to other DNS systems, such as the office, another VPC or another cloud. If all your DNS lives in one place, you never touch them.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Type</th><th>What it does</th><th>Kadé's use</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Forwarding zone</td><td>"For this domain, do not answer here; ask that DNS server"</td><td>VMs resolve the office's own names over the VPN</td><td className="whitespace-nowrap">15</td></tr>
+    <tr><td>2</td><td>Peering zone</td><td>Lets one VPC use another VPC's private zones</td><td>kade-staging uses names from kade-vpc</td><td className="whitespace-nowrap">14</td></tr>
+    <tr><td>3</td><td>Inbound server policy</td><td>Gives the VPC DNS entry points (one internal IP per subnet) that outside networks can query</td><td>Office PCs resolve `db.kade.internal`</td><td className="whitespace-nowrap">15</td></tr>
+    <tr><td>4</td><td>Outbound server policy</td><td>Sends **all** of the VPC's questions to your own DNS servers instead</td><td>Not used: it switches off most of section 04</td><td className="whitespace-nowrap">-</td></tr>
+    <tr><td>5</td><td>Response policy</td><td>Overrides answers for chosen names: a different address, or no answer at all</td><td>Point `*.googleapis.com` at private API addresses</td><td className="whitespace-nowrap">9</td></tr>
+  </tbody>
+</Table>
+
+Each tab follows one question from the asker to the answer, numbered in order. Request arrows are solid; replies come back underneath.
+
+<DnsHybrid />
+
+## DNSSEC
+
+Normal DNS answers are not authenticated, so an attacker in the lookup path could return a forged answer that points your domain at their server. **DNSSEC** adds signatures to records, so a resolver can check that an answer came from the real authoritative source and was not changed.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Point</th><th>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Where</td><td>Public zones only. Private zones are answered inside Google's network</td></tr>
+    <tr><td>2</td><td>How</td><td>Turn it on for the zone, then add the **DS record** Cloud DNS gives you at your domain registrar. Until the DS record is there, nothing is checked</td></tr>
+    <tr><td>3</td><td>Risk</td><td>Moving the domain to another DNS provider without turning DNSSEC off correctly can make the whole domain fail to resolve (<Ch n="13">chapter 13</Ch>)</td></tr>
+    <tr><td>4</td><td>Worth it?</td><td>A good hardening step for a public domain. Many domains still do not use it</td></tr>
+  </tbody>
+</Table>
+
+## When your public DNS is not in GCP
+
+<Ch n="13">Chapter 13</Ch> moves `kade.lk` to Cloudflare. After that, Cloudflare is authoritative for the public domain, with its own records and DNSSEC, and the public zone `kade-lk` in Cloud DNS is deleted. The private zone `kade-internal` stays in Cloud DNS: public and private DNS do not have to live in the same place.
+
+```text
+Cloudflare (authoritative for kade.lk)
+  │  decides what api.kade.lk and www.kade.lk resolve to
+  ▼
+points at the GCP load balancer, 34.120.88.10
+  │
+  ▼
+traffic reaches GCP
+```
+
+External DNS is what makes three things concrete, all covered in <Ch n="13">chapter 13</Ch>:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Topic</th><th>Why DNS is the reason</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Static load balancer IP</td><td>Cloudflare's records hold the address. If it changed, the name would point at nothing. Kadé's is static (<Ch n="3">chapter 3</Ch>), so this is already safe</td></tr>
+    <tr><td>2</td><td>Grey cloud vs orange cloud</td><td>A per-record Cloudflare setting: return the GCP address directly (grey, DNS only), or send traffic through Cloudflare first (orange, proxied). It decides whether Cloudflare's WAF and CDN are in the path at all</td></tr>
+    <tr><td>3</td><td>Origin lock</td><td>Only possible for names whose traffic really comes through Cloudflare, so you must know which records are orange first</td></tr>
+  </tbody>
+</Table>
+
+<Caption>DNS decides what reaches your infrastructure, and by which path. When it lives outside GCP, the join between the two systems is where these decisions are made.</Caption>
+
+## Logs and cost
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Feature</th><th>What it gives</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Query logging (a server policy setting on the VPC)</td><td>Every question VMs in kade-vpc ask, and the answer. Useful to see which names an app really looks up, or to spot a VM resolving strange domains (<Ch n="16">chapter 16</Ch>)</td></tr>
+    <tr><td>2</td><td>Public zone logging</td><td>Questions from the internet about your public zone</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+Cloud DNS charges per managed zone per month, whether the zone is used or not, plus a charge per million queries answered. Internal DNS names for VMs are free. For Kadé, two zones (and one after <Ch n="13">chapter 13</Ch>) cost very little. Check the Cloud DNS pricing page for current numbers.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: finding 6">
+
+- **Zone.** Private zone `kade-internal` for `kade.internal.`, visible to kade-vpc only.
+- **Records.** `db.kade.internal` A `10.10.2.5` (TTL 300), and `worker.kade.internal` A `10.10.1.20`.
+- **Apps.** kade-api's database host setting changes from `10.10.2.5` to `db.kade.internal`. Cloud Run is connected to kade-vpc with Direct VPC egress (<Ch n="10">chapter 10</Ch>), so the private zone answers it like it answers a VM. Test this before the cutover, not during it.
+- **Verify.** From kade-worker, `getent hosts db.kade.internal` returns `10.10.2.5`. From your laptop, `dig db.kade.internal` returns nothing.
+- **Next.** <Ch n="9">Chapter 9</Ch>'s cutover is now a record change (section 07), not a redeploy.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 4 are read-only. Commands 5 to 7 change the project.
+
+<TryIt n={1} title="Resolve a name the way the app does">
+
+- **What it shows:** The address a VM gets for a name, through `/etc/resolv.conf` and the metadata server. Run inside the VM.
+- **What to look for:** The expected address. No output means the name does not resolve from this VM.
+
+```text
+getent hosts db.kade.internal
+```
+
+</TryIt>
+
+<TryIt n={2} title="Ask the metadata server directly, with details">
+
+- **What it shows:** The full DNS answer: status, TTL and the answering server.
+- **What to look for:** `status: NOERROR` with an answer, or `NXDOMAIN` (no such name). The TTL counts down on repeated queries while the answer is cached.
+
+```sh
+dig @169.254.169.254 db.kade.internal
+```
+
+</TryIt>
+
+<TryIt n={3} title="List zones and who can see them">
+
+- **What it shows:** Every Cloud DNS zone in the project, its domain and whether it is public or private.
+- **What to look for:** A private zone whose domain is also a public domain (the trap in section 05).
+
+```sh
+gcloud dns managed-zones list \
+  --format="table(name,dnsName,visibility,privateVisibilityConfig.networks[].networkUrl.basename())"
+```
+
+</TryIt>
+
+<TryIt n={4} title="List records in a zone">
+
+- **What it shows:** All records in the private zone, with type, TTL and value.
+- **What to look for:** `db.kade.internal.` pointing where you expect.
+
+```sh
+gcloud dns record-sets list --zone=kade-internal
+```
+
+</TryIt>
+
+<TryIt n={5} title="Create the private zone (changes the project)">
+
+- **What it shows:** A private zone for `kade.internal.`, visible only to kade-vpc. Note the trailing dot.
+- **What to look for:** The zone in command 3 with visibility `private`.
+
+```sh
+gcloud dns managed-zones create kade-internal \
+  --dns-name=kade.internal. --visibility=private \
+  --networks=kade-vpc --description="Kadé internal names"
+```
+
+</TryIt>
+
+<TryIt n={6} title="Add the database record (changes the project)">
+
+- **What it shows:** `db.kade.internal` pointing at kade-db, with a 5-minute TTL.
+- **What to look for:** Command 1 from any VM in kade-vpc returns `10.10.2.5`.
+
+```sh
+gcloud dns record-sets create db.kade.internal. \
+  --zone=kade-internal --type=A --ttl=300 --rrdatas=10.10.2.5
+```
+
+</TryIt>
+
+<TryIt n={7} title="Point the name somewhere else (changes the project)">
+
+- **What it shows:** <Ch n="9">Chapter 9</Ch>'s cutover: the same name, now pointing at Cloud SQL, with the low TTL from section 07.
+- **What to look for:** Command 2 shows the new address within one TTL. Then recycle the app's database connections.
+
+```sh
+gcloud dns record-sets update db.kade.internal. \
+  --zone=kade-internal --type=A --ttl=30 --rrdatas=10.10.32.3
+```
+
+</TryIt>

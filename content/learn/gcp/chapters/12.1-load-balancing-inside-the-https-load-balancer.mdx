@@ -1,0 +1,381 @@
+import { ArmorEx, DeployEx, HcEx, LbChain, UrlMapTool, XffEx } from "@/components/learn/widgets/lazy";
+
+<Box kind="problem" title="The problem">
+
+- When the API ran on kade-api-1 and kade-api-2, both backends once showed "unhealthy" while the app worked fine, and the shop went down for twenty minutes.
+- The API's logs show `35.191.x.x` as the client for every request, so rate limiting and fraud checks see one "client".
+- The certificate was uploaded by hand a year ago. Nobody knows when it expires.
+- A WAF policy exists, but nobody is sure which traffic it actually covers.
+
+</Box>
+
+## The chain: five links
+
+A proxy load balancer is a chain, and each link does one job. Click a link to see what it holds, Kadé's value, and the question to ask it when something breaks. Knowing which link to look at is half of any load balancer problem.
+
+<LbChain />
+
+## The URL map: where each request goes
+
+The URL map can only route by host and path because the target proxy has already ended the connection and decrypted it. It works in two steps: a **host rule** picks a path matcher by hostname, then the **path matcher** picks a backend by the longest matching path. Anything that matches nothing goes to the default backend.
+
+<UrlMapTool />
+
+## Backend types
+
+A backend service points at one or more **backends**, the things that actually answer requests. There are two broad kinds, plus backend buckets for static files.
+
+### Instance groups: backends that are VMs
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>What it is</th><th>Scaling and healing</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Managed (MIG)**</td><td>VMs created from a template</td><td>Autoscales between a minimum and maximum, and replaces VMs that fail their health check. The normal choice</td></tr>
+    <tr><td>2</td><td>**Unmanaged**</td><td>A hand-made list of specific existing VMs</td><td>Neither. Used when you need particular VMs, as Kadé had with kade-api-1 and kade-api-2 in the fundamentals course</td></tr>
+  </tbody>
+</Table>
+
+### Network endpoint groups (NEGs): backends that are not just VMs
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>NEG type</th><th>Points at</th><th>Solves</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Serverless**</td><td>A Cloud Run service (or App Engine, Cloud Functions) in one region</td><td>Putting Cloud Run behind a load balancer. Kadé's `kade-api-neg`</td></tr>
+    <tr><td>2</td><td>Zonal</td><td>Specific IP:port endpoints in one zone</td><td>Fine-grained or container setups</td></tr>
+    <tr><td>3</td><td>Internet</td><td>An endpoint outside GCP, by IP or hostname</td><td>Fronting an origin in another cloud with Cloud CDN and Cloud Armor</td></tr>
+    <tr><td>4</td><td>Hybrid</td><td>Endpoints on-premises or in another cloud, over VPN or Interconnect</td><td>Load balancing across a hybrid setup (<Ch n="15">chapter 15</Ch>)</td></tr>
+    <tr><td>5</td><td>Private Service Connect</td><td>A published service (<Ch n="9">chapter 9</Ch>)</td><td>Fronting a published service through a load balancer</td></tr>
+  </tbody>
+</Table>
+
+<Caption><Ch n="12.2">Chapter 12.2</Ch> covers managed instance groups in depth: templates, autohealing, autoscaling and rolling updates.</Caption>
+
+A **backend bucket** points the load balancer at a Cloud Storage bucket instead, for static files like product images. Kadé's `kade-static` serves `www.kade.lk` and `/images/`.
+
+<Key title="The serverless NEG is the one to remember, and it is different">
+
+It is the bridge between a load balancer and Cloud Run: it gives a Cloud Run service a custom domain, a certificate, Cloud Armor and Cloud CDN, and with the right ingress setting (<Ch n="10">chapter 10</Ch>) it becomes the only way in. Three things work differently from VM backends:
+
+- **No health checks.** Cloud Run manages its own instances; the load balancer does not probe them. (Outlier detection can still stop sending traffic to a region that keeps returning errors.)
+- **No backend service timeout.** The request timeout is set on the Cloud Run service itself.
+- **No firewall rule for Google's ranges.** Cloud Run is not in your VPC, so there is nothing for `kade-allow-lb` to allow.
+
+</Key>
+
+## Health checks
+
+For VM and zonal NEG backends, the load balancer probes each one and only sends traffic to those it marks healthy. Simple idea, three details that cause real incidents. Kadé's twenty-minute outage was the first one.
+
+<HcEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Load balancer</th><th>Probe source ranges your firewall must allow</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Application and proxy Network load balancers, internal passthrough NLB</td><td>`35.191.0.0/16`, `130.211.0.0/22`</td></tr>
+    <tr><td>2</td><td>External passthrough Network LB</td><td>`35.191.0.0/16`, `209.85.152.0/22`, `209.85.204.0/22`</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Give the probes a dedicated rule (Kadé's was `kade-lb-to-api`, <Ch n="5.1">chapter 5.1</Ch>). Then deleting a broad catch-all rule never breaks the health path by accident.</Caption>
+
+## Balancing across healthy backends
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting (on the backend service)</th><th>What it controls</th><th>Values</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Balancing mode</td><td>When a backend counts as "full". At the target, traffic spills to other backends or a MIG scales out</td><td>`UTILIZATION` (CPU), `RATE` (requests per second), `CONNECTION`</td></tr>
+    <tr><td>2</td><td>Session affinity</td><td>Keeps one client on the same backend</td><td>`NONE`, `CLIENT_IP`, `GENERATED_COOKIE`, `HTTP_COOKIE`, `HEADER_FIELD`</td></tr>
+    <tr><td>3</td><td>Connection draining</td><td>How long a backend being removed may finish the requests it already has</td><td>Seconds</td></tr>
+    <tr><td>4</td><td>Timeout</td><td>How long to wait for a backend's response</td><td>30 s by default; not used for serverless NEGs</td></tr>
+  </tbody>
+</Table>
+
+<Cols n={2}>
+
+<Col title="Session affinity">
+
+Needed when a backend keeps per-user state in memory. It fights even balancing, and it breaks when that backend goes away. The cleaner design is stateless backends with session state in Redis or the database. Affinity is for when you cannot do that.
+
+</Col>
+
+<Col title="Timeout">
+
+Too short cuts off slow but valid responses, such as a large report. Too long lets a stuck backend hold connections. Set it to just above your slowest legitimate request.
+
+</Col>
+
+</Cols>
+
+A deploy without downtime is mostly these settings and the health check working together. The chart follows a rolling update of a two-VM group, as Kadé did before <Ch n="10">chapter 10</Ch>:
+
+<DeployEx />
+
+## The real client IP
+
+<Recalls><Recall n="33">X-Forwarded-For</Recall></Recalls>
+
+Behind a proxy, the backend's network connection comes from Google's front end, not the shopper (<Ch n="11">chapter 11</Ch> section 05). The shopper's address travels in a header instead. Getting this wrong was the second problem at the top of this chapter, and it also has a security side:
+
+<XffEx />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Header the load balancer adds</th><th>Contains</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`X-Forwarded-For`</td><td>Whatever the client sent, then `client IP, load balancer IP` appended</td></tr>
+    <tr><td>2</td><td>`X-Forwarded-Proto`</td><td>`https` or `http`: how the client connected</td></tr>
+    <tr><td>3</td><td>`Via`</td><td>`1.1 google`</td></tr>
+    <tr><td>4</td><td>Custom request headers you define</td><td>Values like `{client_region}`, `{client_city}` or `{tls_version}`, filled in per request</td></tr>
+  </tbody>
+</Table>
+
+## TLS and certificates
+
+<Recalls><Recall n="25">TLS and HTTPS</Recall></Recalls>
+
+TLS ends at the target proxy, which is where certificates are attached. The choice that matters most is who issues and renews the certificate:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Google-managed, load balancer authorization</th><th>Google-managed, DNS authorization</th><th>Self-managed</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Who issues</td><td>Google</td><td>Google</td><td>You, from any certificate authority</td></tr>
+    <tr><td>2</td><td>How Google checks you own the domain</td><td>The domain's A record must already point at the load balancer IP</td><td>A CNAME record you add once in DNS</td><td>Not its job</td></tr>
+    <tr><td>3</td><td>Renewal</td><td>Automatic</td><td>Automatic</td><td>Yours to remember</td></tr>
+    <tr><td>4</td><td>Wildcards (`*.kade.lk`)</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>5</td><td>Works behind Cloudflare's proxy</td><td>Often fails: the domain points at Cloudflare, not the load balancer</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>6</td><td>Set up with</td><td>A Compute Engine SSL certificate resource</td><td>Certificate Manager</td><td>Either</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The self-managed failure is predictable: a certificate uploaded by hand expires a year later, and the site starts showing certificate errors. Google-managed certificates exist to remove that failure.</Caption>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Other TLS object</th><th>What it does</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>SSL policy</td><td>Which TLS versions and ciphers the load balancer accepts. Profiles: `COMPATIBLE` (the permissive default), `MODERN`, `RESTRICTED`, `CUSTOM`, plus a minimum TLS version</td><td>`kade-tls`: `MODERN`, minimum TLS 1.2</td></tr>
+    <tr><td>2</td><td>Certificate map</td><td>Lets one load balancer serve many certificates, picking one per hostname</td><td>`kade-cert-map` with `kade.lk`, `*.kade.lk`</td></tr>
+    <tr><td>3</td><td>mTLS</td><td>The client also shows a certificate, and the load balancer checks it. Only clients with a valid certificate can connect at all</td><td>Not used; a fit for a partner API</td></tr>
+  </tbody>
+</Table>
+
+## Cloud Armor: the WAF
+
+Cloud Armor is attached to a **backend service** (link 4 of the chain). It looks at each request at Google's front end, before it reaches your backends, and allows, denies, or rate-limits it.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Capability</th><th>What it is for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>IP allow and deny rules</td><td>Block known-bad ranges, or allow only office IPs to an admin path. Unlike the VPC firewall, it sees the real client IP (<Ch n="5.2">chapter 5.2</Ch>)</td></tr>
+    <tr><td>2</td><td>Rate limiting</td><td>Cap requests per client in a time window, then block or throttle. Against brute force and simple floods</td></tr>
+    <tr><td>3</td><td>Preconfigured WAF rules</td><td>Google-maintained rules for common attacks: SQL injection, cross-site scripting and other OWASP categories</td></tr>
+    <tr><td>4</td><td>Geography and named IP lists</td><td>Match by country (`origin.region_code`), or by provider lists such as Cloudflare's ranges (<Ch n="13">chapter 13</Ch>)</td></tr>
+    <tr><td>5</td><td>Adaptive Protection</td><td>Learns normal traffic and flags unusual patterns, including DDoS. Part of Cloud Armor Enterprise</td></tr>
+    <tr><td>6</td><td>Edge security policies</td><td>Rules applied earlier, at the edge, for content served from Cloud CDN's cache</td></tr>
+  </tbody>
+</Table>
+
+<ArmorEx />
+
+<Box kind="cost" title="Cost and limits (checked September 2026)">
+
+Cloud Armor Standard is billed per policy, per rule and per million requests inspected. Cloud Armor Enterprise adds Adaptive Protection, named IP lists and threat intelligence, as a subscription or pay-as-you-go. Check the Cloud Armor pricing page before turning on Enterprise features.
+
+</Box>
+
+## Cloud CDN
+
+Cloud CDN caches responses at Google's edge locations, so repeated requests are answered near the user without reaching the backend. It is turned on per **backend service or backend bucket**, the same place Cloud Armor attaches.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Cache mode</th><th>What gets cached</th><th>Kadé's use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`CACHE_ALL_STATIC`</td><td>Static content types (images, CSS, JS) by default, plus anything the origin marks cacheable</td><td>`kade-static`: product images</td></tr>
+    <tr><td>2</td><td>`USE_ORIGIN_HEADERS`</td><td>Only what the origin's `Cache-Control` headers allow</td><td>The API, if ever: nothing cached unless the app says so</td></tr>
+    <tr><td>3</td><td>`FORCE_CACHE_ALL`</td><td>Everything, ignoring the origin's headers</td><td>Never for anything with user data</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Running Cloud CDN together with Cloudflare means deciding which one caches. Caching in both makes stale content hard to clear. <Ch n="13">Chapter 13</Ch> decides.</Caption>
+
+## Logs: who answered?
+
+Request logging is turned on per backend service, with a sample rate. Each log line has a `statusDetails` field that says who produced the response, which settles most "is it the load balancer or the app?" arguments:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>`statusDetails`</th><th>Means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`response_sent_by_backend`</td><td>The app answered. A 500 here is an app bug</td></tr>
+    <tr><td>2</td><td>`failed_to_pick_backend`</td><td>No healthy backend was available. Look at health checks</td></tr>
+    <tr><td>3</td><td>`backend_timeout`</td><td>The backend did not answer within the timeout</td></tr>
+    <tr><td>4</td><td>`denied_by_security_policy`</td><td>Cloud Armor blocked it. `enforcedSecurityPolicy` names the rule</td></tr>
+    <tr><td>5</td><td>`response_from_cache`</td><td>Cloud CDN answered from its cache</td></tr>
+  </tbody>
+</Table>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: the four problems at the top">
+
+- **Unhealthy backends.** The cause was a firewall clean-up that removed the rule for `35.191.0.0/16` (hcex tab A). Today the backend is a serverless NEG with no health checks, and when Kadé uses VMs again they get an HTTP health check on `/healthz` and a dedicated firewall rule.
+- **Client IP.** The API reads the second-to-last entry of `X-Forwarded-For`, the address Google's front end saw, and never the first (section 06). <Ch n="13">Chapter 13</Ch> changes this when Cloudflare is added.
+- **Certificate.** Replaced with a Google-managed certificate through Certificate Manager with DNS authorization, for `kade.lk` and `*.kade.lk`, on `kade-cert-map`. It renews itself, and it will keep working behind Cloudflare. SSL policy `kade-tls`: MODERN, TLS 1.2 minimum.
+- **WAF coverage.** `kade-edge-policy` is attached to `kade-api-backend`, the only backend service, and kade-api's ingress is `internal-and-cloud-load-balancing` (<Ch n="10">chapter 10</Ch>), so there is no way around it. Backend buckets can only take an edge security policy, so `kade-static` gets `kade-static-edge` (rate limits and country rules).
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Link</th><th>Kadé's resource</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Forwarding rules</td><td>`kade-https-rule` (:443) and `kade-http-rule` (:80, redirect only), both on `kade-lb-ip` 34.120.88.10</td></tr>
+    <tr><td>2</td><td>Target proxies</td><td>`kade-https-proxy` (cert map `kade-cert-map`, SSL policy `kade-tls`) and `kade-http-proxy`</td></tr>
+    <tr><td>3</td><td>URL maps</td><td>`kade-url-map` (section 02) and `kade-redirect-map` (HTTP to HTTPS)</td></tr>
+    <tr><td>4</td><td>Backend service and bucket</td><td>`kade-api-backend` (Cloud Armor `kade-edge-policy`, logging 100%) and `kade-static` (Cloud CDN)</td></tr>
+    <tr><td>5</td><td>Backends</td><td>Serverless NEG `kade-api-neg` → Cloud Run `kade-api`; bucket `kade-static-assets`</td></tr>
+  </tbody>
+</Table>
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 7 are read-only. Commands 8 to 10 change the project.
+
+<TryIt n={1} title="Follow the chain from the IP">
+
+- **What it shows:** The forwarding rule's target proxy, then that proxy's URL map and certificate setup.
+- **What to look for:** Which proxy each forwarding rule uses, and whether the HTTPS proxy has a certificate map and an SSL policy.
+
+```sh
+gcloud compute forwarding-rules describe kade-https-rule --global --format="value(target)"
+gcloud compute target-https-proxies describe kade-https-proxy \
+  --format="yaml(urlMap,certificateMap,sslCertificates,sslPolicy)"
+```
+
+</TryIt>
+
+<TryIt n={2} title="See how the URL map routes">
+
+- **What it shows:** Host rules, path matchers and the default service.
+- **What to look for:** Every hostname you serve has a host rule, and the default service is what you expect for unknown hosts.
+
+```sh
+gcloud compute url-maps describe kade-url-map --format="yaml(defaultService,hostRules,pathMatchers)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="Check a backend service's protection and settings">
+
+- **What it shows:** Cloud Armor policy, CDN, logging, timeout, affinity and backends.
+- **What to look for:** An empty `securityPolicy` means no WAF on this backend service.
+
+```sh
+gcloud compute backend-services describe kade-api-backend --global \
+  --format="yaml(securityPolicy,enableCDN,logConfig,timeoutSec,sessionAffinity,backends)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Find backend services with no Cloud Armor policy">
+
+- **What it shows:** Every backend service and its security policy, in one table.
+- **What to look for:** A blank policy on anything public-facing. This is the "WAF on some load balancers but not others" check.
+
+```sh
+gcloud compute backend-services list \
+  --format="table(name,loadBalancingScheme,securityPolicy.basename())"
+```
+
+</TryIt>
+
+<TryIt n={5} title="See backend health (VM or zonal NEG backends)">
+
+- **What it shows:** Each backend instance and whether the health check passes.
+- **What to look for:** `UNHEALTHY` while the app works means the probe path: firewall rule, port, or health check path.
+
+```sh
+gcloud compute backend-services get-health kade-api-backend --global
+```
+
+</TryIt>
+
+<TryIt n={6} title="Check certificate status">
+
+- **What it shows:** Each Certificate Manager certificate, its domains and its state.
+- **What to look for:** `ACTIVE`. `PROVISIONING` for a long time usually means the DNS authorization record is missing.
+
+```sh
+gcloud certificate-manager certificates list \
+  --format="table(name,sanDnsnames.list(),managed.state,expireTime)"
+```
+
+</TryIt>
+
+<TryIt n={7} title="Read load balancer logs for errors">
+
+- **What it shows:** Recent requests with status 5xx, and who produced each response.
+- **What to look for:** The `statusDetails` value (section 10).
+
+```sh
+gcloud logging read \
+  'resource.type="http_load_balancer" AND httpRequest.status>=500' \
+  --freshness=1h --limit=20 \
+  --format="table(timestamp,httpRequest.status,jsonPayload.statusDetails,httpRequest.requestUrl)"
+```
+
+</TryIt>
+
+<TryIt n={8} title="Attach a Cloud Armor policy to a backend service (changes the project)">
+
+- **What it shows:** Puts kade-edge-policy in front of kade-api-backend.
+- **What to look for:** The policy name in command 4. Repeat for every public backend service.
+
+```sh
+gcloud compute backend-services update kade-api-backend --global \
+  --security-policy=kade-edge-policy
+```
+
+</TryIt>
+
+<TryIt n={9} title="Add a WAF rule in preview mode first (changes the project)">
+
+- **What it shows:** A SQL injection rule that only logs what it would block.
+- **What to look for:** Matches in the logs with `previewSecurityPolicy`. When there are no false positives, update the rule with `--no-preview`.
+
+```sh
+gcloud compute security-policies rules create 1000 --security-policy=kade-edge-policy \
+  --expression="evaluatePreconfiguredWaf('sqli-v33-stable')" --action=deny-403 --preview
+```
+
+</TryIt>
+
+<TryIt n={10} title="Require modern TLS (changes the project)">
+
+- **What it shows:** Creates the SSL policy and attaches it to the HTTPS proxy.
+- **What to look for:** `sslPolicy` set in command 1. Very old clients that only speak TLS 1.0 can no longer connect.
+
+```sh
+gcloud compute ssl-policies create kade-tls --profile=MODERN --min-tls-version=1.2
+gcloud compute target-https-proxies update kade-https-proxy --ssl-policy=kade-tls
+```
+
+</TryIt>

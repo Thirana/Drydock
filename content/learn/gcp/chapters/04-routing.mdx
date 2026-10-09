@@ -1,0 +1,405 @@
+import { RouteEx, RoutePick } from "@/components/learn/widgets/lazy";
+import { FigOneTable } from "@content/learn/gcp/figures/04-routing";
+
+<Box kind="problem" title="The problem">
+
+Kadé's routing has never been touched, and that is about to change. <Ch n="7">Chapter 7</Ch> adds Cloud NAT, <Ch n="15">chapter 15</Ch> adds VPN tunnels to the office, and there is a plan to send kade-worker's outgoing traffic through an inspecting proxy.
+
+Someone has also suggested "locking down" kade-vpc by deleting its default route. That would quietly break Cloud NAT in <Ch n="7">chapter 7</Ch>. Before anyone adds or deletes a route, we need to know exactly how GCP chooses between routes, and which routes other features depend on.
+
+</Box>
+
+## One route table for the whole VPC
+
+<Recalls><Recall n="5">The default gateway</Recall><Recall n="12">Routing tables and longest prefix match</Recall></Recalls>
+
+A route is a destination range plus a **next hop**: "packets for this range go there". That part is the same as the fundamentals course. What is different is where the table lives and how you limit it:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Home router (fundamentals course)</th><th>AWS VPC</th><th>GCP VPC</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Where the table lives</td><td>In the router box</td><td>Several route tables, each attached to subnets</td><td>**One table for the whole VPC**, copied to every host's data plane</td></tr>
+    <tr><td>2</td><td>How to make a route apply to only some machines</td><td>Separate router or VLAN</td><td>Attach a different table to their subnet</td><td>**Network tags** on the route and on the VMs</td></tr>
+    <tr><td>3</td><td>"Public" vs "private" subnets</td><td>-</td><td>Which table the subnet uses</td><td>Not a subnet idea at all: done with tags, external IPs and Cloud NAT</td></tr>
+    <tr><td>4</td><td>Who creates most routes</td><td>You, or DHCP</td><td>You</td><td>GCP, automatically</td></tr>
+  </tbody>
+</Table>
+
+<Figure wide hues={["teal", "green", "amber"]} drawing={<FigOneTable />}>
+
+There is only one table. A tag on a route does not create a second table; it only decides which VMs the route is a candidate for.
+
+</Figure>
+
+## Kadé's route table today
+
+<Box kind="check" title="gcloud check">
+
+```sh
+gcloud compute routes list --filter="network~kade-vpc"
+```
+
+<Label>Output</Label>
+
+```text
+NAME                            NETWORK   DEST_RANGE    NEXT_HOP                  PRIORITY
+default-route-3b1c8e0f5a2d4e61  kade-vpc  0.0.0.0/0     default-internet-gateway  1000
+default-route-7f2e9d1c4b6a8e03  kade-vpc  10.10.1.0/24  kade-vpc                  0
+default-route-a41d2b7e1f3c5d80  kade-vpc  10.10.2.0/24  kade-vpc                  0
+```
+
+<Label>What it tells you</Label>
+
+- Two **subnet routes**, one per subnet. Their next hop is the network itself: "deliver inside the VPC". This is why kade-api reaches kade-db with no setup.
+- One **default route**, `0.0.0.0/0` to `default-internet-gateway`, priority 1000. This is the only path to the internet.
+- All three were created by GCP, which is why they have generated names. Kadé has no custom routes.
+
+</Box>
+
+So why can't kade-api reach PayGate (finding 5) if there is a default route? Because a route is only half of the answer. The default internet gateway only accepts traffic from a VM with an external IP, or traffic handled by Cloud NAT. kade-api has neither. The route exists; nothing can use it yet. <Ch n="7">Chapter 7</Ch> fixes that.
+
+## The route types
+
+### System-generated routes
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Route</th><th>What it does</th><th>Can you change it?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Subnet route</td><td>One per subnet range (primary, secondary, IPv6). Sends that range inside the VPC. Appears when a subnet is created or expanded, disappears when it is deleted</td><td><St k="bad">no</St> never edited, and cannot be overridden</td></tr>
+    <tr><td>2</td><td>Default route</td><td>`0.0.0.0/0` to the default internet gateway, priority 1000. Created with the network</td><td><St k="ok">yes</St> it is an ordinary static route and can be deleted (section 08)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>An auto mode network has one subnet route per region, so it starts with dozens of them.</Caption>
+
+### Static routes (custom routes you create)
+
+You give a destination, a next hop, a priority, and optionally tags. The next hop can be:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Next hop</th><th>Sends matching traffic to</th><th>Kadé's use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`default-internet-gateway`</td><td>The internet (a second internet route, often tag-scoped or for a specific range)</td><td>Routes to Google API ranges (<Ch n="9">chapter 9</Ch>)</td></tr>
+    <tr><td>2</td><td>An instance (`--next-hop-instance`)</td><td>A VM acting as a router, proxy or appliance. It needs IP forwarding on (<Ch n="3">chapter 3</Ch>)</td><td>The scenarios in section 07</td></tr>
+    <tr><td>3</td><td>An internal IP (`--next-hop-address`)</td><td>The VM that holds that primary internal IP</td><td>Same as above, by address</td></tr>
+    <tr><td>4</td><td>An internal passthrough Network Load Balancer (`--next-hop-ilb`)</td><td>A group of appliance VMs behind a load balancer, with health checks</td><td>An HA version of the proxy</td></tr>
+    <tr><td>5</td><td>A Classic VPN tunnel (`--next-hop-vpn-tunnel`)</td><td>Another network across a Classic VPN</td><td>Not used: HA VPN uses dynamic routes</td></tr>
+  </tbody>
+</Table>
+
+### Dynamic routes
+
+Learned over BGP by a Cloud Router, not typed in. On a VPN or Interconnect, the Cloud Router tells the other side about Kadé's ranges and installs the ranges the other side advertises. When a tunnel goes down, its routes are removed automatically. The VPC's **dynamic routing mode** (regional or global, <Ch n="2">chapter 2</Ch> section 01) decides whether those routes apply in one region or all of them. This is <Ch n="15">chapter 15</Ch>'s topic; Kadé's Cloud Router in <Ch n="7">chapter 7</Ch> exists only to run Cloud NAT and learns nothing.
+
+### Policy-based routes
+
+A newer, more specialised type. A policy-based route can match on **source** range, destination range and protocol (not port), and its next hop must be an internal passthrough Network Load Balancer, usually a group of firewall appliances. It is checked **before** subnet routes, so it is the one tool that can send even VM-to-VM traffic through an appliance. Kadé does not need it.
+
+### Special routing paths (hidden)
+
+Some traffic uses paths that are not in your route table at all. You cannot see, delete or override them; only firewall rules can block them.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Range</th><th>Used by</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`35.191.0.0/16`, `130.211.0.0/22`</td><td>Google Front Ends and health checks talking to your backends</td><td className="whitespace-nowrap">11, 12</td></tr>
+    <tr><td>2</td><td>`35.235.240.0/20`</td><td>IAP TCP forwarding (SSH through IAP)</td><td className="whitespace-nowrap">6</td></tr>
+    <tr><td>3</td><td>`35.199.192.0/19`</td><td>Cloud DNS forwarding and alternative name servers</td><td className="whitespace-nowrap">8</td></tr>
+    <tr><td>4</td><td>`35.199.224.0/19`</td><td>Serverless VPC Access connectors</td><td className="whitespace-nowrap">10</td></tr>
+  </tbody>
+</Table>
+
+<Caption>This is why the load balancer and IAP keep working even if the default route is deleted.</Caption>
+
+## How GCP picks a route
+
+When a packet leaves a VM, GCP gathers every route that applies to that VM and contains the destination, then removes candidates step by step until one is left. The full list in Google's docs has twelve steps, many about peering and Network Connectivity Center. For a single VPC it comes down to this:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>What happens</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Special paths</td><td>If the destination is one of the hidden paths in section 03, use it. Done</td></tr>
+    <tr><td>2</td><td>Policy-based routes</td><td>If one matches (by priority only), use it. Done</td></tr>
+    <tr><td>3</td><td>**Subnet routes**</td><td>If the destination is inside any subnet range, use the subnet route. Done. **Nothing can beat a subnet route**</td></tr>
+    <tr><td>4</td><td>Applicable routes</td><td>Keep static and dynamic routes that contain the destination and apply to this VM (no tags, or a tag the VM has)</td></tr>
+    <tr><td>5</td><td>**Longest prefix**</td><td>Keep only the most specific destination. Priority is not looked at yet</td></tr>
+    <tr><td>6</td><td>Usable next hops</td><td>Drop routes whose next hop VM is stopped or deleted, or whose tunnel is down</td></tr>
+    <tr><td>7</td><td>**Lowest priority number**</td><td>Keep only routes with the lowest number (0 to 65535, like firewall rules)</td></tr>
+    <tr><td>8</td><td>Next hop preference</td><td>Instance and Classic VPN next hops beat dynamic routes, which beat an internal load balancer next hop, which beats the internet gateway</td></tr>
+    <tr><td>9</td><td>Send</td><td>One route left: send. Several left: share traffic between them (ECMP). None left: drop, with an ICMP "network unreachable"</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Three rules that cause most surprises">
+
+- **Specificity before priority.** A `/24` with priority 1000 beats a `/0` with priority 0. Priority only breaks ties between routes with the same destination.
+- **Subnet routes cannot be beaten.** GCP refuses to create a static route that equals or fits inside a subnet range. To send VM-to-VM traffic through an appliance, you need a policy-based route or separate VPCs.
+- **A dead next hop disappears, but only among equals.** If a route's next hop VM is stopped or its tunnel is down, the route is ignored at step 6. Traffic moves to another route with **exactly the same destination** if one exists. If the dead route was the only most-specific one, the packet is dropped: GCP never falls back to a less specific route (Example E).
+
+</Key>
+
+## Route selection, example by example
+
+Each tab is one packet and every route that could carry it. The strip at the top is the selection order from section 04, with the number of routes still in the running under each step. The marked step is the one that decided. Faded rows show the step that removed them and why. Some examples have a "what if" button that changes one thing.
+
+<RouteEx />
+
+## Try it: which route wins?
+
+This route table is a lab version of kade-vpc with all the example routes in it. Choose the tags on the sending VM and a destination, and switch next hops off to see what takes over.
+
+<RoutePick />
+
+## Tag-scoped routes: patterns
+
+With one table per VPC, tags are the only way to make a route apply to some VMs and not others. A route with tags applies only to VMs that have at least one of them; a route with no tags applies to every VM. Tags decide **which routes are candidates** for a VM. The winner is still picked by the steps in section 04.
+
+<Box kind="console" title="Scenario A · Send some VMs through a proxy">
+
+```text
+Goal: kade-worker's internet traffic goes through kade-proxy; everyone else goes direct.
+
+Route 1:  0.0.0.0/0 → default-internet-gateway   prio 1000   no tags (all VMs)
+Route 2:  0.0.0.0/0 → instance kade-proxy        prio 900    tags: [via-proxy]
+
+kade-worker (via-proxy):  both apply, both /0 → 900 beats 1000 → kade-proxy
+kade-api-1 (no such tag): route 2 does not apply → route 1 → direct
+```
+
+kade-proxy needs IP forwarding on (<Ch n="3">chapter 3</Ch>) and its own way out: an external IP or Cloud NAT.
+
+</Box>
+
+<Box kind="console" title="Scenario B · Private VMs with no internet at all">
+
+```text
+Goal: kade-db can never reach the internet; other VMs can.
+
+Delete the untagged default route, then:
+Route 1:  0.0.0.0/0 → default-internet-gateway   prio 1000   tags: [internet]
+
+kade-api-1, kade-worker tagged "internet" → internet as before
+kade-db, no tag → no route to 0.0.0.0/0 → packet dropped (network unreachable)
+```
+
+The inverse is easier to get right than adding a "blackhole" route for the private VMs: no route means no path. Two warnings. Every VM that needs the internet must get the tag, and Cloud NAT only works for VMs that can see a default route to the internet gateway (section 08). An egress firewall rule (<Ch n="5">chapter 5</Ch>) is often the simpler tool for the same goal.
+
+</Box>
+
+<Box kind="console" title={"Scenario C · Why \"route to a blackhole VM\" leaks"}>
+
+```text
+Route 1:  0.0.0.0/0 → default-internet-gateway   prio 1000   no tags
+Route 2:  0.0.0.0/0 → instance blackhole-vm      prio 900    tags: [no-egress]
+
+Normal day:  kade-db (no-egress) → route 2 → packets sink at blackhole-vm
+blackhole-vm stopped for patching:
+             route 2 ignored (step 6) → route 1 → kade-db reaches the internet
+```
+
+Both routes have the same destination (`0.0.0.0/0`), so a dead next hop does not drop the traffic: its route is removed and the other one takes over (Example C in section 05 is the same mechanism). Anything that must fail closed should not depend on a VM being up. Use Scenario B or a firewall rule.
+
+</Box>
+
+<Box kind="console" title="Scenario D · Only some destinations through the appliance">
+
+```text
+Goal: only kade-worker's calls to PayGate go through kade-inspect.
+
+Route 1:  0.0.0.0/0     → default-internet-gateway   prio 1000   no tags
+Route 2:  192.0.2.0/24  → instance kade-inspect      prio 1000   tags: [inspected]
+
+kade-worker (inspected):
+  to 192.0.2.10 → route 2 (the /24 is more specific; priority not needed)
+  to anything else on the internet → route 1
+kade-api-1 (no tag): everything → route 1
+```
+
+Here specificity does the work, not priority. The tag only limits who sees the specific route.
+
+</Box>
+
+<Box kind="console" title="Scenario E · A tagged pair of VPN tunnels">
+
+```text
+Goal: only VMs tagged "via-office" send all traffic to the office, shared across two tunnels.
+
+Route 2:  0.0.0.0/0 → vpn tunnel-a   prio 900   tags: [via-office]
+Route 3:  0.0.0.0/0 → vpn tunnel-b   prio 900   tags: [via-office]
+
+VM tagged via-office → routes 2 and 3 tie → ECMP across both tunnels
+Untagged VM          → default route
+```
+
+Tagged static routes to Classic VPN tunnels work this way. HA VPN uses dynamic routes from BGP, which cannot carry tags; <Ch n="15">chapter 15</Ch> covers how that changes the design.
+
+</Box>
+
+<Box kind="console" title="Scenario F · A VM with two tags">
+
+```text
+kade-worker tags: [via-proxy, inspected]
+
+Candidates for 192.0.2.10:
+  0.0.0.0/0     → default gateway   prio 1000   applies (no tags)
+  0.0.0.0/0     → kade-proxy        prio 900    applies (via-proxy)
+  192.0.2.0/24  → kade-inspect      prio 1000   applies (inspected)
+Longest prefix: 192.0.2.0/24 → kade-inspect WINS
+
+Candidates for 8.8.8.8: only the two /0 routes → prio 900 → kade-proxy WINS
+```
+
+Tags decide candidacy, not the winner. With several tags, all their routes compete under the normal rules.
+
+</Box>
+
+<Box kind="exam" title="Exam angle">
+
+"Only VMs X must send internet traffic through a NAT or proxy VM" is answered with a static route to `0.0.0.0/0`, next hop that VM, a lower priority number than the default route, and a network tag that only X carries. Watch for answers that say "attach a route table to the subnet": that is AWS, not GCP.
+
+</Box>
+
+## Deleting the default route
+
+The default route is only a static route, so it can be deleted. People do this to "make sure nothing can reach the internet". Before doing it, know what depends on it:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Feature</th><th>Without a route to `default-internet-gateway`</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>VMs with external IPs</td><td><St k="bad">breaks</St> no outgoing path to the internet</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>2</td><td>Cloud NAT</td><td><St k="bad">breaks</St> public Cloud NAT always needs a route to the internet gateway</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>3</td><td>Private Google Access with the normal API addresses</td><td><St k="bad">breaks</St> unless you add routes for the Google API ranges</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>4</td><td>Traffic inside the VPC</td><td><St k="ok">works</St> subnet routes are separate</td><td className="whitespace-nowrap">4</td></tr>
+    <tr><td>5</td><td>Load balancer and health checks, IAP, Cloud DNS forwarding</td><td><St k="ok">works</St> special paths do not use the route table</td><td className="whitespace-nowrap">6, 8, 11</td></tr>
+    <tr><td>6</td><td>External passthrough Network Load Balancer backends</td><td><St k="ok">works</St> they have their own special path</td><td className="whitespace-nowrap">11</td></tr>
+  </tbody>
+</Table>
+
+<Caption>"No default route" does not mean "no internet exposure": load balancer traffic still reaches backends. Firewall rules are what actually control exposure.</Caption>
+
+<Key title="Decision for Kadé: keep it">
+
+Kadé depends on Cloud NAT (<Ch n="7">chapter 7</Ch>), so the default route stays. The goal behind deleting it, "only approved traffic leaves", is handled by removing external IPs, by Cloud NAT, and by egress firewall rules (<Ch n="5">chapter 5</Ch>).
+
+</Key>
+
+## Things to know before changing routes
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Fact</th><th>What it means in practice</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Static routes cannot be edited</td><td>To change one, create the new route first, check it, then delete the old one</td></tr>
+    <tr><td>2</td><td>Changes spread out over a few seconds</td><td>Route changes reach every data plane "eventually". Several changes sent together may apply in any order</td></tr>
+    <tr><td>3</td><td>An instance next hop needs IP forwarding</td><td>Without `canIpForward` the VM drops forwarded packets (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>4</td><td>GCP does not check the appliance</td><td>It only checks the next hop VM is running, not that its software works. Use an internal load balancer next hop with health checks for anything important</td></tr>
+    <tr><td>5</td><td>A route is not permission</td><td>The firewall still decides whether the packet is allowed (<Ch n="5">chapter 5</Ch>)</td></tr>
+    <tr><td>6</td><td>Auto mode networks</td><td>Do not create static routes inside `10.128.0.0/9`; a new region's subnet can disable them</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="console" title="Console">
+
+VPC network → Routes. The **Effective routes** view lets you pick one VM and see exactly which routes apply to it after tags are taken into account. It is the quickest way to check a tag-scoped route before trusting it. <Ch n="16">Chapter 16</Ch> adds Connectivity Tests, which simulate a single packet.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Decided">
+
+- **No route changes today.** The default route stays, because Cloud NAT needs it. The "lock down" goal is reached with firewall rules and no external IPs instead.
+- **kade-db cannot be forced through an appliance with a route** (Example F). If that is ever needed, it takes a policy-based route or a separate VPC.
+- **The routes Kadé will gain**, all added by later chapters:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Route</th><th>Type</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`10.10.3.0/24` for sn-run</td><td>Subnet route, automatic</td><td className="whitespace-nowrap">10</td></tr>
+    <tr><td>2</td><td>`10.10.32.0/20` to Cloud SQL's network</td><td>Peering subnet route, automatic</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>3</td><td>`10.20.0.0/16` to kade-staging</td><td>Peering subnet route, if peering is chosen</td><td className="whitespace-nowrap">14</td></tr>
+    <tr><td>4</td><td>`172.16.0.0/16` to the office, two tunnels</td><td>Dynamic routes over BGP</td><td className="whitespace-nowrap">15</td></tr>
+  </tbody>
+</Table>
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 3 are read-only. Commands 4 and 5 change the project and are shown for the scenarios, not for Kadé today.
+
+<TryIt n={1} title="List routes in a network">
+
+- **What it shows:** Every route in kade-vpc: destination, next hop and priority.
+- **What to look for:** One subnet route per subnet, the default route, and any custom route you do not recognise.
+
+```sh
+gcloud compute routes list --filter="network~kade-vpc"
+```
+
+</TryIt>
+
+<TryIt n={2} title="Show custom routes with their tags">
+
+- **What it shows:** Routes with the tags that limit them. Subnet routes have no tags.
+- **What to look for:** A tagged route, and whether the VMs that should carry the tag actually do.
+
+```sh
+gcloud compute routes list --filter="network~kade-vpc" \
+  --format="table(name,destRange,nextHopGateway.basename(),nextHopInstance.basename(),priority,tags.list())"
+```
+
+</TryIt>
+
+<TryIt n={3} title="See a VM's tags">
+
+- **What it shows:** The network tags on one VM, which decide which tagged routes (and firewall rules) apply to it.
+- **What to look for:** A missing or misspelled tag. Tags are case-sensitive and silently match nothing when wrong.
+
+```sh
+gcloud compute instances describe kade-worker --zone=asia-southeast1-a \
+  --format="value(tags.items)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Create a tag-scoped route (changes the project)">
+
+- **What it shows:** Scenario A: VMs tagged `via-proxy` send internet traffic to kade-proxy.
+- **What to look for:** The route in command 2 with its tag. Check with the Console's Effective routes view for kade-worker before relying on it.
+
+```sh
+gcloud compute routes create kade-via-proxy \
+  --network=kade-vpc --destination-range=0.0.0.0/0 --priority=900 \
+  --next-hop-instance=kade-proxy --next-hop-instance-zone=asia-southeast1-a \
+  --tags=via-proxy
+```
+
+</TryIt>
+
+<TryIt n={5} title="Add or remove a tag on a VM (changes the project)">
+
+- **What it shows:** Puts kade-worker under the tagged route, or takes it back out.
+- **What to look for:** The change reaches the data plane within seconds. Tags also affect firewall rules, so check both.
+
+```sh
+gcloud compute instances add-tags kade-worker --zone=asia-southeast1-a --tags=via-proxy
+gcloud compute instances remove-tags kade-worker --zone=asia-southeast1-a --tags=via-proxy
+```
+
+</TryIt>

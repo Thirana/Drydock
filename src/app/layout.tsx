@@ -21,8 +21,12 @@ const atkinsonMono = Atkinson_Hyperlegible_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: site.name, template: `%s · ${site.name}` },
+  title: {
+    default: `${site.name} - ${site.tagline}`,
+    template: `%s · ${site.name}`,
+  },
   description: site.description,
+  openGraph: { siteName: site.name, type: "website" },
 };
 
 /** Runs before paint: the reader's stored theme, else the system's. */

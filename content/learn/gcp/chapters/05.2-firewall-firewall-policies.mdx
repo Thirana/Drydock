@@ -1,0 +1,269 @@
+import { LayerEx, LayerWalk, ObjEx } from "@/components/learn/widgets/lazy";
+import { FigKinds } from "@content/learn/gcp/figures/05.2-firewall-firewall-policies";
+
+<Box kind="problem" title="The problem">
+
+- Anyone with firewall permission in `kade-prod` can recreate an SSH rule open to `0.0.0.0/0` tomorrow, and nothing stops them.
+- <Ch n="14">Chapter 14</Ch> adds `kade-staging`, which needs the same baseline. VPC rules cannot be shared, so they would be copied and drift apart.
+- The office and home IPs are pasted into more than one rule. A second office means editing each one by hand. <Ch n="7">Chapter 7</Ch> wants kade-worker to reach PayGate and nothing else, but PayGate's IPs can change.
+
+</Box>
+
+## Why policies exist
+
+VPC firewall rules have two built-in weaknesses:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Weakness of VPC rules</th><th>What it means</th><th>What policies add</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>They live inside one project</td><td>Anyone with firewall permission there can create, change or delete any rule. There is no way to say "this rule applies company-wide and no project owner may remove it"</td><td>A **hierarchical** policy on the organization or a folder applies to every project below it, and project owners cannot remove or override it</td></tr>
+    <tr><td>2</td><td>They belong to one VPC and cannot be shared</td><td>Several VPCs that need the same baseline get copies, kept in sync by hand</td><td>A policy is written once and attached to many VPCs</td></tr>
+  </tbody>
+</Table>
+
+## The three kinds
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>Attached to</th><th>Applies to</th><th>Who should own it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Hierarchical**</td><td>The organization or a folder</td><td>Every VPC in every project below it</td><td>A central security or platform team</td></tr>
+    <tr><td>2</td><td>**Global network**</td><td>One or more VPCs</td><td>Those VPCs, in all regions</td><td>The project's network admin</td></tr>
+    <tr><td>3</td><td>**Regional network**</td><td>One or more VPCs, in one region</td><td>Those VPCs, in that region only</td><td>The project's network admin</td></tr>
+  </tbody>
+</Table>
+
+For the rest of the course, Kadé has an organization `kade.lk` with a folder `production`. `kade-prod` sits in it now, and `kade-staging` joins in <Ch n="14">chapter 14</Ch>:
+
+<Figure wide drawing={<FigKinds />}>
+
+Hierarchical policies flow down to every project in their scope. Network policies and VPC rules stay inside the VPCs they are attached to.
+
+</Figure>
+
+## How policy rules differ from VPC rules
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>VPC firewall rules</th><th>Firewall policy rules</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Targets</td><td>All instances, network tags, service accounts</td><td>All instances, service accounts, **secure tags**. <St k="bad">no network tags</St></td></tr>
+    <tr><td>2</td><td>Actions</td><td>allow, deny</td><td>allow, deny, `goto_next` (pass the decision to the next layer), and inspection by Cloud NGFW Enterprise</td></tr>
+    <tr><td>3</td><td>Sources and destinations</td><td>IP ranges (plus tags and service accounts as sources)</td><td>IP ranges, secure tags, and matching objects: address groups, domain names, countries, threat lists (section 05)</td></tr>
+    <tr><td>4</td><td>Priority</td><td>Many rules may share a number</td><td>Each rule in a policy has its own unique number</td></tr>
+    <tr><td>5</td><td>Shared by</td><td>One VPC</td><td>Many VPCs, or a whole folder or organization</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Secure tags: the strongest way to pick VMs">
+
+A <Term>secure tag</Term> (a Resource Manager tag made for firewalls) is a key and value, like `kade-role=db`, defined once for the organization or project. Unlike a network tag, who may create it and who may attach it to a VM are both controlled by IAM. Unlike a service account, it can be attached or removed without stopping the VM. It is the tag done properly, and it only works in firewall policies.
+
+</Key>
+
+## The order of the layers
+
+When a packet arrives, GCP walks the layers from the top. **The first layer that makes a firm decision stops the walk.** The first tab shows the order; the others follow one packet each.
+
+<LayerEx />
+
+<Note>
+
+**The swap.** By default, VPC rules are checked **before** network policies. Each VPC has a setting, `networkFirewallPolicyEnforcementOrder`, that can put network policies first (`BEFORE_CLASSIC_FIREWALL`). Hierarchical policies always come first, whatever the setting.
+
+</Note>
+
+<Key title="The one idea to carry">
+
+The layers are ordered, and the first firm decision wins. Once policies exist, a VPC rule is no longer automatically the answer.
+
+</Key>
+
+### Try it: walk the layers
+
+<LayerWalk />
+
+## Matching objects: names instead of IP lists
+
+Policy rules can match on things a VPC rule cannot express. They let a rule say what it means ("our trusted IPs", "PayGate's API") instead of holding a raw list of IPs that goes stale.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Object</th><th>Matches on</th><th>Mainly for</th><th>Cloud NGFW tier</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Address group</td><td>A named, reusable list of IP ranges</td><td>Shared allow-lists (office IPs, partners)</td><td><St k="ok">Essentials (free)</St></td></tr>
+    <tr><td>2</td><td>FQDN object</td><td>A domain name, resolved to IPs by GCP</td><td>Egress allow-lists</td><td><St k="plan">Standard (paid)</St></td></tr>
+    <tr><td>3</td><td>Geolocation object</td><td>The country an IP is registered to</td><td>Rough ingress filtering</td><td><St k="plan">Standard (paid)</St></td></tr>
+    <tr><td>4</td><td>Threat Intelligence list</td><td>Google-maintained lists of known-bad IPs</td><td>Cutting background noise</td><td><St k="plan">Standard (paid)</St></td></tr>
+  </tbody>
+</Table>
+
+<Key title="Which traffic a VPC firewall can actually see">
+
+A firewall rule judges the packet as it arrives at the VM. Behind an Application Load Balancer, every request arrives from Google's front ends (`35.191.0.0/16`, `130.211.0.0/22`), not from the shopper. So rules that match on **who the client is** (country, threat lists, a CDN's ranges) only work for traffic that reaches a VM directly, or for traffic a VM sends out. Filtering shoppers by country, or allowing only Cloudflare in front of the load balancer, is done with Cloud Armor on the load balancer instead (<Ch n="12">chapters 12</Ch> and <Ch n="13">13</Ch>).
+
+</Key>
+
+<ObjEx />
+
+## Cloud NGFW tiers
+
+Google groups these firewall features into three tiers under the name Cloud Next Generation Firewall (Cloud NGFW):
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Tier</th><th>Adds</th><th>Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Essentials</td><td>VPC rules, hierarchical and network policies, secure tags, address groups</td><td>No charge</td></tr>
+    <tr><td>2</td><td>Standard</td><td>FQDN objects, geolocation objects, Threat Intelligence lists</td><td>Charged for traffic processed by rules that use them</td></tr>
+    <tr><td>3</td><td>Enterprise</td><td>Intrusion detection and prevention, TLS inspection, URL filtering</td><td>Charged for inspection endpoints and inspected traffic</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="exam" title="Exam angle">
+
+Keep Cloud NGFW and Cloud Armor apart. Cloud NGFW protects VMs in the VPC, for any traffic. Cloud Armor is a web application firewall and DDoS protection that sits on external load balancers and understands HTTP (<Ch n="12">chapters 12</Ch> and <Ch n="13">13</Ch>). "Allow traffic to a domain name" is Cloud NGFW Standard; "block SQL injection on the website" is Cloud Armor.
+
+</Box>
+
+## Seeing what really applies
+
+With several layers, working out by hand which rules apply to a VM means collecting every policy and rule, sorting them by layer and priority, and simulating the walk. **Do not do that.** GCP computes it:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Tool</th><th>Answers</th><th>Use when</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`get-effective-firewalls` on a VM</td><td>"What can reach this VM, and what can it reach?"</td><td>The usual question</td></tr>
+    <tr><td>2</td><td>`get-effective-firewalls` on a network</td><td>"What applies to this VPC, including from above?"</td><td>Checking for policies from outside the project</td></tr>
+    <tr><td>3</td><td>Firewall Insights</td><td>"What is wrong with how my rules are written?"</td><td>Audits and cleanup</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+```sh
+gcloud compute instances network-interfaces get-effective-firewalls kade-db \
+  --network-interface=nic0 --zone=asia-southeast1-b
+```
+
+<Label>What it tells you</Label>
+
+The full, ordered list of rules that apply to kade-db across every layer, each labelled with where it came from (a hierarchical policy, a VPC rule or a network policy). It is not an interpretation; it is GCP's own result. **If your reasoning and this output disagree, the output is right.** The network version, `gcloud compute networks get-effective-firewalls kade-vpc`, is how you spot a hierarchical policy you did not know about: it shows up there even though it is not in your project.
+
+</Box>
+
+**Firewall Insights** is different in kind. Instead of telling you what applies, it gives Google's analysis of your rules, based on the rules' logs:
+
+- **Shadowed rules:** never reached, because a higher-priority rule always matches first.
+- **Unused rules:** no hits for a long time; candidates for removal.
+- **Overly broad rules:** allowing more than the traffic actually uses.
+
+It is most useful once rules have had logging on for a while (<Ch n="16">chapter 16</Ch>).
+
+## Policy or VPC rule?
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Need</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A rule that must apply to many projects, or that a project owner must not be able to remove</td><td>Hierarchical policy on the organization or a folder</td></tr>
+    <tr><td>2</td><td>One baseline for every region of a VPC, or shared by several VPCs, as one object</td><td>Global network policy</td></tr>
+    <tr><td>3</td><td>Address groups, FQDN, geolocation, threat lists, or secure tags</td><td>A policy; VPC rules cannot express them</td></tr>
+    <tr><td>4</td><td>A small, single-VPC project with a handful of rules</td><td>VPC rules are fine. Google offers a tool to migrate them into a network policy later</td></tr>
+  </tbody>
+</Table>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Decided">
+
+- **A floor that projects cannot remove.** A hierarchical policy on the `production` folder: deny SSH (22) and RDP (3389) from `0.0.0.0/0`, with a higher-priority `goto_next` for IAP's range `35.235.240.0/20` so <Ch n="6">chapter 6</Ch> still works. It goes live in <Ch n="6">chapter 6</Ch>, together with IAP, so nobody is locked out. `kade-staging` gets it automatically in <Ch n="14">chapter 14</Ch>.
+- **Kadé's own rules stay as VPC rules for now.** The <Ch n="5.1">chapter 5.1</Ch> set is small and clear.
+- **A global network policy arrives when Kadé first needs something VPC rules cannot do**: an address group for the trusted IPs, secure tags, or the FQDN egress list for kade-worker. At that point the VPC rules move into it, and `kade-role` secure tags replace service account targets where a VM needs to change role without a restart.
+- **The Cloudflare origin lock is not a firewall job.** Behind the load balancer, Cloud Run and VMs only see Google's front-end addresses, so "only Cloudflare may reach the shop" is enforced by Cloud Armor on the load balancer (<Ch n="13">chapter 13</Ch>).
+- **No paid tier yet.** An FQDN egress allow-list for kade-worker (Cloud NGFW Standard) is noted as an option for <Ch n="7">chapter 7</Ch>.
+
+</Box>
+
+## Commands in this chapter
+
+All read-only. Commands 3 and 5 need organization-level view permission.
+
+<TryIt n={1} title="See every rule that applies to one VM">
+
+- **What it shows:** The resolved, ordered rules for kade-db across all layers.
+- **What to look for:** Where each rule comes from. An unexpected hierarchical policy rule explains "my VPC rule does nothing".
+
+```sh
+gcloud compute instances network-interfaces get-effective-firewalls kade-db \
+  --network-interface=nic0 --zone=asia-southeast1-b
+```
+
+</TryIt>
+
+<TryIt n={2} title="See everything that applies to a network">
+
+- **What it shows:** VPC rules plus every policy attached to kade-vpc or above it.
+- **What to look for:** Policies from outside the project.
+
+```sh
+gcloud compute networks get-effective-firewalls kade-vpc
+```
+
+</TryIt>
+
+<TryIt n={3} title="List hierarchical policies on a folder">
+
+- **What it shows:** The hierarchical policies attached to the production folder.
+- **What to look for:** Which policy is associated, and its rules. Replace the ID with your folder's.
+
+```sh
+gcloud compute firewall-policies list --folder=123456789012
+```
+
+</TryIt>
+
+<TryIt n={4} title="Check the enforcement order of a VPC">
+
+- **What it shows:** Whether network policies are checked after VPC rules (the default) or before.
+- **What to look for:** `AFTER_CLASSIC_FIREWALL` or empty means the default order.
+
+```sh
+gcloud compute networks describe kade-vpc \
+  --format="value(networkFirewallPolicyEnforcementOrder)"
+```
+
+</TryIt>
+
+<TryIt n={5} title="List global network policies">
+
+- **What it shows:** Network firewall policies in the project and which VPCs they are attached to.
+- **What to look for:** Empty for Kadé until <Ch n="13">chapter 13</Ch>.
+
+```sh
+gcloud compute network-firewall-policies list --global
+```
+
+</TryIt>
+
+<TryIt n={6} title="Ask Firewall Insights for problems">
+
+- **What it shows:** Google's findings on the rules: shadowed, unused, overly broad.
+- **What to look for:** Any rule it flags. Needs the project named explicitly, and works best after logging has been on for a while.
+
+```sh
+gcloud recommender insights list \
+  --insight-type=google.compute.firewall.Insight \
+  --project=kade-prod --location=global
+```
+
+</TryIt>

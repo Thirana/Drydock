@@ -1,0 +1,242 @@
+import { BindSim } from "@/components/learn/widgets/lazy";
+import { FigPort } from "@content/learn/fundamentals/figures/31-ports-sockets";
+
+## What a port is
+
+A <Term>port</Term> is a 16-bit number (0-65,535) in the TCP or UDP header (<Ch n="15">chapters 15</Ch> and <Ch n="18">18</Ch>) that identifies which program a packet is for. If the IP address is a building's street address, the ports are the numbered doors inside it.
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigPort />}>
+
+Nothing listens on 5432 on kade-api (PostgreSQL runs on kade-db), so that packet gets an RST for TCP or ICMP "port unreachable" for UDP (<Ch n="15">chapters 15</Ch>-<Ch n="16">16</Ch>). TCP and UDP have separate port spaces: TCP 53 and UDP 53 are different doors.
+
+</Figure>
+
+## Port ranges
+
+<Range>
+  <RangePart kind="special" w="22%" sub="well-known">0 - 1023</RangePart>
+  <RangePart kind="devices" sub="assigned to specific apps, by convention">1024 - 49151 · registered</RangePart>
+  <RangePart kind="router" w="28%" sub="ephemeral">49152 - 65535</RangePart>
+</Range>
+
+<Table>
+  <tbody>
+    <tr><td>**Well-known**</td><td>Standard services (HTTP 80, HTTPS 443). On Linux and macOS, listening on them needs admin rights ("privileged ports").</td></tr>
+    <tr><td>**Registered**</td><td>Listed with IANA for specific software (PostgreSQL 5432), but any program can use them.</td></tr>
+    <tr><td>**Ephemeral**</td><td>Temporary ports the OS picks as the **source port** for your outgoing connections. Linux actually uses 32768-60999 by default. Asking for port **0** means "OS, pick a free one for me".</td></tr>
+  </tbody>
+</Table>
+
+<Caption>That is why kade-api's Node process usually listens on 3000 or 8080 and something else (a load balancer, or a reverse proxy) takes 443. To let Node bind 443 directly on Linux, grant it the `CAP_NET_BIND_SERVICE` capability instead of running it as root.</Caption>
+
+## Well-known ports worth knowing
+
+<Table>
+  <thead>
+    <tr><th>Port</th><th>Protocol</th><th>Service</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**Web**</td></tr>
+    <tr><td>80</td><td>TCP</td><td>HTTP</td><td>Mostly just redirects to 443 now (<Ch n="25">chapter 25</Ch>'s HSTS)</td></tr>
+    <tr><td>443</td><td>TCP + UDP</td><td>HTTPS; HTTP/3 over QUIC</td><td>UDP 443 for HTTP/3 (<Ch n="24">chapter 24</Ch>)</td></tr>
+    <tr><td>3000, 5173, 8000, 8080</td><td>TCP</td><td>Dev servers, app servers behind proxies</td><td>Conventions only; nothing official</td></tr>
+    <tr><td>**Remote access**</td></tr>
+    <tr><td>22</td><td>TCP</td><td>SSH, SFTP, scp</td><td>Constantly scanned by bots (<Ch n="29">chapter 29</Ch>)</td></tr>
+    <tr><td>23</td><td>TCP</td><td>Telnet</td><td>Plain text: never use; still found on old devices</td></tr>
+    <tr><td>3389</td><td>TCP + UDP</td><td>RDP (Windows Remote Desktop)</td><td>A favourite target for ransomware; never expose it</td></tr>
+    <tr><td>**Network services**</td></tr>
+    <tr><td>53</td><td>UDP + TCP</td><td>DNS</td><td><Ch n="22">Chapter 22</Ch></td></tr>
+    <tr><td>853</td><td>TCP</td><td>DNS over TLS</td><td><Ch n="22">Chapter 22</Ch></td></tr>
+    <tr><td>67 / 68</td><td>UDP</td><td>DHCP server / client</td><td><Ch n="27">Chapter 27</Ch></td></tr>
+    <tr><td>123</td><td>UDP</td><td>NTP</td><td><Ch n="27">Chapter 27</Ch></td></tr>
+    <tr><td>161 / 162</td><td>UDP</td><td>SNMP (device monitoring) / traps</td><td>Printers and routers; old versions send passwords in clear</td></tr>
+    <tr><td>389 / 636</td><td>TCP</td><td>LDAP / LDAPS</td><td>Company directories (user accounts)</td></tr>
+    <tr><td>**Email**</td></tr>
+    <tr><td>25</td><td>TCP</td><td>SMTP between mail servers</td><td><Ch n="23">Chapter 23</Ch>. GCP blocks outgoing 25 from VMs, so use a mail provider's API or 587.</td></tr>
+    <tr><td>587 / 465</td><td>TCP</td><td>SMTP submission (apps and mail clients sending)</td><td>With login and TLS</td></tr>
+    <tr><td>993 / 995</td><td>TCP</td><td>IMAPS / POP3S (reading mail)</td><td>Encrypted versions of 143 / 110</td></tr>
+    <tr><td>**Databases and queues**</td></tr>
+    <tr><td>5432</td><td>TCP</td><td>PostgreSQL</td><td>kade-db</td></tr>
+    <tr><td>3306</td><td>TCP</td><td>MySQL / MariaDB</td><td>Never reachable from the internet</td></tr>
+    <tr><td>6379</td><td>TCP</td><td>Redis</td><td>Often has no password by default</td></tr>
+    <tr><td>27017</td><td>TCP</td><td>MongoDB</td><td>Many data leaks came from exposed default setups</td></tr>
+    <tr><td>5672</td><td>TCP</td><td>RabbitMQ (AMQP)</td><td></td></tr>
+    <tr><td>9200</td><td>TCP</td><td>Elasticsearch / OpenSearch</td><td>Another frequent leak source when exposed</td></tr>
+    <tr><td>**VPNs**</td></tr>
+    <tr><td>51820</td><td>UDP</td><td>WireGuard</td><td></td></tr>
+    <tr><td>500 / 4500</td><td>UDP</td><td>IPsec (IKE / NAT traversal)</td><td>GCP Cloud VPN uses these</td></tr>
+    <tr><td>1194</td><td>UDP or TCP</td><td>OpenVPN</td><td></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Your OS has a list of these in `/etc/services`. A port number is only a convention: a service can run on any port, and anything can run on 443. Firewalls that "allow only 443" do not guarantee the traffic is HTTPS.</Caption>
+
+## Sockets: IP + port
+
+A <Term>socket address</Term> is an IP address plus a port, e.g. `10.10.1.10:443`: the exact endpoint of communication. When code "opens a socket" (<Ch n="21">chapter 21</Ch>), it claims one of these endpoints to send or receive on. IPv6 socket addresses use brackets: `[2001:db8::1]:443` (<Ch n="30">chapter 30</Ch>).
+
+## The bind address decides who can reach you
+
+A server listens on a port **and** an address. Which address you bind to decides who can connect, a detail behind many "works on my machine" problems:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Listen on</th><th>Reachable from</th><th>Typical use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`127.0.0.1:3000` (or `::1`)</td><td>Only programs on the same machine</td><td>Dev servers, local admin tools, a database only local apps use</td></tr>
+    <tr><td>2</td><td>`192.168.1.23:3000`</td><td>Anything that can reach that one interface</td><td>Rare: when a machine has several networks and should serve only one</td></tr>
+    <tr><td>3</td><td>`0.0.0.0:3000` (or `[::]:3000`)</td><td>Every interface: other devices on the LAN, and the internet if a firewall allows</td><td>Real servers</td></tr>
+  </tbody>
+</Table>
+
+Try the combinations: your laptop runs the Kadé frontend dev server on port 3000.
+
+<BindSim />
+
+<Note>
+
+**Docker gotcha, both ways.** An app inside a container that listens on 127.0.0.1 cannot be reached even with `-p 3000:3000`, because the container's "localhost" is its own. It must listen on 0.0.0.0. And `-p 5432:5432` publishes on 0.0.0.0 of the host, so a database meant to be private becomes reachable by the whole network; use `-p 127.0.0.1:5432:5432`.
+
+</Note>
+
+## Connections: the 4-tuple
+
+A TCP connection is identified by **two** socket addresses: (source IP, source port, destination IP, destination port), the **4-tuple** from <Ch n="1">chapter 1</Ch>. Add the protocol and it is the 5-tuple used by NAT and firewalls (<Ch n="10">chapter 10</Ch>). Only the whole tuple has to be unique. That is why:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Source</th><th>Destination</th><th>What it is</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>192.168.1.23 : **52814**</td><td>34.87.120.15 : 443</td><td>Browser tab 1 → kade-api</td></tr>
+    <tr><td>2</td><td>192.168.1.23 : **52815**</td><td>34.87.120.15 : 443</td><td>Browser tab 2 → kade-api (same server, new source port)</td></tr>
+    <tr><td>3</td><td>192.168.1.23 : **52816**</td><td>142.250.4.100 : 443</td><td>Google search</td></tr>
+    <tr><td>4</td><td>192.168.1.40 : **52814**</td><td>34.87.120.15 : 443</td><td>Your phone. Same source port as row 1 is fine: different source IP.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>On the server, all of these share kade-api's one socket address 34.87.120.15:443; each still gets its own connected socket (<Ch n="21">chapter 21</Ch>). The limit that does exist is on the client side: about 28,000 default ephemeral ports per destination IP and port (<Ch n="21">chapter 21</Ch>).</Caption>
+
+## Tying it back to NAT
+
+Inside the home network, devices use private IPs and pick their own source ports. The router's NAT (<Ch n="10">chapter 10</Ch>) rewrites the private socket address into its one public IP with a port it chooses, and keeps a table to reverse it. Ports are what make sharing one public IP possible:
+
+<Table>
+  <thead>
+    <tr><th>Inside (private)</th><th></th><th>Outside (after NAT)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>192.168.1.23 : 52814</Mono></td><td><Mono>→</Mono></td><td><Mono>203.0.113.45 : 40001</Mono></td></tr>
+    <tr><td><Mono>192.168.1.23 : 52815</Mono></td><td><Mono>→</Mono></td><td><Mono>203.0.113.45 : 40002</Mono></td></tr>
+    <tr><td><Mono>192.168.1.40 : 52814</Mono></td><td><Mono>→</Mono></td><td><Mono>203.0.113.45 : 40003</Mono></td></tr>
+  </tbody>
+</Table>
+
+<Caption>kade-api sees three connections from 203.0.113.45, told apart only by port. With IPv6 (<Ch n="30">chapter 30</Ch>) this rewriting disappears, and each device's own socket address is visible end to end.</Caption>
+
+## Port scanning: open, closed, filtered
+
+Attackers (and you, checking your own servers) find services by **scanning**: sending SYNs to many ports and reading the replies. The three answers map directly to <Ch n="16">chapter 16</Ch>:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>State</th><th>Reply to the SYN</th><th>Means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**open**</td><td>SYN-ACK</td><td>A program is listening and reachable</td></tr>
+    <tr><td>2</td><td>**closed**</td><td>RST</td><td>The machine is reachable; nothing listens there</td></tr>
+    <tr><td>3</td><td>**filtered**</td><td>nothing (or ICMP unreachable)</td><td>A firewall dropped it: the best answer for anything not meant to be public</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Scan your own public IPs from outside now and then (only systems you own or are allowed to test). Anything open that you did not expect, like 5432 or 6379, needs fixing today.</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Port</td><td>16-bit number picking the program; TCP and UDP ports are separate</td><td>port</td></tr>
+    <tr><td>2</td><td>Ranges</td><td>0-1023 well-known (privileged), 1024-49151 registered, 49152+ ephemeral</td><td>privileged port, ephemeral port</td></tr>
+    <tr><td>3</td><td>Well-known</td><td>22, 53, 80, 443, 5432 … are conventions; never expose databases</td><td></td></tr>
+    <tr><td>4-5</td><td>Socket address</td><td>IP + port; the bind address (127.0.0.1, one IP, 0.0.0.0) decides who can connect</td><td>socket address, bind address</td></tr>
+    <tr><td>6</td><td>4-tuple</td><td>Only the whole tuple must be unique: many connections to one server</td><td>4-tuple, 5-tuple</td></tr>
+    <tr><td>7</td><td>NAT</td><td>Ports let many private sockets share one public IP</td><td></td></tr>
+    <tr><td>8</td><td>Scanning</td><td>open = SYN-ACK, closed = RST, filtered = silence</td><td>port scan</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Every listening socket and its program">
+
+- **What to look for:** `127.0.0.1:5432` (local only) vs `*:3000` (all interfaces).
+- **Runs on:** Linux: ss -tlnp
+- **From section:** [5. The bind address decides who can reach you](#the-bind-address-decides-who-can-reach-you)
+
+```sh
+lsof -iTCP -sTCP:LISTEN -n -P
+```
+
+</TryIt>
+
+<TryIt n={2} title="Your open connections">
+
+- **What to look for:** Many source ports going to the same destination :443.
+- **Runs on:** Linux: ss -tnp
+- **From section:** [6. Connections: the 4-tuple](#connections-the-4-tuple)
+
+```sh
+lsof -iTCP -sTCP:ESTABLISHED -n -P
+```
+
+</TryIt>
+
+<TryIt n={3} title="The OS's list of port names">
+
+- **What to look for:** ssh, domain, https, postgresql.
+- **From section:** [3. Well-known ports worth knowing](#well-known-ports-worth-knowing)
+
+```sh
+grep -w -E '22|53|443|5432' /etc/services
+```
+
+</TryIt>
+
+<TryIt n={4} title="The ephemeral range in use">
+
+- **What to look for:** `32768 60999`.
+- **Runs on:** Linux
+- **From section:** [2. Port ranges](#port-ranges)
+
+```sh
+cat /proc/sys/net/ipv4/ip_local_port_range
+```
+
+</TryIt>
+
+<TryIt n={5} title="What the internet sees">
+
+- **What to look for:** Only 80/443 open; 22 and 5432 filtered.
+- **Runs on:** only on your own systems
+- **From section:** [8. Port scanning: open, closed, filtered](#port-scanning-open-closed-filtered)
+
+```sh
+nmap -Pn -p 22,80,443,5432 YOUR_PUBLIC_IP
+```
+
+</TryIt>
+
+<TryIt n={6} title="Whether something listens">
+
+- **What to look for:** "succeeded" vs "refused".
+- **From section:** [1. What a port is](#what-a-port-is)
+
+```sh
+nc -vz localhost 3000
+```
+
+</TryIt>

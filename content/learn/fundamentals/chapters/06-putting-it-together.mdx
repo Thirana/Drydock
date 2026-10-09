@@ -1,0 +1,204 @@
+import { OfficeMap } from "@/components/learn/widgets/lazy";
+
+## The Kadé office
+
+Staff computers and warehouse devices are kept on separate networks, so a problem on a warehouse device stays in the warehouse. Both networks use the mask 255.255.255.0. One router sits between them, with an address in each.
+
+<OfficeMap wide />
+
+<Table>
+  <thead>
+    <tr><th>Staff network · 172.16.1.0/24</th><th>Warehouse network · 172.16.2.0/24</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>Front desk PC · 172.16.1.10</Mono></td><td><Mono>Stock scanner · 172.16.2.10</Mono></td></tr>
+    <tr><td><Mono>Manager laptop · 172.16.1.11</Mono></td><td><Mono>Packing PC · 172.16.2.11</Mono></td></tr>
+    <tr><td><Mono>Office printer · 172.16.1.20</Mono></td><td><Mono>Label printer · 172.16.2.20</Mono></td></tr>
+    <tr><td><Mono>gateway 172.16.1.1 (router eth1)</Mono></td><td><Mono>gateway 172.16.2.1 (router eth2)</Mono></td></tr>
+  </tbody>
+</Table>
+
+## A router has several interfaces
+
+This is the key idea of the chapter. A router has more than one network interface (<Ch n="2">chapter 2</Ch>), and each has its own IP on a **different** network. That is what lets one box join separate networks.
+
+<Table>
+  <thead>
+    <tr><th>Interface</th><th>IP</th><th>Network</th><th>Faces</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**eth0**</td><td><Mono>198.51.100.20</Mono></td><td><Mono>198.51.100.0/24</Mono></td><td>The ISP (WAN)<Sub>ISP router at 198.51.100.1</Sub></td></tr>
+    <tr><td>**eth1**</td><td><Mono>172.16.1.1</Mono></td><td><Mono>172.16.1.0/24</Mono></td><td>Staff network<Sub>staff devices' default gateway</Sub></td></tr>
+    <tr><td>**eth2**</td><td><Mono>172.16.2.1</Mono></td><td><Mono>172.16.2.0/24</Mono></td><td>Warehouse network<Sub>warehouse devices' default gateway</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Your home router is the same idea with two interfaces: LAN side 192.168.1.1 and WAN side 203.0.113.45 (<Ch n="3">chapter 3</Ch>).</Caption>
+
+<Key title="Each network uses its own side of the router">
+
+A device's gateway must be on its own network (<Ch n="5">chapter 5</Ch>), so staff devices use 172.16.1.1 and warehouse devices use 172.16.2.1. Same router, different doors.
+
+</Key>
+
+## Switch and router
+
+Inside each network, devices are joined by a <Term>switch</Term>. The switch and the router do different jobs:
+
+<Table>
+  <thead>
+    <tr><th></th><th>Switch</th><th>Router</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Joins</td><td>Devices inside one network</td><td>Separate networks</td></tr>
+    <tr><td>Reads</td><td>MAC addresses (the frame)</td><td>IP addresses (the packet)</td></tr>
+    <tr><td>Used when</td><td>Target is on the same network</td><td>Target is on a different network</td></tr>
+    <tr><td>Speed cost</td><td>Tiny, microseconds</td><td>Small, but it does more work</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A home "router" is really several devices in one box: a router, a small switch (the LAN ports), a WiFi access point, a DHCP server and a DNS forwarder.</Caption>
+
+## Case 1: same network
+
+The front desk PC prints an order on the office printer.
+
+<OfficeMap src="fd" dst="op" wide />
+
+<Key title="Inside one network">
+
+Same network = direct delivery through the switch. The gateway sits idle.
+
+</Key>
+
+## Case 2: the other office network
+
+The front desk PC sends a shipping label to the label printer in the warehouse.
+
+<OfficeMap src="fd" dst="lp" wide />
+
+Step 3 is where the router uses its own routing table (<Ch n="5">chapter 5</Ch>). It knows both office networks because it is directly connected to them:
+
+<Table>
+  <thead>
+    <tr><th>Destination</th><th>Send to</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>172.16.1.0/24</Mono></td><td><Mono>directly, out eth1</Mono></td><td>Connected: eth1 is on this network</td></tr>
+    <tr><td><Mono>172.16.2.0/24</Mono></td><td><Mono>directly, out eth2</Mono></td><td>Connected: eth2 is on this network</td></tr>
+    <tr><td><Mono>198.51.100.0/24</Mono></td><td><Mono>directly, out eth0</Mono></td><td>Connected: the link to the ISP</td></tr>
+    <tr><td><Mono>0.0.0.0/0</Mono></td><td><Mono>198.51.100.1, out eth0</Mono></td><td>Everything else: the router's own default gateway</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Between networks">
+
+Different networks = hand the packet to the gateway, which joins the two sides.
+
+</Key>
+
+## Case 3: out to the internet
+
+The front desk PC loads an order from Kadé's API.
+
+<OfficeMap src="fd" dst="api" wide />
+
+## Try any pair
+
+Pick a sender and a target. The map shows the path and the steps below it explain each decision.
+
+<OfficeMap src="pp" dst="op" pick="1" wide />
+
+## The three cases side by side
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>From front desk PC to</th><th>Target AND mask</th><th>Same network?</th><th>First step</th><th>Router's job</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Office printer 172.16.1.20</td><td>`172.16.1.0`</td><td>yes</td><td>Straight to the printer, via the switch</td><td>none</td></tr>
+    <tr><td>2</td><td>Label printer 172.16.2.20</td><td>`172.16.2.0`</td><td>no</td><td>Gateway 172.16.1.1</td><td>Connected route → out eth2</td></tr>
+    <tr><td>3</td><td>kade-api 34.87.120.15</td><td>`34.87.120.0`</td><td>no</td><td>Gateway 172.16.1.1</td><td>Default route → ISP, out eth0</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The PC's own network is 172.16.1.0 in every row. Only one comparison decides everything that follows.</Caption>
+
+## What we skipped
+
+A few things were quietly assumed in this chapter. Each gets its own chapter next:
+
+<Table>
+  <tbody>
+    <tr><td>**MAC address**</td><td>To put a frame on the wire toward the next device, we need that device's physical address. In case 2 the PC's frame goes to eth1's MAC, and the router builds a new frame for the label printer's MAC.</td></tr>
+    <tr><td>**ARP**</td><td>How the PC finds a MAC from an IP: the printer's in case 1, the router's (172.16.1.1) in cases 2 and 3.</td></tr>
+    <tr><td>**NAT**</td><td>172.16.1.10 is private. In case 3 the router swaps it for 198.51.100.20 before the packet leaves eth0, and swaps it back on the reply.</td></tr>
+    <tr><td>**Hop-by-hop routing**</td><td>How the ISP and the routers after it find their way to 34.87.120.15, and what changes in the packet at each hop.</td></tr>
+  </tbody>
+</Table>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The setup</td><td>Two /24 networks joined by one router</td><td></td></tr>
+    <tr><td>2</td><td>Interfaces</td><td>A router has one interface per network, each with its own IP</td><td>router interface</td></tr>
+    <tr><td>3</td><td>Switch vs router</td><td>Switch joins devices in a network (MAC); router joins networks (IP)</td><td>switch</td></tr>
+    <tr><td>4</td><td>Same network</td><td>AND results match → direct, through the switch</td><td></td></tr>
+    <tr><td>5</td><td>Other network</td><td>No match → gateway → router's connected route</td><td>connected route</td></tr>
+    <tr><td>6</td><td>Internet</td><td>No match → gateway → router's default route → ISP</td><td></td></tr>
+    <tr><td>7</td><td>Next</td><td>MAC, ARP, NAT and hop-by-hop routing fill the gaps</td><td></td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Path to a same-network device">
+
+- **What to look for:** One hop: the device itself. No router in between.
+- **Runs on:** Windows: tracert · any device on your own network
+- **From section:** [4. Case 1: same network](#case-1-same-network)
+
+```sh
+traceroute 192.168.1.60
+```
+
+</TryIt>
+
+<TryIt n={2} title="Path out to the internet">
+
+- **What to look for:** Hop 1 is your gateway, then the ISP.
+- **From section:** [6. Case 3: out to the internet](#case-3-out-to-the-internet)
+
+```sh
+traceroute 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={3} title="Which way a packet would go">
+
+- **What to look for:** `via 172.16.1.1` for another network; no `via` for your own.
+- **Runs on:** Linux, on a machine with these networks
+- **From section:** [5. Case 2: the other office network](#case-2-the-other-office-network)
+
+```sh
+ip route get 172.16.2.20 from 172.16.1.10
+```
+
+</TryIt>
+
+<TryIt n={4} title="One line per interface">
+
+- **What to look for:** Several interfaces, each with an address on a different network.
+- **Runs on:** Linux, run on a router or a VM with several NICs
+- **From section:** [2. A router has several interfaces](#a-router-has-several-interfaces)
+
+```sh
+ip -brief addr
+```
+
+</TryIt>

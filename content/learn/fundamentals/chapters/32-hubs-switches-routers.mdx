@@ -1,0 +1,221 @@
+import { NetSim } from "@/components/learn/widgets/lazy";
+import { FigBdomain, FigHub } from "@content/learn/fundamentals/figures/32-hubs-switches-routers";
+
+## Hub: repeat everything (layer 1)
+
+A <Term>hub</Term> is the simplest device. It has no intelligence: any signal arriving on one port is **repeated out of every other port**. It does not read MAC or IP addresses; it only copies electrical signals, so it works at layer 1 (<Ch n="11">chapter 11</Ch>).
+
+<Figure hues={["plum", "green", "amber"]} drawing={<FigHub />}>
+
+B and D receive the frame, see a destination MAC that is not theirs (<Ch n="7">chapter 7</Ch>), and drop it. The bandwidth was used anyway.
+
+</Figure>
+
+- **One shared medium.** Only one device can send at a time. If two send at once, the signals collide and both must retry after a random wait (the old Ethernet rule called CSMA/CD).
+- **Half duplex:** send or receive, never both at once.
+- **Everyone sees everything:** any device can capture all traffic on the hub.
+
+All devices on a hub are one <Term>collision domain</Term>. With more devices, collisions grow quickly and throughput falls apart. Hubs are obsolete; you will meet the idea mostly in exams and old buildings.
+
+## Switch: learn, then forward (layer 2)
+
+A <Term>switch</Term> is the smart replacement. It reads each frame's MAC addresses (layer 2) and keeps a <Term>MAC address table</Term>: which MAC lives behind which port. It builds that table by itself:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>What the switch does</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>**Learn**</td><td>A frame arrives on port 3 from MAC 3c:7c:3f:10:22:01, so that MAC is behind port 3. Write it down.</td></tr>
+    <tr><td><Mono>2</Mono></td><td>**Look up**</td><td>Find the destination MAC in the table</td></tr>
+    <tr><td><Mono>3a</Mono></td><td>**Forward**</td><td>Known: send it out of that one port only</td></tr>
+    <tr><td><Mono>3b</Mono></td><td>**Flood**</td><td>Unknown, or the broadcast MAC ff:ff:ff:ff:ff:ff: send it out of every port except the one it came in on</td></tr>
+    <tr><td><Mono>4</Mono></td><td>**Age out**</td><td>Forget entries not seen for a while (typically 5 minutes), so moved devices are relearned</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Floods happen only until the switch has heard from a device once. After that, traffic between two ports touches no other port.</Caption>
+
+- **Every port is its own collision domain,** and links are **full duplex**: send and receive at once, no collisions at all.
+- **Many conversations at once:** A ↔ B and C ↔ D run in parallel at full speed.
+- **Switches do not change frames** and have no IP address on the data path (managed switches have one for their admin page).
+
+## Router: between networks (layer 3)
+
+A <Term>router</Term> connects **different networks**. It reads the destination **IP** address (layer 3) and uses its routing table to pick the next hop (<Ch n="12">chapter 12</Ch>). Switches move frames **within** a network; routers move packets **between** networks. On the way through, a router:
+
+<Table>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>Accepts only frames addressed to its own MAC (the "gateway" MAC the sender found with ARP, <Ch n="9">chapter 9</Ch>)</td></tr>
+    <tr><td><Mono>2</Mono></td><td>Removes the frame, reads the IP header, looks up the destination network (longest prefix match)</td></tr>
+    <tr><td><Mono>3</Mono></td><td>Lowers the TTL and updates the checksum; may NAT (<Ch n="10">chapter 10</Ch>) and filter (firewall)</td></tr>
+    <tr><td><Mono>4</Mono></td><td>Builds a **new frame** on the outgoing interface, with its own MAC as source and the next device's MAC as destination</td></tr>
+    <tr><td><Mono>5</Mono></td><td>**Does not forward broadcasts** (section 7)</td></tr>
+  </tbody>
+</Table>
+
+## Watch frames move through a network
+
+Here is a small version of Kadé's office. The staff network uses a switch; imagine the warehouse still had an old hub. Pick a sender and a receiver, send frames, and watch the switch learn. (ARP is assumed to be already done.)
+
+<NetSim />
+
+## Hub, switch and router compared
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Hub</th><th>Switch</th><th>Router</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Layer</td><td>1 · physical</td><td>2 · data link</td><td>3 · network</td></tr>
+    <tr><td>2</td><td>Reads</td><td>nothing (signals)</td><td>MAC addresses</td><td>IP addresses</td></tr>
+    <tr><td>3</td><td>Keeps a table of</td><td>-</td><td>MAC → port (learned)</td><td>network → next hop (routes)</td></tr>
+    <tr><td>4</td><td>Sends a frame to</td><td>every port</td><td>the right port (floods if unknown)</td><td>the next hop, in a new frame</td></tr>
+    <tr><td>5</td><td>Connects</td><td>devices, in one network</td><td>devices, in one network</td><td>networks</td></tr>
+    <tr><td>6</td><td>Collision domains</td><td>one for all ports</td><td>one per port</td><td>one per port</td></tr>
+    <tr><td>7</td><td>Broadcast domains</td><td>one</td><td>one (per VLAN, section 8)</td><td>one per interface: it separates them</td></tr>
+    <tr><td>8</td><td>Duplex</td><td>half</td><td>full</td><td>full</td></tr>
+    <tr><td>9</td><td>Changes the packet?</td><td>no</td><td>no</td><td>yes: TTL, checksum, MACs, maybe NAT</td></tr>
+    <tr><td>10</td><td>Today</td><td>obsolete</td><td>everywhere inside networks</td><td>every network edge</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Your home "router" is really a router, a small switch (the LAN ports) and a WiFi **access point** in one box. An access point acts like a switch port for wireless devices, bridging WiFi into the wired network. A **layer 3 switch** is a switch that can also route between VLANs at full speed.</Caption>
+
+## Who a frame is for: unicast, broadcast, multicast
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>Destination MAC</th><th>A switch sends it to</th><th>Examples</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Unicast**</td><td>one device's MAC</td><td>that device's port (once learned)</td><td>Almost everything: HTTP, SSH, DB queries</td></tr>
+    <tr><td>2</td><td>**Broadcast**</td><td>`ff:ff:ff:ff:ff:ff`</td><td>every port</td><td>ARP requests (<Ch n="9">chapter 9</Ch>), DHCP Discover (<Ch n="27">chapter 27</Ch>)</td></tr>
+    <tr><td>3</td><td>**Multicast**</td><td>a group MAC, e.g. `01:00:5e:…` (IPv4) or `33:33:…` (IPv6)</td><td>every port, unless the switch tracks group members (IGMP snooping)</td><td>IPv6's NDP (<Ch n="30">chapter 30</Ch>), video to many screens</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The fourth kind from <Ch n="12">chapter 12</Ch>, **anycast**, happens at the routing level: to a switch it looks like normal unicast.</Caption>
+
+## Broadcast domains
+
+A broadcast reaches every device in its network, but **routers do not forward broadcasts**. Everything a broadcast can reach is one <Term>broadcast domain</Term>. In the office, the router makes two:
+
+<Figure hues={["plum", "teal"]} drawing={<FigBdomain />} />
+
+This is a big reason to split large networks into subnets (<Ch n="3">chapter 3</Ch>). In one flat network of 2,000 devices, every ARP request and DHCP Discover interrupts all 2,000; as devices multiply, background broadcast traffic grows until the network slows down. Subnets keep each broadcast domain small, and give a router a place to apply firewall rules between groups.
+
+## VLANs: several networks on one switch
+
+Buying a separate switch for every network gets expensive. A managed switch can be split into <Term>VLANs</Term> (virtual LANs): ports 1-8 belong to VLAN 10 (staff), ports 9-16 to VLAN 20 (warehouse). They behave like two separate switches: separate MAC tables and separate broadcast domains. Traffic between VLANs must go through a router, like any traffic between networks.
+
+<Table>
+  <tbody>
+    <tr><td>**Access port**</td><td>Belongs to one VLAN; the connected device knows nothing about VLANs (a PC, a printer)</td></tr>
+    <tr><td>**Trunk port**</td><td>Carries many VLANs on one cable, each frame marked with a 4-byte VLAN tag (**802.1Q**). Used between switches, and to the router ("router on a stick": one cable, one sub-interface per VLAN).</td></tr>
+    <tr><td>**Guest WiFi**</td><td>A classic use: visitors on their own VLAN, reaching the internet but never the office printers or PCs</td></tr>
+  </tbody>
+</Table>
+
+<Caption>In GCP, a VPC plays this role: separate subnets without any switch configuration, and no broadcast at all (<Ch n="9">chapter 9</Ch>).</Caption>
+
+## Loops and spanning tree
+
+People often connect switches with two cables for backup. Without protection, that creates a **loop**, and a single broadcast circles forever, since Ethernet frames have no TTL (<Ch n="12">chapter 12</Ch>). Each switch floods it again, copies multiply, and within seconds the whole network is saturated: a <Term>broadcast storm</Term>.
+
+Managed switches run **Spanning Tree Protocol** (STP, or its faster version RSTP): they talk to each other, find loops, and **block** the extra links, keeping them as backups that switch on if the main path fails. Cheap unmanaged switches usually lack it, which is how one wrong cable in a small office can take everything down.
+
+## The full journey, device by device
+
+Putting it together: the front desk PC (staff network) prints a shipping label on the warehouse label printer (172.16.2.20):
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Device</th><th>Reads</th><th>Frame src → dst MAC</th><th>Does</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Front desk PC</td><td>its mask</td><td>front desk → router eth1</td><td>Sees 172.16.2.20 is another network, so sends to the gateway (<Ch n="4">chapters 4</Ch>-<Ch n="5">5</Ch>)</td></tr>
+    <tr><td>2</td><td>Staff switch</td><td>MACs</td><td>(unchanged)</td><td>Forwards out of the router's port only</td></tr>
+    <tr><td>3</td><td>Router</td><td>IP</td><td>router eth2 → label printer</td><td>Routes to eth2, lowers TTL, builds a new frame</td></tr>
+    <tr><td>4</td><td>Warehouse switch</td><td>MACs</td><td>(unchanged)</td><td>Forwards out of the label printer's port only</td></tr>
+    <tr><td>5</td><td>Label printer</td><td>everything</td><td>-</td><td>Its MAC and IP match: unwraps up to the print job (<Ch n="11">chapter 11</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The source and destination **IP** stay the same end to end. The **MACs** change at the router, and only there, exactly as in <Ch n="8">chapter 8</Ch>'s hop explorer.</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Hub</td><td>Layer 1; repeats everything; one collision domain; half duplex; obsolete</td><td>hub, collision domain, CSMA/CD</td></tr>
+    <tr><td>2</td><td>Switch</td><td>Layer 2; learns MAC → port; forwards or floods; full duplex</td><td>MAC address table, flooding</td></tr>
+    <tr><td>3</td><td>Router</td><td>Layer 3; routes between networks; rewrites MACs; stops broadcasts</td><td></td></tr>
+    <tr><td>6</td><td>Casting</td><td>Unicast, broadcast (ff:ff…), multicast (group MACs)</td><td>IGMP snooping</td></tr>
+    <tr><td>7</td><td>Broadcast domain</td><td>Everything a broadcast reaches; routers are the edges; keep them small</td><td>broadcast domain</td></tr>
+    <tr><td>8</td><td>VLANs</td><td>Split one switch into separate networks; trunks carry tagged frames</td><td>VLAN, 802.1Q, trunk</td></tr>
+    <tr><td>9</td><td>Loops</td><td>Redundant links cause broadcast storms; STP blocks the extras</td><td>broadcast storm, STP</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="All broadcast and multicast frames in your broadcast domain">
+
+- **What to look for:** ARP, DHCP, mDNS (`01:00:5e:00:00:fb`), IPv6 NDP (`33:33:…`).
+- **From section:** [7. Broadcast domains](#broadcast-domains)
+
+```sh
+sudo tcpdump -n -e -i en0 broadcast or multicast
+```
+
+</TryIt>
+
+<TryIt n={2} title="Unicast frames that reached you">
+
+- **What to look for:** Almost only your own traffic: the switch forwards others' frames elsewhere.
+- **From section:** [2. Switch: learn, then forward (layer 2)](#switch-learn-then-forward-layer-2)
+
+```sh
+sudo tcpdump -n -e -i en0 not broadcast and not multicast
+```
+
+</TryIt>
+
+<TryIt n={3} title="The routers on your path">
+
+- **What to look for:** Switches never appear: they do not touch TTL.
+- **From section:** [3. Router: between networks (layer 3)](#router-between-networks-layer-3)
+
+```sh
+traceroute 1.1.1.1
+```
+
+</TryIt>
+
+<TryIt n={4} title="A real switch's learned table">
+
+- **Steps:** Managed switch CLI: `show mac address-table`
+- **What to look for:** MAC → port → VLAN, with dynamic entries aging out.
+- **From section:** [2. Switch: learn, then forward (layer 2)](#switch-learn-then-forward-layer-2)
+
+```sh
+show mac address-table
+```
+
+</TryIt>
+
+<TryIt n={5} title="Which ports belong to which VLAN">
+
+- **Steps:** Managed switch CLI: `show vlan brief`
+- **What to look for:** Staff and warehouse ports in separate VLANs.
+- **From section:** [8. VLANs: several networks on one switch](#vlans-several-networks-on-one-switch)
+
+```sh
+show vlan brief
+```
+
+</TryIt>

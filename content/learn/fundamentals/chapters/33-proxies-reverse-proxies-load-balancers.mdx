@@ -1,0 +1,467 @@
+import { ConnectFlow, LbSim, TimeoutChain, XffSim } from "@/components/learn/widgets/lazy";
+import { FigFwd, FigLb, FigTwo } from "@content/learn/fundamentals/figures/33-proxies-reverse-proxies-load-balancers";
+
+## One middleman, two connections
+
+A <Term>proxy</Term> is a program that makes connections on someone else's behalf. The most important thing to understand: there is no single connection "through" a proxy. There are **two separate connections**, and the proxy copies data between them.
+
+<Figure hues={["plum", "teal", "amber"]} drawing={<FigTwo />} />
+
+Almost everything in this chapter follows from this. The server sees the proxy's address, not the client's (section 9). Either connection can time out on its own (section 10). If one side fails, the proxy has to invent an error for the other side: that is where 502 and 504 come from (section 11).
+
+<Note>
+
+**Not every middle box is a proxy.** NAT (<Ch n="10">chapter 10</Ch>) and routers rewrite packets but keep one connection end to end: they never answer a SYN themselves. A proxy **does** answer the SYN. A quick test: if the device completes the TCP handshake with you, it is a proxy.
+
+</Note>
+
+## Forward proxy: acting for the clients
+
+A <Term>forward proxy</Term> sits on the **clients' side**. The clients know about it and are configured to use it; the websites just see the proxy.
+
+<Figure hues={["teal", "amber"]} drawing={<FigFwd />}>
+
+Same kind of program, opposite sides. A forward proxy hides the clients from the servers; a reverse proxy hides the servers from the clients.
+
+</Figure>
+
+<Table>
+  <tbody>
+    <tr><td>**Filtering and logging**</td><td>Offices and schools block categories of sites and keep a record of who went where</td></tr>
+    <tr><td>**Egress control**</td><td>Servers may reach only an allowlist (for example, only the payment provider). Cloud NAT gives a fixed IP; a proxy also controls **which names** can be reached.</td></tr>
+    <tr><td>**Caching**</td><td>One download of a big update, shared by many machines (CDNs and HTTP caching are a separate topic for later)</td></tr>
+    <tr><td>**Privacy**</td><td>Sites see the proxy's IP, not yours. A VPN does the same at the IP level, for all traffic.</td></tr>
+  </tbody>
+</Table>
+
+**How HTTPS goes through a forward proxy.** The proxy cannot read encrypted traffic, so the client asks it to open a plain tunnel with the `CONNECT` method, then does TLS straight to the site through it:
+
+<ConnectFlow />
+
+The proxy sees only the name and port it was asked to connect to, and how much data flows. Some companies do **TLS inspection**: the proxy decrypts everything, which only works because the company installs its own root CA on every work laptop (<Ch n="25">chapter 25</Ch>). That is also why some tools fail with certificate errors on company networks.
+
+<Note>
+
+**Configuring clients.** Most command-line tools read the `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` environment variables (`curl -x` sets one directly). Browsers use system settings or a PAC file. Node's built-in `fetch` ignores these variables unless you configure a proxy agent (newer Node versions can opt in with `NODE_USE_ENV_PROXY=1`). A **transparent proxy** intercepts traffic without any client setting, by having the router redirect port 80/443 to it. The SSH `-D` tunnel from <Ch n="29">chapter 29</Ch> is a small forward proxy too (SOCKS).
+
+</Note>
+
+## Reverse proxy: acting for the servers
+
+A <Term>reverse proxy</Term> sits on the **servers' side**. Clients think it _is_ the server; they never know what is behind it. It is the single front door, and it takes jobs off the application:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Job</th><th>What it means for kade-api</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>TLS termination</td><td>Certificates and handshakes live in one place; Node speaks plain HTTP</td><td>25</td></tr>
+    <tr><td>2</td><td>Routing</td><td>By host or path: `/api/*` to kade-api, everything else to the frontend, so no CORS is needed</td><td>28</td></tr>
+    <tr><td>3</td><td>Load balancing</td><td>Spread requests over several backends and skip broken ones</td><td>section 4</td></tr>
+    <tr><td>4</td><td>Buffering slow clients</td><td>A shopper on a weak 3G link uploads slowly; the proxy collects the whole request, then hands it to Node in one go, so Node is not tied up</td><td>19</td></tr>
+    <tr><td>5</td><td>Protocol translation</td><td>HTTP/3 or HTTP/2 outside, HTTP/1.1 inside</td><td>24</td></tr>
+    <tr><td>6</td><td>Protection</td><td>Rate limits, a WAF (Cloud Armor on GCP), absorbing SYN floods</td><td>16</td></tr>
+    <tr><td>7</td><td>Compression, static files, caching</td><td>gzip/brotli responses; serve images without touching Node</td><td>later topic</td></tr>
+    <tr><td>8</td><td>Hiding the backends</td><td>The VMs need no public IP at all</td><td>10</td></tr>
+  </tbody>
+</Table>
+
+The classic self-managed version is **nginx** on the same VM as Node. A minimal config shows several of these jobs:
+
+```code
+server {
+  listen 443 ssl;
+  server_name api.kade.lk;
+  ssl_certificate     /etc/letsencrypt/live/api.kade.lk/fullchain.pem;  # TLS ends here
+  ssl_certificate_key /etc/letsencrypt/live/api.kade.lk/privkey.pem;
+
+  location / {
+    proxy_pass http://127.0.0.1:3000;                # Node listens on localhost only (chapter 31)
+    proxy_set_header Host              $host;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;  # section 9
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 60s;                           # section 10
+    proxy_http_version 1.1;                           # needed for WebSockets (chapter 26) …
+    proxy_set_header Upgrade    $http_upgrade;       # … and these two headers
+    proxy_set_header Connection "upgrade";
+  }
+}
+```
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Forward proxy</th><th>Reverse proxy</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Sits with</td><td>the clients</td><td>the servers</td></tr>
+    <tr><td>2</td><td>Who configures it</td><td>the client (settings, env vars)</td><td>nobody on the client: DNS simply points to it</td></tr>
+    <tr><td>3</td><td>Hides</td><td>the clients</td><td>the servers</td></tr>
+    <tr><td>4</td><td>HTTPS</td><td>usually a blind CONNECT tunnel</td><td>usually terminates TLS and reads everything</td></tr>
+    <tr><td>5</td><td>Examples</td><td>office web filter, Squid, SSH -D</td><td>nginx, Envoy, HAProxy, Cloudflare, GCP load balancers</td></tr>
+  </tbody>
+</Table>
+
+## Load balancers: Kadé gets one
+
+A <Term>load balancer</Term> is a reverse proxy whose main job is spreading traffic over several **backends**. It gives three things one VM cannot: **capacity** (add VMs as orders grow), **availability** (one VM can crash or reboot), and **safe deploys** (update one VM at a time).
+
+This is the change <Ch n="0">chapter 0</Ch> promised. Kadé's API moves behind a GCP **external Application Load Balancer**:
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigLb />}>
+
+Only DNS changed for shoppers (<Ch n="22">chapter 22</Ch>): api.kade.lk now points to 34.120.88.10. That IP is **anycast** (<Ch n="12">chapter 12</Ch>): Google announces it from many edge locations, and each shopper connects to the nearest one. The front end talks plain HTTP to port 8080 inside the VPC. Both requests and health checks reach the VMs from Google's ranges 35.191.0.0/16 and 130.211.0.0/22, so the VPC firewall must allow those to port 8080.
+
+</Figure>
+
+## Layer 4 vs layer 7
+
+<Ch n="11">Chapter 11</Ch> introduced these names. The difference is **how much of the packet the load balancer reads**:
+
+<Caption>**Layer 4** load balancer: reads addresses and ports only</Caption>
+
+<Segments>
+  <Seg w={1.2} hue="green">IP · 203.0.113.45 → 34.120.88.10</Seg>
+  <Seg w={1} hue="amber">TCP · :40001 → :443</Seg>
+  <Seg w={2.2} muted>TLS-encrypted bytes: unreadable, just passed along</Seg>
+</Segments>
+
+<Caption>**Layer 7** load balancer: ends TLS and reads the whole request</Caption>
+
+<Segments>
+  <Seg w={1.2} hue="green">IP</Seg>
+  <Seg w={1} hue="amber">TCP</Seg>
+  <Seg w={.7}>TLS ends</Seg>
+  <Seg w={1.8} hue="plum">GET /orders/1042 · Host · cookies · headers</Seg>
+</Segments>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Layer 4</th><th>Layer 7</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Decides using</td><td>IP addresses and ports</td><td>anything in the HTTP request: path, host, headers, cookies</td></tr>
+    <tr><td>2</td><td>Balances</td><td>whole connections</td><td>individual requests</td></tr>
+    <tr><td>3</td><td>Protocols</td><td>anything on TCP/UDP: databases, MQTT, games, DNS</td><td>HTTP(S), HTTP/2, HTTP/3, gRPC, WebSockets</td></tr>
+    <tr><td>4</td><td>TLS</td><td>passed through (the backend holds the certificate), or simple termination</td><td>terminated; the LB holds the certificate</td></tr>
+    <tr><td>5</td><td>Can do</td><td>very fast, very cheap per packet</td><td>path routing, redirects, header changes, retries, WAF, cookies for stickiness</td></tr>
+    <tr><td>6</td><td>Client IP at the backend</td><td>kept (passthrough), or via PROXY protocol</td><td>via X-Forwarded-For (section 9)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>One trap with layer 4: HTTP/2 and gRPC put **many requests on one long connection** (<Ch n="24">chapter 24</Ch>). A layer 4 balancer sends that whole connection to one backend, so one busy client can load one VM while the others sit idle. A layer 7 balancer spreads the individual requests.</Caption>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>GCP load balancer</th><th>Layer</th><th>Proxy?</th><th>Typical use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**External Application LB**</td><td>7</td><td>yes</td><td>Public websites and APIs: Kadé's choice</td></tr>
+    <tr><td>2</td><td>Internal Application LB</td><td>7</td><td>yes</td><td>HTTP between internal services</td></tr>
+    <tr><td>3</td><td>External proxy Network LB</td><td>4</td><td>yes (TCP proxy)</td><td>Non-HTTP TCP services from many regions</td></tr>
+    <tr><td>4</td><td>Passthrough Network LB (external / internal)</td><td>4</td><td>**no**: packets pass through with the client's IP</td><td>UDP, games, anything that must see the real client IP or do its own TLS</td></tr>
+  </tbody>
+</Table>
+
+## Choosing a backend
+
+<Table>
+  <tbody>
+    <tr><td>**Round robin**</td><td>1, 2, 3, 1, 2, 3 … Simple and fair when requests are similar. GCP's default.</td></tr>
+    <tr><td>**Weighted**</td><td>A bigger VM gets a bigger share; also used to send 5% to a new version (a "canary")</td></tr>
+    <tr><td>**Least connections / least requests**</td><td>Pick the backend with the fewest requests in progress. Better when some requests are slow (reports, exports).</td></tr>
+    <tr><td>**Hash**</td><td>Hash of client IP, a header or a cookie picks the backend, so the same client lands on the same place (section 8). "Consistent hashing" limits reshuffling when a backend is added or removed.</td></tr>
+  </tbody>
+</Table>
+
+Try it. Four shoppers take turns sending requests; Shopper A's requests are slow reports. Shoppers C and D are on the same mobile carrier, so they share one public IP through carrier NAT (<Ch n="10">chapter 10</Ch>). Crash a VM and watch the health checker catch it:
+
+<LbSim />
+
+## Health checks and draining
+
+A load balancer must stop sending traffic to a broken backend. It finds out in two ways:
+
+<Table>
+  <tbody>
+    <tr><td>**Active health checks**</td><td>It sends a probe, e.g. `GET /healthz`, to every backend on a schedule. GCP defaults: every 5 s, 5 s timeout, **2 failures** = unhealthy, **2 successes** = healthy again.</td></tr>
+    <tr><td>**Passive (outlier detection)**</td><td>It watches real traffic and pulls out a backend that keeps returning errors or refusing connections</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Detection takes time: with the defaults, a crashed VM can still receive requests for up to about 10-15 seconds. Those requests fail, which is why clients should retry safe (idempotent) requests (<Ch n="24">chapter 24</Ch>).</Caption>
+
+What should `/healthz` check? Two different questions are easy to mix up:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Question</th><th>Should include</th><th>Careful with</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**"Is this process alive?"** (liveness)</td><td>Only the process itself: answer 200 quickly</td><td>-</td></tr>
+    <tr><td>2</td><td>**"Should this VM get traffic right now?"** (readiness)</td><td>Started up fully, not shutting down, not overloaded</td><td>Shared dependencies. If `/healthz` fails whenever kade-db is slow, **every** backend fails at once, and the load balancer has nothing left to send traffic to. A database hiccup becomes a total outage, even for endpoints that never touch the database.</td></tr>
+  </tbody>
+</Table>
+
+**Draining.** During a deploy, killing a VM cuts off requests in progress. The clean way: tell the load balancer first, let in-flight requests finish, then stop:
+
+```code
+let shuttingDown = false;
+app.get('/healthz', (req, res) => res.sendStatus(shuttingDown ? 503 : 200));
+
+process.on('SIGTERM', () => {
+  shuttingDown = true;                  // 1. health checks now fail → LB stops sending new requests
+  setTimeout(() => server.close(), 15000); // 2. wait longer than 2 failed checks, then stop accepting
+});                                        // 3. server.close() lets in-flight requests finish
+```
+
+GCP backend services also have a **connection draining** timeout: when a VM is removed from the group, the load balancer stops sending it new requests but lets existing ones finish for that long.
+
+## Sticky sessions
+
+<Term>Sticky sessions</Term> (session affinity) send the same client to the same backend every time. They are needed when a backend keeps something in memory for a client: a login session stored in Node's memory, an in-progress upload, or a WebSocket chat room (<Ch n="26">chapter 26</Ch>).
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>How</th><th>Works by</th><th>Problem</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Cookie**</td><td>The LB sets a cookie naming the backend (GCP's generated cookie is called `GCLB`)</td><td>Needs cookies; only for HTTP (layer 7)</td></tr>
+    <tr><td>2</td><td>**Client IP**</td><td>A hash of the source IP</td><td>Everyone behind one carrier NAT or office lands on the same VM; a phone moving from WiFi to 4G changes IP and "loses" its backend</td></tr>
+    <tr><td>3</td><td>Header</td><td>A hash of a header, e.g. a user ID</td><td>The client must send it</td></tr>
+  </tbody>
+</Table>
+
+<Caption>All stickiness has the same weaknesses: load gets uneven, and when the chosen VM dies or is redeployed, whatever it held in memory is lost anyway.</Caption>
+
+<Key title="Better: make backends stateless">
+
+Keep session data somewhere every VM can reach (a signed token such as a JWT, or a shared store such as Redis), and any VM can serve any request. Then round robin just works, and a VM can die without anyone being logged out. Keep stickiness only for things that truly live in one place, like an open WebSocket, which is naturally tied to its connection.
+
+</Key>
+
+## Who is the client? X-Forwarded-For and friends
+
+Because of the two connections (section 1), kade-api's socket sees the **load balancer's** address, never the shopper's. Without extra help, every request seems to come from 35.191.x.x. That breaks:
+
+<Table>
+  <tbody>
+    <tr><td>**Rate limiting per IP**</td><td>All shoppers look like one IP: one busy user gets everyone blocked, or the limit never triggers</td></tr>
+    <tr><td>**Logs and fraud checks**</td><td>Every order was "placed from Google". The same problem NAT caused in <Ch n="10">chapter 10</Ch>.</td></tr>
+    <tr><td>**HTTPS detection**</td><td>The LB talks plain HTTP to Node, so Node thinks every request is `http`. An app rule "redirect http to https" then redirects **forever** (the redirect comes back through the LB as http again), and `Secure` cookies are not set.</td></tr>
+    <tr><td>**Building URLs**</td><td>Links in emails and redirects use the internal host and port</td></tr>
+  </tbody>
+</Table>
+
+Proxies fix this by adding request headers that describe the original connection:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Header</th><th>Kadé example</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`X-Forwarded-For`</td><td>`203.0.113.45, 34.120.88.10`</td><td>The client's IP. **Each proxy appends** the address it received the connection from, so the list grows left to right.</td></tr>
+    <tr><td>2</td><td>`X-Forwarded-Proto`</td><td>`https`</td><td>The scheme the client used on the first connection</td></tr>
+    <tr><td>3</td><td>`X-Forwarded-Host`</td><td>`api.kade.lk`</td><td>The original Host, when a proxy changes it</td></tr>
+    <tr><td>4</td><td>`Forwarded`</td><td>`for=203.0.113.45;proto=https`</td><td>The official standard version of all three; less widely used</td></tr>
+    <tr><td>5</td><td>`Via`</td><td>`1.1 google`</td><td>Which proxies the request passed through</td></tr>
+  </tbody>
+</Table>
+
+<Caption>GCP's load balancer appends two entries: the client's IP and then the load balancer's own IP. Layer 4 proxies cannot add HTTP headers, so they use the **PROXY protocol** instead: one extra line at the start of the connection carrying the client's address.</Caption>
+
+<Key title="Anyone can send X-Forwarded-For">
+
+A client can put `X-Forwarded-For: 1.2.3.4` in its own request, and proxies simply append to it. So **only the right-hand entries**, the ones added by proxies you control, can be trusted. Read from the right and skip exactly as many entries as you have proxies. Taking the leftmost entry lets any attacker pick their own IP and escape your rate limits.
+
+</Key>
+
+In Express, the `trust proxy` setting says how many hops to skip. It then fills in `req.ip`, `req.protocol` and `req.secure` correctly. Try different paths and settings:
+
+<XffSim />
+
+<Note>
+
+**nginx behind the load balancer.** In the nginx config above, `X-Forwarded-Proto $scheme` would overwrite the load balancer's `https` with `http`, because nginx itself received plain HTTP from the load balancer. When nginx sits behind another proxy, pass the header on instead: `proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;`.
+
+</Note>
+
+## Timeouts along the chain
+
+Every hop has its own timers, because every connection is separate. Two different kinds matter:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Hop</th><th>Request timeout (how long to wait for an answer)</th><th>Idle timeout (how long an unused connection is kept)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Kadé app / browser</td><td>whatever the code sets (fetch has none by default)</td><td>browser's own</td></tr>
+    <tr><td>2</td><td>GCP load balancer</td><td>**backend service timeout: 30 s** by default. Also the maximum life of a WebSocket (<Ch n="26">chapter 26</Ch>).</td><td>~10 minutes to clients and to backends (<Ch n="21">chapter 21</Ch>)</td></tr>
+    <tr><td>3</td><td>Node</td><td>`requestTimeout` 300 s, `headersTimeout` 60 s</td><td>`keepAliveTimeout`: 5 s by default; must be **longer** than the LB's (set ~620 s)</td></tr>
+    <tr><td>4</td><td>PostgreSQL</td><td>`statement_timeout`: none by default</td><td>pool idle timeout (<Ch n="21">chapter 21</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <tbody>
+    <tr><td>**Rule 1 · request timeouts**</td><td>**Inner shorter than outer.** The database should give up before Node, and Node before the load balancer. Then the app returns its own clear error, instead of the load balancer returning a 504 while the work keeps running.</td></tr>
+    <tr><td>**Rule 2 · idle timeouts**</td><td>**Inner longer than outer.** The backend must keep an idle connection open longer than the load balancer does, or the LB reuses a connection Node just closed: random 502s (<Ch n="21">chapter 21</Ch>).</td></tr>
+  </tbody>
+</Table>
+
+A timeout does **not** stop the work behind it. When the load balancer gives up after 30 s, Node and the database keep going. If the shopper then taps "Place order" again, the order may be created twice: that is exactly what idempotency keys prevent (<Ch n="24">chapter 24</Ch>). Drag the slider to see who gives up first:
+
+<TimeoutChain />
+
+## Reading 502, 503 and 504
+
+<Ch n="24">Chapter 24</Ch> noted that these codes usually come from the box in front of your app, not from your code. With a load balancer in place, here is how to read them:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Status</th><th>What the LB is saying</th><th>Example GCP log detail</th><th>Usual causes at Kadé</th><th>Fix</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**502** Bad Gateway</td><td>"I reached a backend, but got a broken reply or none"</td><td>`backend_connection_closed_before_data_sent_to_client`</td><td>Node's keep-alive shorter than the LB's (the race); Node crashed mid-request</td><td>keepAliveTimeout ~620 s; check for crashes</td></tr>
+    <tr><td>2</td><td>**502**</td><td>"I could not connect to the backend"</td><td>`failed_to_connect_to_backend`</td><td>Node not listening on 8080, or listening on 127.0.0.1 only (<Ch n="31">chapter 31</Ch>); firewall</td><td>Bind 0.0.0.0:8080; allow the LB ranges</td></tr>
+    <tr><td>3</td><td>**502 / 503**</td><td>"There is no healthy backend to pick"</td><td>`failed_to_pick_backend`</td><td>Health checks failing on every VM: often the firewall blocks 35.191.0.0/16, or /healthz depends on the database</td><td>Check `get-health`; fix the firewall or the health endpoint</td></tr>
+    <tr><td>4</td><td>**504** Gateway Timeout (or 502)</td><td>"The backend took too long"</td><td>`backend_timeout`</td><td>A slow endpoint over 30 s, e.g. a big export</td><td>Speed it up, make it a background job, or raise that route's timeout</td></tr>
+    <tr><td>5</td><td>**503** from your app</td><td>Your code says "not now"</td><td>`response_sent_by_backend`</td><td>Draining, overloaded, or a deliberate maintenance response</td><td>Expected during deploys</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The exact status for a timeout differs between GCP load balancer types; the log's `statusDetails` field always says exactly what happened. Quick check from outside: an error page generated by the load balancer has Google's HTML body and none of your app's own headers.</Caption>
+
+## Where does TLS end?
+
+<Ch n="25">Chapter 25</Ch> ended by asking where TLS should stop. With a load balancer there are four common choices:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Option</th><th>Shopper → LB</th><th>LB → kade-api</th><th>Trade-off</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Terminate at the LB**</td><td>HTTPS</td><td>HTTP inside the VPC</td><td>Simplest; the LB can do everything in section 3. Google also encrypts traffic between its front ends and VMs at the network level. Kadé's choice.</td></tr>
+    <tr><td>2</td><td>Terminate and re-encrypt</td><td>HTTPS</td><td>HTTPS (backend has its own certificate)</td><td>Encrypted on every hop, for strict rules like card data; more certificates to manage</td></tr>
+    <tr><td>3</td><td>Passthrough</td><td>One TLS session from the shopper straight to the VM (layer 4 LB)</td><td>The LB sees nothing: no routing by path, no X-Forwarded-For, no WAF</td></tr>
+    <tr><td>4</td><td>Mutual TLS at the LB</td><td>HTTPS + a client certificate</td><td>HTTP, plus headers saying who the client was</td><td>For machine clients such as partners (<Ch n="25">chapter 25</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## Common mistakes
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>All backends unhealthy right after setup</td><td>Firewall does not allow 35.191.0.0/16 and 130.211.0.0/22</td><td>Add an ingress rule for those ranges to port 8080</td></tr>
+    <tr><td>2</td><td>A few random 502s per day</td><td>Keep-alive race (<Ch n="21">chapter 21</Ch>)</td><td>Node keepAliveTimeout longer than the LB's idle timeout</td></tr>
+    <tr><td>3</td><td>Every request logged from 35.191.x.x; rate limiter blocks everyone</td><td>`trust proxy` not set</td><td>Set it to the exact number of proxies</td></tr>
+    <tr><td>4</td><td>"Too many redirects" after adding the LB</td><td>App thinks requests are http</td><td>`trust proxy`, so `req.secure` reads X-Forwarded-Proto; or let the LB do the http → https redirect</td></tr>
+    <tr><td>5</td><td>WebSockets drop every 30 seconds</td><td>GCP's backend service timeout caps WebSocket life</td><td>Raise it for the WebSocket backend; reconnect with backoff anyway (<Ch n="26">chapter 26</Ch>)</td></tr>
+    <tr><td>6</td><td>Exports fail with 504, but the file still gets generated</td><td>Request longer than the LB timeout; work continues</td><td>Background job + "we'll email you the file"</td></tr>
+    <tr><td>7</td><td>One VM hot, the other idle</td><td>Client-IP stickiness behind carrier NAT, or HTTP/2 through a layer 4 LB</td><td>Cookie affinity or none; layer 7 balancing</td></tr>
+    <tr><td>8</td><td>Errors on every deploy</td><td>VMs stopped without draining</td><td>Fail readiness first, wait, then close (section 7)</td></tr>
+  </tbody>
+</Table>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Proxy</td><td>Two separate connections with a program copying between them</td><td>proxy</td></tr>
+    <tr><td>2</td><td>Forward proxy</td><td>Acts for clients: filtering, egress control; HTTPS via CONNECT tunnels</td><td>forward proxy, CONNECT, TLS inspection, PAC</td></tr>
+    <tr><td>3</td><td>Reverse proxy</td><td>Acts for servers: TLS, routing, buffering, protection, one front door</td><td>reverse proxy</td></tr>
+    <tr><td>4</td><td>Load balancer</td><td>Reverse proxy spreading traffic over backends; Kadé now uses 34.120.88.10</td><td>backend, instance group</td></tr>
+    <tr><td>5</td><td>L4 vs L7</td><td>Ports and IPs vs full HTTP; connections vs requests</td><td>passthrough</td></tr>
+    <tr><td>6</td><td>Algorithms</td><td>Round robin, weighted, least requests, hashing</td><td>canary, consistent hashing</td></tr>
+    <tr><td>7</td><td>Health</td><td>Probes and outlier detection; readiness vs liveness; draining on deploy</td><td>health check, draining</td></tr>
+    <tr><td>8</td><td>Stickiness</td><td>Cookie, IP or header affinity; prefer stateless backends</td><td>session affinity</td></tr>
+    <tr><td>9</td><td>X-Forwarded-\*</td><td>Real client IP and scheme; trust only your own proxies' entries</td><td>X-Forwarded-For/Proto, PROXY protocol</td></tr>
+    <tr><td>10</td><td>Timeouts</td><td>Request timeouts shrink inward; idle timeouts grow inward; work continues after a timeout</td><td>backend service timeout</td></tr>
+    <tr><td>11-12</td><td>5xx and TLS</td><td>502 broken reply, 503 nothing available, 504 too slow; choose where TLS ends</td><td>statusDetails</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="Headers added by a Google front end">
+
+- **What to look for:** `server: gws`, `alt-svc: h3=…`; sites behind a GCP LB also show `via: 1.1 google`.
+- **From section:** [4. Load balancers: Kadé gets one](#load-balancers-kad-gets-one)
+
+```sh
+curl -sI https://www.google.com | grep -i -E 'via|alt-svc|server'
+```
+
+</TryIt>
+
+<TryIt n={2} title="How a proxy appends to X-Forwarded-For">
+
+- **What to look for:** Your fake 1.2.3.4 first, then your real IP added by their load balancer.
+- **From section:** [9. Who is the client? X-Forwarded-For and friends](#who-is-the-client-x-forwarded-for-and-friends)
+
+```sh
+curl -s -H 'X-Forwarded-For: 1.2.3.4' https://httpbin.org/headers
+```
+
+</TryIt>
+
+<TryIt n={3} title="A CONNECT tunnel">
+
+- **What to look for:** `CONNECT example.com:443`, then `200 Connection established`, then TLS.
+- **Runs on:** if you have a proxy
+- **From section:** [2. Forward proxy: acting for the clients](#forward-proxy-acting-for-the-clients)
+
+```sh
+curl -v -x http://PROXY:3128 https://example.com
+```
+
+</TryIt>
+
+<TryIt n={4} title="Proxy settings your tools will use">
+
+- **What to look for:** HTTP\_PROXY / HTTPS\_PROXY / NO\_PROXY.
+- **From section:** [2. Forward proxy: acting for the clients](#forward-proxy-acting-for-the-clients)
+
+```sh
+env | grep -i proxy
+```
+
+</TryIt>
+
+<TryIt n={5} title="What the LB thinks of each VM">
+
+- **What to look for:** `healthState: HEALTHY` for every instance.
+- **From section:** [7. Health checks and draining](#health-checks-and-draining)
+
+```sh
+gcloud compute backend-services get-health kade-api-backend --global
+```
+
+</TryIt>
+
+<TryIt n={6} title="Recent 5xx and why">
+
+- **What to look for:** The statusDetails names from section 11.
+- **From section:** [11. Reading 502, 503 and 504](#reading-502-503-and-504)
+
+```sh
+gcloud logging read 'resource.type="http_load_balancer" AND httpRequest.status>=500' --limit 10 --format='value(httpRequest.status,jsonPayload.statusDetails)'
+```
+
+</TryIt>
+
+<TryIt n={7} title="Node's default timeouts">
+
+- **What to look for:** `5000 60000 300000` (ms).
+- **From section:** [10. Timeouts along the chain](#timeouts-along-the-chain)
+
+```sh
+node -e "const s=require('http').createServer();console.log(s.keepAliveTimeout,s.headersTimeout,s.requestTimeout)"
+```
+
+</TryIt>

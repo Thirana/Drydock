@@ -1,0 +1,256 @@
+import { UdpSim } from "@/components/learn/widgets/lazy";
+import { FigConnless } from "@content/learn/fundamentals/figures/14-udp-the-fast-protocol";
+
+## What UDP is
+
+<Term>UDP</Term> (User Datagram Protocol) is the "just send it" transport. No connection setup, no tracking, no acknowledgements. You hand it a message and it fires it off. Its unit of data is called a <Term>datagram</Term>.
+
+You have already used UDP many times in this course without seeing it:
+
+<Table>
+  <thead>
+    <tr><th>Where</th><th>Port</th><th>What was sent over UDP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>DNS (<Ch n="1">chapter 1</Ch>)</td><td><Mono>53</Mono></td><td>"What is the IP of api.kade.lk?" and the answer</td></tr>
+    <tr><td>DHCP (<Ch n="3">chapter 3</Ch>)</td><td><Mono>67, 68</Mono></td><td>The four DORA messages, including the broadcast Discover</td></tr>
+    <tr><td>traceroute (<Ch n="13">chapter 13</Ch>)</td><td><Mono>33434+</Mono></td><td>The probes on macOS and Linux</td></tr>
+    <tr><td>STUN (<Ch n="10">chapter 10</Ch>)</td><td><Mono>3478</Mono></td><td>"What is my public ip:port?" for hole punching</td></tr>
+  </tbody>
+</Table>
+
+## Connectionless
+
+UDP is <Term>connectionless</Term>: no handshake happens before data flows, and neither side keeps any state about "a conversation". Each datagram stands alone. If one is lost, UDP does not notice and does not resend it. That is the application's problem to handle, or to ignore.
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigConnless />} />
+
+## What UDP promises (almost nothing)
+
+Datagrams may be lost, duplicated or arrive out of order, and UDP fixes none of it:
+
+<Table>
+  <thead>
+    <tr><th>Feature</th><th>UDP</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Guaranteed delivery</td><td>**No**</td><td>A lost datagram is simply gone</td></tr>
+    <tr><td>Ordering</td><td>**No**</td><td>They arrive in whatever order the network delivers them</td></tr>
+    <tr><td>Retransmission</td><td>**No**</td><td>Nobody resends anything</td></tr>
+    <tr><td>Duplicate removal</td><td>**No**</td><td>If the network delivers one twice, the app gets it twice</td></tr>
+    <tr><td>Flow and congestion control</td><td>**No**</td><td>UDP sends as fast as the app asks, even if the receiver or the network cannot keep up (section 6)</td></tr>
+    <tr><td>Error detection</td><td>**Yes**</td><td>A checksum lets the receiver throw away damaged datagrams (<Ch n="15">chapter 15</Ch>)</td></tr>
+    <tr><td>Message boundaries</td><td>**Yes**</td><td>One send = one datagram = one receive (section 5)</td></tr>
+    <tr><td>Speed and low overhead</td><td>**Yes**</td><td>The whole point</td></tr>
+  </tbody>
+</Table>
+
+Try it. The simulator sends 12 numbered datagrams across a network that loses some, delays some and occasionally duplicates one. Watch what arrives:
+
+<UdpSim />
+
+## Why it is fast
+
+A UDP header is just **8 bytes**. TCP's is at least 20, and TCP also needs a handshake before the first byte of data, plus acknowledgements and state on both sides. Less bookkeeping means less waiting:
+
+<Table>
+  <thead>
+    <tr><th></th><th>UDP</th><th>TCP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Header size</td><td><Mono>8 bytes</Mono></td><td><Mono>20-60 bytes</Mono></td></tr>
+    <tr><td>Before the first data can be sent</td><td>nothing</td><td>1 full round trip for the handshake (~41 ms from home to kade-api)</td></tr>
+    <tr><td>When one piece is lost</td><td>the rest keep flowing</td><td>later data waits until the lost piece is resent</td></tr>
+    <tr><td>State kept per conversation</td><td>none</td><td>sequence numbers, buffers, timers on both sides</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The third row matters most for live audio and video. TCP must deliver bytes in order, so one lost packet holds up everything behind it until it is resent. This is called **head-of-line blocking**. UDP never waits.</Caption>
+
+## Messages keep their shape
+
+A detail that changes how you write code: UDP keeps **message boundaries**. If the app sends a 100-byte message and then a 50-byte one, the receiver gets exactly two reads: 100 bytes, then 50. TCP is a **byte stream**: it may deliver the same 150 bytes as one read of 150, or 3 reads of 50. With TCP, the app must mark where each message ends (for example with a length prefix or a newline). With UDP, each datagram is one message.
+
+<Cols n={2}>
+
+<Col title="UDP: datagrams">
+
+send(100) send(50)<br />→ recv 100 · recv 50
+
+</Col>
+
+<Col title="TCP: byte stream">
+
+send(100) send(50)<br />→ recv 150, or 60 + 90, or …
+
+</Col>
+
+</Cols>
+
+## When to use UDP
+
+UDP is the right choice when speed matters more than perfection, or when the application handles reliability itself. In the Kadé world:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Use</th><th>Why UDP fits</th><th>Kadé example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Voice and video calls</td><td>A dropped frame is better than a laggy one</td><td>A support call between a shopper and Kadé's help desk</td></tr>
+    <tr><td>2</td><td>Live position updates</td><td>Only the latest position matters; an old lost one is useless</td><td>The delivery rider's app sending GPS every 2 seconds</td></tr>
+    <tr><td>3</td><td>Online games</td><td>Same: the current state beats a late old one</td><td>-</td></tr>
+    <tr><td>4</td><td>DNS</td><td>One small question, one small answer; just ask again if lost</td><td>Every lookup of api.kade.lk</td></tr>
+    <tr><td>5</td><td>Live streaming</td><td>Keep playing; do not stall to resend</td><td>A live product launch video</td></tr>
+    <tr><td>6</td><td>Broadcast and multicast</td><td>Only UDP can send to many at once; TCP is always one-to-one</td><td>DHCP Discover (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>7</td><td>Small, frequent reports</td><td>Losing one metric point does not matter</td><td>kade-api sending metrics (StatsD), syslog, NTP time sync</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**With great speed comes responsibility.** UDP has no congestion control, so an app that sends too fast will flood the link, and the network will drop its datagrams (and hurt everyone else's traffic). Real UDP apps limit their own sending rate, and video calls lower their quality when loss goes up.
+
+</Note>
+
+## Building reliability on top of UDP
+
+"Unreliable" does not mean "useless". Many protocols add just the reliability they need on top of UDP, and nothing more:
+
+<Table>
+  <tbody>
+    <tr><td>**DNS**</td><td>No answer within a timeout (often 1-5 s)? Ask again, or ask another server. That is all it needs.</td></tr>
+    <tr><td>**RTP** (voice/video)</td><td>Adds a sequence number and a timestamp to each packet. The receiver's **jitter buffer** holds packets for a few tens of milliseconds to put them back in order and smooth out uneven arrival, then plays them. Late or missing packets are skipped.</td></tr>
+    <tr><td>**Games**</td><td>Send the full current state often, so a lost update is replaced by the next one.</td></tr>
+    <tr><td>**QUIC** (HTTP/3)</td><td>A complete reliable, encrypted transport built on UDP. It fixes TCP's head-of-line blocking by keeping separate streams independent. Modern browsers already use it with Google and Cloudflare, often on UDP port 443.</td></tr>
+  </tbody>
+</Table>
+
+<Key title="The pattern">
+
+UDP gives the app control. The app decides what "reliable enough" means for its own data, instead of taking TCP's one-size-fits-all rules.
+
+</Key>
+
+## Size limits and fragmentation
+
+The UDP length field (<Ch n="15">chapter 15</Ch>) allows datagrams up to 65,535 bytes, so the most data one can carry over IPv4 is 65,507 bytes (65,535 minus 8 bytes UDP header, minus 20 bytes IP header). But anything bigger than the path MTU (<Ch n="13">chapter 13</Ch>) gets split by IP into fragments, and **if one fragment is lost, the whole datagram is lost**. So real UDP apps keep datagrams small:
+
+<Table>
+  <tbody>
+    <tr><td>Largest that fits a 1,500 MTU</td><td><Mono>1,500 − 20 (IP) − 8 (UDP) = 1,472 bytes of data</Mono></td></tr>
+    <tr><td>Inside GCP (MTU 1,460)</td><td><Mono>1,432 bytes of data</Mono></td></tr>
+    <tr><td>Safe DNS answer size today</td><td><Mono>about 1,232 bytes; bigger answers are marked "truncated" and the client asks again over TCP</Mono></td></tr>
+  </tbody>
+</Table>
+
+## UDP, NAT, firewalls and attacks
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Topic</th><th>What happens with UDP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>NAT timeouts</td><td>There is no "connection closed" signal, so NAT rows for UDP just time out, often after 30 seconds (<Ch n="10">chapter 10</Ch>). Long-lived UDP apps send a small keepalive every 15-25 seconds, or the reply path disappears.</td></tr>
+    <tr><td>2</td><td>Firewalls</td><td>A stateful firewall treats "a datagram out, then one back on the same 5 values, soon after" as a reply. Anything else inbound needs a rule. In GCP, rules name the protocol: `--allow=udp:53`.</td></tr>
+    <tr><td>3</td><td>Spoofed sources</td><td>With no handshake, nothing proves the source IP is real. An attacker can send a datagram with a fake source.</td></tr>
+    <tr><td>4</td><td>Amplification attacks</td><td>Send a small request to an open DNS or NTP server with the victim's IP as the fake source. The server sends a much bigger answer to the victim. Thousands of servers doing this at once is a common DDoS. Never run open resolvers.</td></tr>
+  </tbody>
+</Table>
+
+## UDP or TCP?
+
+<Table>
+  <thead>
+    <tr><th>Question</th><th>Leans to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Must every byte arrive, in order? (payments, orders, files, web pages)</td><td>**TCP**</td></tr>
+    <tr><td>Is late data worthless? (live audio, video, positions)</td><td>**UDP**</td></tr>
+    <tr><td>One tiny question and answer? (DNS, NTP)</td><td>**UDP**</td></tr>
+    <tr><td>Sending to many devices at once?</td><td>**UDP** <Sub>only option</Sub></td></tr>
+    <tr><td>Need reliability without head-of-line blocking?</td><td>**QUIC** <Sub>on UDP</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Caption>kade-api's REST API, the PayGate calls and the PostgreSQL connection to kade-db all use TCP: an order must never arrive "mostly".</Caption>
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>UDP</td><td>Transport that just sends; unit is a datagram</td><td>UDP, datagram</td></tr>
+    <tr><td>2</td><td>Connectionless</td><td>No handshake, no state, no resend</td><td>connectionless</td></tr>
+    <tr><td>3</td><td>Promises</td><td>No delivery, order, dedupe or flow control; only a checksum</td><td></td></tr>
+    <tr><td>4</td><td>Speed</td><td>8-byte header, no setup, never waits for lost data</td><td>head-of-line blocking</td></tr>
+    <tr><td>5</td><td>Boundaries</td><td>One send = one datagram = one receive</td><td>message boundaries, byte stream</td></tr>
+    <tr><td>6</td><td>Uses</td><td>Calls, positions, games, DNS, streaming, broadcast, metrics</td><td>multicast</td></tr>
+    <tr><td>7</td><td>Reliability on top</td><td>Apps add only what they need: retries, sequence numbers, QUIC</td><td>RTP, jitter buffer, QUIC</td></tr>
+    <tr><td>8</td><td>Size</td><td>Stay under the MTU: ~1,472 bytes of data</td><td>fragmentation</td></tr>
+    <tr><td>9</td><td>Risks</td><td>NAT timeouts, spoofing, amplification</td><td>amplification attack</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="A DNS query over UDP">
+
+- **What to look for:** The footer line `SERVER: …#53(…) (UDP)`.
+- **From section:** [1. What UDP is](#what-udp-is)
+
+```sh
+dig example.com
+```
+
+</TryIt>
+
+<TryIt n={2} title="The same query over TCP">
+
+- **What to look for:** Same answer, `(TCP)` in the footer, a little slower.
+- **From section:** [8. Size limits and fragmentation](#size-limits-and-fragmentation)
+
+```sh
+dig +tcp example.com
+```
+
+</TryIt>
+
+<TryIt n={3} title="Your own UDP sender and receiver">
+
+- **Steps:** `nc -u -l 9999` in one terminal, `nc -u 127.0.0.1 9999` in another
+- **What to look for:** Type lines: each one arrives as a datagram. Stop the listener and keep typing: no error, the data just vanishes.
+- **Runs on:** some Linux versions: nc -u -l -p 9999
+- **From section:** [2. Connectionless](#connectionless)
+
+```sh
+nc -u -l 9999
+nc -u 127.0.0.1 9999
+```
+
+</TryIt>
+
+<TryIt n={4} title="Programs listening on UDP">
+
+- **What to look for:** Ports like 53, 68, 123, 5353.
+- **Runs on:** Linux · macOS: lsof -iUDP -n -P
+- **From section:** [6. When to use UDP](#when-to-use-udp)
+
+```sh
+ss -ulnp
+```
+
+</TryIt>
+
+<TryIt n={5} title="UDP counters">
+
+- **What to look for:** "no socket" (sent to a port nobody listens on), "bad checksum", "buffer full" drops.
+- **Runs on:** macOS · Linux: netstat -su
+- **From section:** [3. What UDP promises (almost nothing)](#what-udp-promises-almost-nothing)
+
+```sh
+netstat -s -p udp
+```
+
+</TryIt>

@@ -1,0 +1,230 @@
+import { Chart, CwndSim } from "@/components/learn/widgets/lazy";
+import { FigWhy } from "@content/learn/fundamentals/figures/20-tcp-congestion-control";
+
+## Why the network needs protecting
+
+Links between hosts are shared. The Kadé office's 100 Mbit/s line to LankaNet carries the staff's browsing, a video support call, a nightly backup and every order sent to kade-api. When more arrives at a router than its outgoing link can carry, packets wait in the router's <Term>queue</Term>. When the queue is full, new packets are dropped.
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigWhy />} />
+
+If every sender kept blasting, every drop would cause a resend, which adds more traffic, which causes more drops. In October 1986 this actually happened on the early internet: a link between two university sites fell from 32 kbit/s to about 40 bit/s, nearly all of it resends. TCP congestion control was added in response. It makes every sender regulate itself.
+
+## A second window: cwnd
+
+TCP keeps a second limit, the <Term>congestion window</Term> (cwnd), separate from the receiver's rwnd. rwnd reflects the receiver's capacity and is told to the sender. cwnd is the **sender's own estimate** of what the network can carry, and nobody tells it. The sender must respect both.
+
+<Table>
+  <thead>
+    <tr><th></th><th>rwnd (<Ch n="19">chapter 19</Ch>)</th><th>cwnd (this chapter)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Protects</td><td>The receiver's buffer</td><td>The network in between</td></tr>
+    <tr><td>Set by</td><td>The receiver</td><td>The sender, by guessing</td></tr>
+    <tr><td>Known how</td><td>Window field in every ACK</td><td>Worked out from ACKs and losses</td></tr>
+    <tr><td>Seen on the wire?</td><td>Yes</td><td>No, it only exists inside the sender</td></tr>
+  </tbody>
+</Table>
+
+## Slow start
+
+A new connection has no idea how much the network can carry, so it starts small and ramps up fast. In <Term>slow start</Term>, every ACK adds one segment to cwnd, so cwnd **doubles every round trip**. Despite the name, this is exponential growth: a quick probe upward until the first sign of trouble.
+
+<Chart chart="slowstart" />
+
+<Note>
+
+**Starts at 10, not 1.** Textbooks start cwnd at 1 segment. Modern systems start at 10 (about 14 KB), which is why small responses feel instant. A kade-api response under ~14 KB arrives in the first round trip; a 60 KB one needs three round trips just from slow start. Keeping first responses small, and reusing connections that are already "warm", both help.
+
+</Note>
+
+## Congestion avoidance
+
+Once cwnd passes a threshold called <Term>ssthresh</Term> (slow start threshold), TCP switches to <Term>congestion avoidance</Term>: it grows cwnd slowly, by roughly one segment per round trip. This **additive increase** gently probes for more bandwidth without causing loss. In the graph above, the curve bends from steep to gentle at ssthresh.
+
+## Loss means "too much"
+
+TCP cannot see router queues, so it treats **packet loss as a sign of congestion**. How it reacts depends on how the loss was noticed (<Ch n="17">chapter 17</Ch>):
+
+<Table>
+  <thead>
+    <tr><th>Signal</th><th>What it suggests</th><th>Reaction</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>3 duplicate ACKs</td><td>One packet was dropped, but later ones got through. Mild congestion.</td><td>ssthresh = cwnd ÷ 2, cwnd = ssthresh. Carry on in congestion avoidance (**fast recovery**).</td></tr>
+    <tr><td>Retransmission timeout</td><td>Nothing is getting through. Severe.</td><td>ssthresh = cwnd ÷ 2, cwnd back to 1 segment, slow start again.</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Cutting cwnd by a factor (halving) is the **multiplicative decrease**. It relieves the queue quickly, then growth resumes.</Caption>
+
+## Watch it: a congestion window simulator
+
+A connection from your laptop downloads a big sales report from kade-api. The path can carry about 40 segments per round trip before the queue overflows. Change the capacity, the algorithm, and whether a timeout happens:
+
+<CwndSim />
+
+## AIMD: the sawtooth, and why it is fair
+
+Together, congestion avoidance and loss reaction give the classic <Term>AIMD</Term> pattern: **Additive Increase, Multiplicative Decrease**. Plotted over time, cwnd is a sawtooth: climb slowly, drop sharply on loss, climb again.
+
+The surprising part: AIMD makes flows **share fairly** without talking to each other. Below, the backup job (already running with a big window) and a new download share the office's link. Each time the link overflows, both halve. Halving takes more from the bigger one, while both grow by the same +1, so their shares move together:
+
+<Chart chart="fair" />
+
+## ECN: a warning instead of a drop
+
+Waiting for a drop is wasteful: the data must be resent, and the queue was already full for a while. <Term>ECN</Term> (Explicit Congestion Notification) lets a router **mark** a packet as "congestion building" instead of dropping it. It is a mechanism that spans IP and TCP, not an algorithm:
+
+<Table>
+  <thead>
+    <tr><th></th><th>Step</th><th>Where</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>1</Mono></td><td>In the handshake, both sides agree to use ECN.</td><td>TCP flags ECE and CWR in SYN / SYN-ACK (<Ch n="18">chapter 18</Ch>)</td></tr>
+    <tr><td><Mono>2</Mono></td><td>The sender marks its packets "ECN-capable".</td><td>2 ECN bits in the IP header</td></tr>
+    <tr><td><Mono>3</Mono></td><td>A router whose queue is building sets those bits to "congestion experienced" instead of dropping.</td><td>IP header</td></tr>
+    <tr><td><Mono>4</Mono></td><td>The receiver echoes the warning back on its ACKs.</td><td>TCP flag ECE</td></tr>
+    <tr><td><Mono>5</Mono></td><td>The sender cuts cwnd as if there had been a loss, and confirms it did.</td><td>TCP flag CWR</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Same slowdown, but no data lost and no resend needed. It only works if routers on the path support it; many now do.</Caption>
+
+## The rule: min(cwnd, rwnd)
+
+At any moment, the sender may have at most **min(cwnd, rwnd)** bytes in flight: the smaller of the network's limit and the receiver's limit. Both controls apply at once, and whichever is smaller is in charge:
+
+<Chart chart="minwin" />
+
+This is a useful debugging question: when a transfer is slow, is it the receiver (small rwnd, growing Recv-Q, zero windows) or the network (small cwnd, retransmissions)? `ss -ti` shows both.
+
+## A little loss costs a lot
+
+Because every loss halves cwnd, throughput depends heavily on the loss rate and on RTT. A well-known estimate (the Mathis formula) is about **1.22 × MSS ÷ (RTT × √loss rate)**. For your laptop to kade-api (MSS 1,460, RTT 41 ms):
+
+<Chart chart="mathis" />
+
+Going from 0.01% to 1% loss cuts the best possible speed by 10× in this estimate. Longer RTTs make it worse, which is why long-distance transfers suffer most from small amounts of loss.
+
+## Bufferbloat: when queues are too big
+
+Loss-based TCP keeps growing until a queue overflows. If a router has a very large queue, TCP fills it completely before seeing any loss, and every packet waits in line behind it. Throughput stays fine, but **delay** balloons. This is <Term>bufferbloat</Term>: the video support call lags badly the moment someone starts the backup upload.
+
+<Chart chart="bloat" />
+
+Fixes: smarter queues on routers (active queue management such as CoDel and fq\_codel, which drop or mark early), ECN, and delay-aware algorithms like BBR (next section). On an office router, "SQM" settings turn these on.
+
+## Congestion control algorithms
+
+The rules above are the classic ones. Real systems use refined algorithms, and you can choose them per machine:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Algorithm</th><th>Signal</th><th>How it grows</th><th>Where</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Tahoe (1988)</td><td>loss</td><td>Any loss → back to 1 and slow start</td><td>Historic</td></tr>
+    <tr><td>2</td><td>Reno / NewReno</td><td>loss</td><td>Classic AIMD with fast recovery (the simulator's "Reno")</td><td>The textbook model</td></tr>
+    <tr><td>3</td><td>CUBIC</td><td>loss</td><td>After a loss, climbs quickly back toward the old peak, flattens near it, then probes past it. Growth depends on time, not RTT.</td><td>Default on Linux, Windows and macOS</td></tr>
+    <tr><td>4</td><td>BBR</td><td>measured bandwidth and RTT</td><td>Estimates the bottleneck bandwidth and the minimum RTT, and sends at that rate instead of filling queues</td><td>Google's servers; available on Linux</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Only the **sender's** algorithm matters for a transfer. When kade-api sends a report to your laptop, kade-api's setting decides. BBR is often a good choice for servers talking to users over long, slightly lossy paths.</Caption>
+
+## What's next
+
+This completes TCP's inner workings. <Ch n="21">Chapter 21</Ch> looks at the same TCP from kade-api's code: sockets, queues, Nagle and the timeouts that kill idle connections. Then Section 2 is complete.
+
+## Summary
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Why</td><td>Shared links, full queues, drops; senders must self-regulate</td><td>queue, congestion collapse</td></tr>
+    <tr><td>2</td><td>cwnd</td><td>The sender's own estimate of network capacity</td><td>congestion window</td></tr>
+    <tr><td>3</td><td>Slow start</td><td>Doubles each RTT from 10 segments</td><td>slow start, initial window</td></tr>
+    <tr><td>4</td><td>Avoidance</td><td>After ssthresh, +1 segment per RTT</td><td>ssthresh, congestion avoidance</td></tr>
+    <tr><td>5</td><td>Loss</td><td>Dup ACKs → halve; timeout → back to 1</td><td>fast recovery, multiplicative decrease</td></tr>
+    <tr><td>7</td><td>AIMD</td><td>The sawtooth; converges to fair shares</td><td>AIMD, fairness</td></tr>
+    <tr><td>8</td><td>ECN</td><td>Routers mark instead of drop; sender slows without loss</td><td>ECN, ECE, CWR</td></tr>
+    <tr><td>9</td><td>The rule</td><td>In flight ≤ min(cwnd, rwnd)</td><td></td></tr>
+    <tr><td>10-11</td><td>Costs</td><td>Small loss rates cap speed; oversized queues add delay</td><td>Mathis formula, bufferbloat, AQM</td></tr>
+    <tr><td>12</td><td>Algorithms</td><td>Reno, CUBIC (default), BBR</td><td>CUBIC, BBR</td></tr>
+  </tbody>
+</Table>
+
+## Try it yourself
+
+<TryIt n={1} title="The algorithm in use">
+
+- **What to look for:** `cubic` by default.
+- **Runs on:** Linux, e.g. on kade-api
+- **From section:** [12. Congestion control algorithms](#congestion-control-algorithms)
+
+```sh
+sysctl net.ipv4.tcp_congestion_control
+```
+
+</TryIt>
+
+<TryIt n={2} title="Algorithms you can switch to">
+
+- **What to look for:** `reno cubic`, and `bbr` if the module is loaded.
+- **From section:** [12. Congestion control algorithms](#congestion-control-algorithms)
+
+```sh
+sysctl net.ipv4.tcp_available_congestion_control
+```
+
+</TryIt>
+
+<TryIt n={3} title="Live cwnd, ssthresh, RTT per connection">
+
+- **What to look for:** `cwnd:10` on fresh connections, larger on busy ones; `ssthresh`, `retrans`, `delivery_rate`.
+- **Runs on:** Linux
+- **From section:** [9. The rule: min(cwnd, rwnd)](#the-rule-min-cwnd-rwnd)
+
+```sh
+ss -ti
+```
+
+</TryIt>
+
+<TryIt n={4} title="A throughput test">
+
+- **What to look for:** The **Retr** and **Cwnd** columns each second.
+- **Runs on:** run iperf3 -s on the other end
+- **From section:** [6. Watch it: a congestion window simulator](#watch-it-a-congestion-window-simulator)
+
+```sh
+iperf3 -c SERVER -t 10
+```
+
+</TryIt>
+
+<TryIt n={5} title="Switch to BBR">
+
+- **What to look for:** Compare iperf3 results before and after.
+- **Runs on:** Linux, test machines only
+- **From section:** [12. Congestion control algorithms](#congestion-control-algorithms)
+
+```sh
+sudo sysctl -w net.ipv4.tcp_congestion_control=bbr
+```
+
+</TryIt>
+
+<TryIt n={6} title="Bufferbloat on your own line">
+
+- **Steps:** Run `ping 1.1.1.1` while uploading a big file
+- **What to look for:** ping times jumping from ~10 ms to hundreds of ms during the upload.
+- **From section:** [11. Bufferbloat: when queues are too big](#bufferbloat-when-queues-are-too-big)
+
+```sh
+ping 1.1.1.1
+```
+
+</TryIt>

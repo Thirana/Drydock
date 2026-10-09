@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArchitectureDiagram } from "@/components/architecture/architecture-diagram";
 import { DiagramFrame } from "@/components/architecture/diagram-frame";
 import { ViewGuide, ViewGuideItem } from "@/components/layout/view-guide";
+import { HarbourWalkthrough } from "@/components/site/harbour-walkthrough";
 import { PageShell } from "@/components/site/page-shell";
 import { StatPills } from "@/components/site/stat-pills";
 import { ButtonLink } from "@/components/ui/button";
@@ -12,10 +13,12 @@ import { IconArrow } from "@/components/ui/icons";
 import {
   allLabs,
   getLab,
+  labHref,
   providerHref,
   trackHref,
   viewHref,
 } from "@/lib/content/registry";
+import { getFeaturedTrack } from "@/lib/content/featured";
 import { labStats, trackStats } from "@/lib/content/stats";
 
 export const dynamicParams = false;
@@ -49,6 +52,8 @@ export default async function LabPage({
       ? viewHref(firstCtx, "defects")
       : undefined;
   const showcase = ctx.lab.tracks.find((t) => t.architecture);
+  const featured = getFeaturedTrack();
+  const walkthrough = featured?.labHref === labHref(ctx) ? featured : undefined;
 
   return (
     <PageShell>
@@ -81,6 +86,12 @@ export default async function LabPage({
                 </span>
               )}
             </p>
+            {stats && (
+              <p className="text-ink-muted mt-4 text-[15px]">
+                {stats.defects} defects · {stats.phases} remediation phases ·{" "}
+                {stats.journeys} packet journeys · {stats.components} components
+              </p>
+            )}
             {firstCtx && (
               <div className="mt-7 flex flex-wrap items-center gap-3">
                 <ButtonLink
@@ -100,14 +111,6 @@ export default async function LabPage({
           </div>
         </div>
 
-        {stats && (
-          <StatPills
-            stats={stats}
-            size="lg"
-            className="border-rule mt-12 border-t pt-4"
-          />
-        )}
-
         {showcase?.architecture && (
           <div className="animate-rise animation-delay-300 mt-14">
             <DiagramFrame
@@ -123,6 +126,8 @@ export default async function LabPage({
           </div>
         )}
       </section>
+
+      {walkthrough && <HarbourWalkthrough featured={walkthrough} />}
 
       <section aria-labelledby="tracks-title" className="py-16 sm:py-20">
         <FadeIn className="mb-10">

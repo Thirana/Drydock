@@ -1,0 +1,204 @@
+import { PeeringEx, SharedVpc, VpcOptions } from "@/components/learn/widgets/lazy";
+import { FigNeed } from "@content/learn/gcp/figures/14-a-second-vpc-briefly";
+
+<Key title="A short chapter on purpose">
+
+Designing networks with many VPCs (hub and spoke, Shared VPC for a whole company, connecting dozens of projects) is a subject of its own, and one chapter cannot teach it properly. This chapter gives you the map: when you need a second VPC, the three ways to connect one, and the two rules that the rest of the course depends on. Section 06 lists what you would need to learn next to design and run a multi-VPC setup yourself.
+
+</Key>
+
+<Box kind="problem" title="The problem">
+
+Kadé wants a staging environment, so changes can be tested before shoppers see them. It will be a new project, `kade-staging`, in the same `production` folder. The open questions: should its network be connected to kade-vpc, and if so, how?
+
+</Box>
+
+## First question: connect them at all?
+
+<Recalls><Recall n="6">Two networks</Recall></Recalls>
+
+Two VPCs are two separate worlds (<Ch n="2">chapter 2</Ch> section 01). The honest default for staging is to **leave it that way**: a separate project with its own VPC, its own small database, and its own Cloud NAT, connected to nothing. It cannot break production, and production data cannot leak into it.
+
+<Figure wide hues={["teal", "green"]} drawing={<FigNeed />}>
+
+Separate and unconnected: the simplest and safest shape. The only shared things are the folder's hierarchical firewall policy and organization policies (<Ch n="5.2">chapters 5.2</Ch> and <Ch n="17">17</Ch>), which apply to both projects automatically.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Connect them when…</th><th>Keep them apart when…</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Something in one VPC must call a private IP in the other (a shared internal service, a shared database)</td><td>Each environment has its own copy of everything it needs. Kadé's case</td></tr>
+    <tr><td>2</td><td>One team must run the network for many projects (central firewall, central IP plan)</td><td>There is one person running the network anyway</td></tr>
+    <tr><td>3</td><td>Several projects must share one VPN or Interconnect to the office</td><td>Staging does not need the office network</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Even when kept apart, give the second VPC a range that does not overlap the first (<Ch n="0">chapter 0</Ch> already reserves `10.20.0.0/16`). Then connecting them later stays possible.</Caption>
+
+## Three ways to connect
+
+If two networks do need to talk, GCP gives three shapes. They solve different problems:
+
+<VpcOptions />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>VPC peering</th><th>Shared VPC</th><th>Private Service Connect</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The shape</td><td>Two separate VPCs, joined so they can route to each other</td><td>One VPC, owned by a host project, used by several service projects</td><td>One endpoint IP in your VPC that reaches one service in another</td></tr>
+    <tr><td>2</td><td>What is connected</td><td>Every subnet on both sides</td><td>Nothing needs connecting: it is a single network</td><td>Only that one service</td></tr>
+    <tr><td>3</td><td>Who runs the network</td><td>Each side runs its own (firewall, routes)</td><td>The host project's network team, for everyone</td><td>Each side runs its own</td></tr>
+    <tr><td>4</td><td>Ranges may overlap?</td><td><St k="bad">no</St></td><td>Not applicable: one plan</td><td><St k="ok">yes</St></td></tr>
+    <tr><td>5</td><td>Needs an organization?</td><td>No; works across projects and organizations</td><td>Yes</td><td>No</td></tr>
+    <tr><td>6</td><td>Typical use</td><td>Two teams' VPCs that need some private traffic</td><td>A company where one platform team owns networking</td><td>Reaching one shared service, or a vendor's service (<Ch n="9">chapter 9</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+## VPC peering, and its two rules
+
+Peering joins two VPCs at the routing level. Each side must create its half of the peering; when both halves exist, each VPC learns the other's **subnet routes** (<Ch n="4">chapter 4</Ch>) and traffic flows on internal IPs, over Google's network, with no gateway or VPN. A few things are **not** shared, and they surprise people:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Not shared by peering</th><th>So you must…</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Firewall rules</td><td>Allow the other VPC's range in **each** VPC's own rules</td><td className="whitespace-nowrap">5.1</td></tr>
+    <tr><td>2</td><td>Custom routes (static, dynamic from a VPN)</td><td>Turn on export on one side and import on the other</td><td className="whitespace-nowrap">4, 9</td></tr>
+    <tr><td>3</td><td>DNS: private zones and VM names</td><td>Add a peering zone (DNS peering)</td><td className="whitespace-nowrap">8</td></tr>
+    <tr><td>4</td><td>Anything the other VPC itself reaches through a peering</td><td>Nothing helps: rule 2 below</td><td className="whitespace-nowrap">9</td></tr>
+  </tbody>
+</Table>
+
+Two rules decide whether peering works at all. Each tab shows one:
+
+<PeeringEx />
+
+## Shared VPC
+
+Shared VPC turns the question around: instead of joining two networks, many projects use **one** network. A <Term>host project</Term> owns the VPC, its subnets, routes and firewall rules. <Term>Service projects</Term> attach to it and create their VMs and Cloud Run services directly in its subnets. Each team keeps its own project for billing and permissions; the network is run in one place.
+
+<SharedVpc />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Piece</th><th>Who</th><th>What it allows</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Shared VPC Admin (`roles/compute.xpnAdmin`)</td><td>Granted on the organization or folder</td><td>Makes a project a host, and attaches service projects</td></tr>
+    <tr><td>2</td><td>Network User (`roles/compute.networkUser`)</td><td>Granted on the host project, or on **single subnets**</td><td>Lets a service project's people create resources in those subnets, and nowhere else</td></tr>
+    <tr><td>3</td><td>Network Admin, Security Admin</td><td>The platform team, in the host project</td><td>Change subnets, routes, firewall rules for everyone</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A service project can attach to only one host project. Subnet-level Network User grants are how "staging may only use the staging subnet" is enforced.</Caption>
+
+<Box kind="exam" title="Exam angle">
+
+"A central team must manage networking and firewall rules for several projects" means Shared VPC. "Two independent VPCs, possibly in different organizations, need private connectivity" means VPC peering. "A VPC peered to a peered VPC cannot reach…" is non-transitivity, every time. "Two VPCs with overlapping ranges must reach one service" means Private Service Connect.
+
+</Box>
+
+## Private Service Connect, the narrow option
+
+When the only thing one network needs from another is a single service, there is no reason to join the whole networks. A Private Service Connect endpoint (<Ch n="9">chapter 9</Ch> section 04) gives the consumer one internal IP that forwards to that service. Nothing else is reachable, the ranges may overlap, and there is no transitivity problem. <Ch n="9">Chapter 9</Ch>'s tab "Cloud SQL from many VPCs" is exactly this pattern for a shared database.
+
+## What to learn next, if you need the full picture
+
+This chapter is enough to read the rest of the course and to answer exam questions. To design, build and run a real multi-VPC network, these are the additional topics to learn, roughly in order:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Topic</th><th>Why you would need it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**IP address planning across many networks**</td><td>Every network you may ever connect must have its own non-overlapping block, decided up front (<Ch n="0">chapter 0</Ch>'s plan, at company scale)</td></tr>
+    <tr><td>2</td><td>**Shared VPC design and IAM**</td><td>Host and service projects, subnet-level permissions, who owns firewall rules, how Cloud Run and GKE attach to shared subnets</td></tr>
+    <tr><td>3</td><td>**VPC peering details**</td><td>Custom route export and import, peering limits and quotas, how firewall rules and DNS work across a peering</td></tr>
+    <tr><td>4</td><td>**Network Connectivity Center (NCC)**</td><td>Google's hub-and-spoke service. With VPC spokes it connects many VPCs **transitively**, which plain peering cannot</td></tr>
+    <tr><td>5</td><td>**Cross-project DNS**</td><td>DNS peering zones and cross-project zone binding, so names resolve everywhere they should (<Ch n="8">chapter 8</Ch>)</td></tr>
+    <tr><td>6</td><td>**Private NAT**</td><td>Connecting networks whose ranges already overlap and cannot be renumbered (<Ch n="7">chapter 7</Ch> section 08)</td></tr>
+    <tr><td>7</td><td>**Hybrid connectivity at scale**</td><td>Sharing one VPN or Interconnect across many VPCs (<Ch n="15">chapter 15</Ch> is the single-VPC version)</td></tr>
+    <tr><td>8</td><td>**Governance across projects**</td><td>Hierarchical firewall policies, organization policies that restrict which subnets and projects can be used, VPC Service Controls (<Ch n="5.2">chapters 5.2</Ch> and <Ch n="17">17</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Google's "Best practices and reference architectures for VPC design" document is the natural next read: it walks through these patterns with diagrams.</Caption>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Decided: staging stays separate">
+
+- **Project** `kade-staging` in the `production` folder, so it gets the folder's hierarchical firewall policy automatically (<Ch n="5.2">chapter 5.2</Ch>).
+- **Network** `staging-vpc`, custom mode, subnets from `10.20.0.0/16`, mirroring prod's layout (`10.20.1.0/24` app, `10.20.3.0/24` run, `10.20.32.0/20` private services).
+- **Not connected** to kade-vpc: no peering, no Shared VPC. Its own small Cloud SQL with test data, its own Cloud NAT IP on PayGate's sandbox allow-list, its own load balancer and Cloudflare hostname (`staging.kade.lk`, behind Cloudflare Access).
+- **Revisit** if staging ever needs a private service in prod. The first choice then would be a Private Service Connect endpoint for that one service, not peering the whole networks.
+
+Earlier chapters used "kade-staging peered to kade-vpc" as an example (<Ch n="8">chapters 8</Ch> and <Ch n="9">9</Ch>). Those examples still explain the rules correctly; Kadé simply chose not to build it.
+
+</Box>
+
+## Commands in this chapter
+
+Commands 1 to 4 are read-only. Command 5 changes the project and is shown for reference; Kadé does not run it.
+
+<TryIt n={1} title="List a network's peerings">
+
+- **What it shows:** Every peering on kade-vpc, its state, and its route export and import settings.
+- **What to look for:** `servicenetworking-googleapis-com` (<Ch n="9">chapter 9</Ch>) is a peering too. `INACTIVE` means the other side has not created its half.
+
+```sh
+gcloud compute networks peerings list --network=kade-vpc
+```
+
+</TryIt>
+
+<TryIt n={2} title="See the routes a peering shares">
+
+- **What it shows:** Routes kade-vpc receives from, or sends to, one peering.
+- **What to look for:** The other side's subnet ranges in the incoming list. A missing range usually means an overlap or an export setting.
+
+```sh
+gcloud compute networks peerings list-routes servicenetworking-googleapis-com \
+  --network=kade-vpc --region=asia-southeast1 --direction=INCOMING
+```
+
+</TryIt>
+
+<TryIt n={3} title="Is this project in a Shared VPC?">
+
+- **What it shows:** The host project this project is attached to, if any.
+- **What to look for:** Empty output for Kadé: kade-prod is a standalone project.
+
+```sh
+gcloud compute shared-vpc get-host-project kade-prod
+```
+
+</TryIt>
+
+<TryIt n={4} title="List service projects of a host">
+
+- **What it shows:** In a Shared VPC, every project attached to a host project.
+- **What to look for:** Only the projects you expect. Replace the host project ID with your own.
+
+```sh
+gcloud compute shared-vpc associated-projects list HOST_PROJECT_ID
+```
+
+</TryIt>
+
+<TryIt n={5} title="Create one half of a peering (changes the project; reference only)">
+
+- **What it shows:** How a peering starts. The other project runs the same command pointing back.
+- **What to look for:** State `INACTIVE` until both halves exist, then `ACTIVE`. It fails immediately if any subnet ranges overlap.
+
+```sh
+gcloud compute networks peerings create prod-to-staging \
+  --network=kade-vpc --peer-project=kade-staging --peer-network=staging-vpc
+```
+
+</TryIt>
