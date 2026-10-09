@@ -1,5 +1,4 @@
-import { SeqDiagram } from "@/components/learn/widgets/seq";
-import { CorsSim, OriginCmp } from "@/components/learn/widgets/setup-security";
+import { CorsSim, OriginCmp, SeqDiagram } from "@/components/learn/widgets/lazy";
 
 ## Why browsers need a rule
 
@@ -240,6 +239,7 @@ curl -i -X OPTIONS https://api.kade.lk/orders -H 'Origin: https://kade.lk' -H 'A
 
 <TryIt n={2} title="What kade-api says to a stranger">
 
+- **Steps:** Same command with `-H 'Origin: https://evil.example'`
 - **What to look for:** No `Access-Control-Allow-Origin` header at all.
 - **From section:** [10. Configuring kade-api safely](#configuring-kade-api-safely)
 
@@ -270,6 +270,7 @@ curl -i https://api.kade.lk/health -H 'Origin: https://kade.lk'
 
 <TryIt n={5} title="The policy in action">
 
+- **Steps:** DevTools console on any site: `fetch('https://example.com').then(r => r.text())`
 - **What to look for:** A CORS error, even though the Network tab shows the request succeeded.
 - **From section:** [1. Why browsers need a rule](#why-browsers-need-a-rule)
 

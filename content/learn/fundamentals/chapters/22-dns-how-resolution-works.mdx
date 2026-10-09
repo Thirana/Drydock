@@ -1,4 +1,4 @@
-import { DnsSim, DnsWalk } from "@/components/learn/widgets/dns-mail";
+import { DnsSim, DnsWalk } from "@/components/learn/widgets/lazy";
 import { FigTree } from "@content/learn/fundamentals/figures/22-dns-how-resolution-works";
 
 ## Why DNS exists
@@ -250,6 +250,7 @@ dig +trace example.com
 
 <TryIt n={2} title="Caching">
 
+- **Steps:** `dig example.com`, twice
 - **What to look for:** The TTL in the ANSWER section counts down; "Query time" drops on the second run.
 - **From section:** [7. Caching and TTL](#caching-and-ttl)
 
@@ -274,6 +275,7 @@ dig @1.1.1.1 example.com
 
 <TryIt n={4} title="DNS header flags">
 
+- **Steps:** `dig example.com`, the flags line
 - **What to look for:** `flags: qr rd ra`; add `@` an authoritative server to see `aa`.
 - **From section:** [10. On the wire: port 53, UDP and TCP](#on-the-wire-port-53-udp-and-tcp)
 
@@ -313,6 +315,19 @@ sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 
 ```sh
 gcloud dns managed-zones describe kade-lk
+```
+
+</TryIt>
+
+<TryIt n={8} title="Answers that depend on who asks">
+
+- **Steps:** `dig +short www.google.com @8.8.8.8` and `@1.1.1.1`, from home and from a VM in another region
+- **What to look for:** Different IPs for the same name.
+- **From section:** [13. Steering traffic with DNS](#steering-traffic-with-dns)
+
+```sh
+dig +short www.google.com @8.8.8.8
+dig +short www.google.com @1.1.1.1
 ```
 
 </TryIt>

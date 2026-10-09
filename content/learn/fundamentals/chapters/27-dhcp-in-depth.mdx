@@ -1,4 +1,4 @@
-import { DoraInspect, LeaseSim, NtpCalc } from "@/components/learn/widgets/setup-security";
+import { DoraInspect, LeaseSim, NtpCalc } from "@/components/learn/widgets/lazy";
 import { FigRelay } from "@content/learn/fundamentals/figures/27-dhcp-in-depth";
 
 ## A device that knows nothing
@@ -215,6 +215,7 @@ ipconfig getpacket en0
 
 <TryIt n={2} title="DORA live">
 
+- **Steps:** `sudo tcpdump -n -v -i en0 'udp port 67 or udp port 68'`, then reconnect to WiFi
 - **What to look for:** `0.0.0.0.68 > 255.255.255.255.67`, then the options decoded.
 - **From section:** [2. DORA, packet by packet](#dora-packet-by-packet)
 

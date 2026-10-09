@@ -81,9 +81,18 @@ export interface Chapter {
   part: string;
   /** Reading time in minutes. */
   minutes: number;
-  /** Missing until the chapter is migrated: listed, but not linked or routed. */
-  Content?: MDXContent;
+  /** Listed, but not linked or routed (a chapter still being written). */
+  draft?: boolean;
 }
+
+/**
+ * Each chapter's MDX by slug, kept apart from the course metadata: only the
+ * chapter route imports it, so every other page stays free of widget code.
+ */
+export type ChapterLoaders = Record<
+  string,
+  () => Promise<{ default: MDXContent }>
+>;
 
 /** The four drawing hues (see DESIGN.md, Drawing hues). */
 export type Hue = "plum" | "teal" | "green" | "amber";

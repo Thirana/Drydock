@@ -47,9 +47,9 @@ export default function GlossaryPage() {
 
       <nav
         aria-label="Letters"
-        className="border-rule bg-ground/95 sticky top-0 z-20 -mx-5 mt-10 border-b px-5 backdrop-blur-sm sm:-mx-8 sm:px-8"
+        className="border-rule bg-ground/95 z-20 mt-10 border-b backdrop-blur-sm sm:sticky sm:top-0"
       >
-        <ol className="no-scrollbar flex gap-x-1 overflow-x-auto">
+        <ol className="flex flex-wrap gap-x-1">
           {groups.map(({ letter, entries: inGroup }) => (
             <li key={letter} className="shrink-0">
               {inGroup.length ? (

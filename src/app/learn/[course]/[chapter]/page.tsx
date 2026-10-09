@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { chapterText } from "@content/learn/chapters";
 import { ChapterPage } from "@/components/learn/chapter-page";
 import {
   getChapter,
@@ -41,6 +42,8 @@ export default async function ChapterRoute({
   params,
 }: PageProps<"/learn/[course]/[chapter]">) {
   const ctx = await resolve(params);
-  if (!ctx) notFound();
-  return <ChapterPage ctx={ctx} />;
+  const load = ctx && chapterText[ctx.course.slug]?.[ctx.chapter.slug];
+  if (!ctx || !load) notFound();
+  const { default: Content } = await load();
+  return <ChapterPage ctx={ctx} Content={Content} />;
 }

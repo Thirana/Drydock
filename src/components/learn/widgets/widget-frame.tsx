@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { ScrollX } from "../scroll-x";
 
 /**
  * The frame every course widget sits in: a hairline, room inside, and a
@@ -23,9 +24,9 @@ export function WidgetFrame({
       data-pagefind-ignore
       className={cn("not-prose my-10", !wide && "max-w-[760px]", className)}
     >
-      <div className="border-rule bg-ground overflow-x-auto rounded-[2px] border p-4 sm:p-6">
+      <ScrollX className="border-rule bg-ground rounded-[2px] border p-4 sm:p-6">
         {children}
-      </div>
+      </ScrollX>
     </figure>
   );
 }

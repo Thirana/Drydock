@@ -1,4 +1,4 @@
-import { Chart, CwndSim } from "@/components/learn/widgets/charts";
+import { Chart, CwndSim } from "@/components/learn/widgets/lazy";
 import { FigWhy } from "@content/learn/fundamentals/figures/20-tcp-congestion-control";
 
 ## Why the network needs protecting
@@ -219,6 +219,7 @@ sudo sysctl -w net.ipv4.tcp_congestion_control=bbr
 
 <TryIt n={6} title="Bufferbloat on your own line">
 
+- **Steps:** Run `ping 1.1.1.1` while uploading a big file
 - **What to look for:** ping times jumping from ~10 ms to hundreds of ms during the upload.
 - **From section:** [11. Bufferbloat: when queues are too big](#bufferbloat-when-queues-are-too-big)
 

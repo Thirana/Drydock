@@ -100,7 +100,7 @@ export function Segments({
   children: ReactNode;
 }) {
   return (
-    <div className="not-prose my-8 max-w-[860px] overflow-x-auto">
+    <div data-pagefind-ignore className="not-prose my-8 max-w-[860px] overflow-x-auto">
       {label && <p className="text-ink-muted mb-2 text-[14.5px]">{label}</p>}
       <div className="flex min-w-[560px]">{children}</div>
     </div>
@@ -144,7 +144,7 @@ export function Seg({
 export function Hops({ children }: { children: ReactNode }) {
   const items = Children.toArray(children);
   return (
-    <ol className="not-prose my-8 flex max-w-[860px] flex-wrap items-center gap-y-3">
+    <ol data-pagefind-ignore className="not-prose my-8 flex max-w-[860px] flex-wrap items-center gap-y-3">
       {items.map((item, i) => (
         <li key={i} className="flex items-center">
           {i > 0 && (
@@ -196,7 +196,7 @@ export function Hop({
 /** One network's addresses laid end to end: the special ones, the router, the devices. */
 export function Range({ children }: { children: ReactNode }) {
   return (
-    <div className="not-prose my-8 max-w-[860px] overflow-x-auto">
+    <div data-pagefind-ignore className="not-prose my-8 max-w-[860px] overflow-x-auto">
       <div className="flex min-w-[560px]">{children}</div>
     </div>
   );

@@ -1115,7 +1115,7 @@
     ]
    ],
    "w": 4,
-   "dec": "Three rows match (orange). The longest prefix wins: /16 beats /8 and /0 (section 7), so the packet takes the direct link to Google, 192.0.2.2. TTL 62 → 61.",
+   "dec": "Three rows match. The longest prefix wins: /16 beats /8 and /0 (section 7), so the packet takes the direct link to Google, 192.0.2.2. TTL 62 → 61.",
    "fs": "5c:5e:ab:30:00:02 (R3 ge1)",
    "fd": "3c:28:6d:00:00:01 (R4)",
    "ps": "198.51.100.20:40001",
@@ -1128,19 +1128,19 @@
     [
      "192.0.2.0/30",
      "direct",
-     "—",
+     "-",
      "connected: link to LankaNet"
     ],
     [
      "198.51.100.0/24",
      "192.0.2.1",
-     "—",
+     "-",
      "BGP from LankaNet (used by replies)"
     ],
     [
      "34.87.120.15/32",
      "kade-api",
-     "—",
+     "-",
      "kade-api's external IP"
     ]
    ],

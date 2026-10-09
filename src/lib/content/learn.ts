@@ -26,7 +26,7 @@ for (const course of courses) {
       );
 }
 
-export const isPublished = (chapter: Chapter) => chapter.Content !== undefined;
+export const isPublished = (chapter: Chapter) => !chapter.draft;
 
 export function getCourse(slug: string) {
   return courses.find((c) => c.slug === slug);

@@ -1,4 +1,6 @@
 design-system
 doc
+# The migration record, kept as written.
+plans
 # Course chapters: Prettier's MDX parser wraps table cells in paragraphs.
 content/learn/**/*.mdx

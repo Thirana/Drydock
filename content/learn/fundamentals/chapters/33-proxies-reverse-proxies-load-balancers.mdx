@@ -1,4 +1,4 @@
-import { ConnectFlow, LbSim, TimeoutChain, XffSim } from "@/components/learn/widgets/capstone";
+import { ConnectFlow, LbSim, TimeoutChain, XffSim } from "@/components/learn/widgets/lazy";
 import { FigFwd, FigLb, FigTwo } from "@content/learn/fundamentals/figures/33-proxies-reverse-proxies-load-balancers";
 
 ## One middleman, two connections
@@ -117,11 +117,15 @@ Only DNS changed for shoppers (<Ch n="22">chapter 22</Ch>): api.kade.lk now poin
 
 <Ch n="11">Chapter 11</Ch> introduced these names. The difference is **how much of the packet the load balancer reads**:
 
+<Caption>**Layer 4** load balancer: reads addresses and ports only</Caption>
+
 <Segments>
   <Seg w={1.2} hue="green">IP · 203.0.113.45 → 34.120.88.10</Seg>
   <Seg w={1} hue="amber">TCP · :40001 → :443</Seg>
   <Seg w={2.2} muted>TLS-encrypted bytes: unreadable, just passed along</Seg>
 </Segments>
+
+<Caption>**Layer 7** load balancer: ends TLS and reads the whole request</Caption>
 
 <Segments>
   <Seg w={1.2} hue="green">IP</Seg>

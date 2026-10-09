@@ -152,7 +152,7 @@ export function Search({ className }: { className?: string }) {
         onClick={(e) => {
           if (e.target === dialogRef.current) close();
         }}
-        className="bg-ground text-ink backdrop:bg-ground/80 m-0 h-dvh max-h-none w-full max-w-none p-0 backdrop:backdrop-blur-sm sm:mx-auto sm:mt-[12vh] sm:h-auto sm:max-h-[76vh] sm:w-[calc(100%-64px)] sm:max-w-[760px]"
+        className="bg-ground text-ink backdrop:bg-ground/80 m-0 h-dvh max-h-none w-full max-w-none p-0 sm:mx-auto sm:mt-[12vh] sm:h-auto sm:max-h-[76vh] sm:w-[calc(100%-64px)] sm:max-w-[760px]"
       >
         <div className="sm:border-rule flex h-full max-h-[inherit] flex-col sm:rounded-[2px] sm:border">
           <form

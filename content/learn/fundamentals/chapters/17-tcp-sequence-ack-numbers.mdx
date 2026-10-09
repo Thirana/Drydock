@@ -1,4 +1,4 @@
-import { SeqDiagram, SeqSimulator } from "@/components/learn/widgets/seq";
+import { SeqDiagram, SeqSimulator } from "@/components/learn/widgets/lazy";
 
 ## Two numbers on every segment
 
@@ -183,6 +183,7 @@ netstat -s | grep -i retrans
 
 <TryIt n={5} title="Problems Wireshark detected">
 
+- **Steps:** Wireshark: `tcp.analysis.flags` as a filter
 - **What to look for:** "Duplicate ACK", "Retransmission", "Out-Of-Order" labels.
 - **From section:** [6. Losses and how they are repaired](#losses-and-how-they-are-repaired)
 

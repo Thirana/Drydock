@@ -83,14 +83,14 @@ function Result({ a, b, prefix }: { a: number; b: number; prefix: number }) {
   const same = na === nb;
   return (
     <>
-      <div className="min-w-[700px] space-y-2" aria-hidden="true">
+      <div className="@container space-y-4" aria-hidden="true">
         {[
           ["sender AND mask", na],
           ["target AND mask", nb],
         ].map(([label, value]) => (
           <div
             key={label as string}
-            className="grid grid-cols-[124px_auto_minmax(120px,1fr)] items-center gap-3"
+            className="grid gap-x-3 gap-y-1.5 @min-[800px]:grid-cols-[124px_auto_minmax(120px,1fr)] @min-[800px]:items-center"
           >
             <span className="text-ink-muted font-mono text-[12.5px]">
               {label}

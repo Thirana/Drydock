@@ -32,6 +32,7 @@ import { chapterByNum, chapterHref, isPublished } from "@/lib/content/learn";
 import type { Course, Hue } from "@/lib/content/types";
 import { cn } from "@/lib/utils";
 import { Figure } from "./figure";
+import { ScrollX } from "./scroll-x";
 import { Swatch } from "./swatch";
 
 /*
@@ -77,10 +78,12 @@ function H2({ children }: { children?: ReactNode }) {
 /** Ruled rows; scrolls sideways inside itself when the page is narrow. */
 function Table({ children }: { children: ReactNode }) {
   return (
-    <div className="my-8 overflow-x-auto">
-      <table className="w-full min-w-[560px] border-collapse text-left">
-        {children}
-      </table>
+    <div className="my-8">
+      <ScrollX>
+        <table className="w-full min-w-[560px] border-collapse text-left">
+          {children}
+        </table>
+      </ScrollX>
     </div>
   );
 }

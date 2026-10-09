@@ -86,6 +86,12 @@ export default async function LabPage({
                 </span>
               )}
             </p>
+            {stats && (
+              <p className="text-ink-muted mt-4 text-[15px]">
+                {stats.defects} defects · {stats.phases} remediation phases ·{" "}
+                {stats.journeys} packet journeys · {stats.components} components
+              </p>
+            )}
             {firstCtx && (
               <div className="mt-7 flex flex-wrap items-center gap-3">
                 <ButtonLink
@@ -104,14 +110,6 @@ export default async function LabPage({
             )}
           </div>
         </div>
-
-        {stats && (
-          <StatPills
-            stats={stats}
-            size="lg"
-            className="border-rule mt-12 border-t pt-4"
-          />
-        )}
 
         {showcase?.architecture && (
           <div className="animate-rise animation-delay-300 mt-14">

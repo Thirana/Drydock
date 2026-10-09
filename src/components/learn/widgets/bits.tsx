@@ -60,23 +60,30 @@ export function BitRow({
   split?: boolean;
   size?: "sm" | "md";
 }) {
-  const bits = bin32(value);
+  const bits = [...bin32(value)];
+  // Octets wrap as whole groups when the row has no room (phones).
   return (
-    <span className="flex gap-[2px]" aria-hidden="true">
-      {[...bits].map((bit, i) => (
-        <BitCell
-          key={i}
-          bit={bit}
-          size={size}
-          part={
-            split && prefix !== undefined
-              ? i < prefix
-                ? "net"
-                : "host"
-              : undefined
-          }
-          className={i % 8 === 7 && i < 31 ? "mr-[7px]" : undefined}
-        />
+    <span className="flex flex-wrap gap-x-[9px] gap-y-1" aria-hidden="true">
+      {[0, 8, 16, 24].map((start) => (
+        <span key={start} className="flex gap-[2px]">
+          {bits.slice(start, start + 8).map((bit, j) => {
+            const i = start + j;
+            return (
+              <BitCell
+                key={i}
+                bit={bit}
+                size={size}
+                part={
+                  split && prefix !== undefined
+                    ? i < prefix
+                      ? "net"
+                      : "host"
+                    : undefined
+                }
+              />
+            );
+          })}
+        </span>
       ))}
     </span>
   );

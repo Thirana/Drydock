@@ -1,5 +1,4 @@
-import { SeqDiagram } from "@/components/learn/widgets/seq";
-import { BdpCalc, SlideWin } from "@/components/learn/widgets/transport";
+import { BdpCalc, SeqDiagram, SlideWin } from "@/components/learn/widgets/lazy";
 import { FigProblem } from "@content/learn/fundamentals/figures/19-tcp-flow-control";
 
 ## The problem: a buffer that can overflow
@@ -161,6 +160,7 @@ sudo tcpdump -n -i en0 host example.com
 
 <TryIt n={4} title="Flow control in action">
 
+- **Steps:** Wireshark filter `tcp.analysis.zero_window || tcp.analysis.window_full`
 - **What to look for:** "TCP ZeroWindow", "TCP Window Full", "ZeroWindowProbe".
 - **From section:** [6. Zero window and window probes](#zero-window-and-window-probes)
 

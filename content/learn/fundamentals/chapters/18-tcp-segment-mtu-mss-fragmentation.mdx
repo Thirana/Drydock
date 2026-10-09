@@ -1,6 +1,4 @@
-import { SynDump, TcpHeader } from "@/components/learn/widgets/headers";
-import { SeqDiagram } from "@/components/learn/widgets/seq";
-import { MssCalc } from "@/components/learn/widgets/transport";
+import { MssCalc, SeqDiagram, SynDump, TcpHeader } from "@/components/learn/widgets/lazy";
 
 <Part n="A">The TCP header</Part>
 
@@ -253,6 +251,7 @@ To see the real on-the-wire segments, capture on another machine, a switch mirro
 
 <TryIt n={1} title="SYNs with their options">
 
+- **Steps:** `sudo tcpdump -n -v -i en0 'tcp[tcpflags] & tcp-syn != 0'`, then open any site
 - **What to look for:** `options [mss 1460,sackOK,TS …,nop,wscale 7]`
 - **From section:** [6. Options, agreed in the handshake](#options-agreed-in-the-handshake)
 

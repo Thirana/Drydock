@@ -1,4 +1,4 @@
-/** Shapes of the data extracted from the course notes (see doc/tools/widget-data.mjs). */
+/** Shapes of the widget data that came from the original course notes. */
 
 /** One row of a two-lane sequence diagram. */
 export interface SeqRow {

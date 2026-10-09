@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { IconCheck, IconMenu, IconX } from "@/components/ui/icons";
+import { IconCheck, IconChevronDown, IconX } from "@/components/ui/icons";
 import { recordVisit, useProgress } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 
@@ -271,8 +271,11 @@ export function ChapterRail({
           onClick={() => dialogRef.current?.showModal()}
           className="flex min-h-12 w-full items-center gap-3 text-left"
         >
-          <IconMenu />
-          <span className="min-w-0 truncate text-[15px]">
+          <span className="text-ink-muted shrink-0 text-[15px]">Chapters</span>
+          <span aria-hidden="true" className="text-rule-strong">
+            /
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[15px]">
             <span className="text-ink font-mono text-[13px]">
               {current.num}.
             </span>{" "}
@@ -281,6 +284,7 @@ export function ChapterRail({
               <span className="text-ink-muted"> · {activeSection.title}</span>
             )}
           </span>
+          <IconChevronDown size={12} className="text-ink-muted shrink-0" />
           <span className="sr-only">Open the chapter list</span>
         </button>
       </div>

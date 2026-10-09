@@ -1,4 +1,4 @@
-import { UdpBuild, UdpDump, UdpHeader } from "@/components/learn/widgets/headers";
+import { UdpBuild, UdpDump, UdpHeader } from "@/components/learn/widgets/lazy";
 
 ## Two parts: header and data
 
@@ -188,6 +188,7 @@ sudo tcpdump -n -vv -i en0 udp port 53
 
 <TryIt n={3} title="A datagram to a closed port">
 
+- **Steps:** `nc -u 127.0.0.1 9`, type a line
 - **What to look for:** An ICMP "port unreachable" comes back.
 - **Runs on:** with tcpdump -i lo0 icmp running (Linux: -i lo)
 - **From section:** [5. How the port picks the program](#how-the-port-picks-the-program)

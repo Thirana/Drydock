@@ -1,3 +1,4 @@
+import type { MDXContent } from "mdx/types";
 import Link from "next/link";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
 import { practiceFor } from "@/lib/content/crosslinks";
@@ -16,10 +17,15 @@ import { SearchMeta } from "@/components/site/search-meta";
 import { SeeItBroken } from "./see-it-broken";
 
 /** One chapter: the course rail, the title and lead, the text, and the moves either side. */
-export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
+export function ChapterPage({
+  ctx,
+  Content,
+}: {
+  ctx: ChapterContext;
+  /** The chapter's MDX, loaded by the route. */
+  Content: MDXContent;
+}) {
   const { course, chapter } = ctx;
-  const { Content } = chapter;
-  if (!Content) throw new Error(`Chapter ${chapter.slug} is not published`);
 
   const part = course.parts.find((p) => p.id === chapter.part);
   const { at, of } = chapterPosition(ctx);
@@ -48,7 +54,7 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
   const lab = next ? undefined : allLabs()[0];
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-8 lg:grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-x-24">
+    <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-x-24">
       <ChapterRail
         course={{
           slug: course.slug,
@@ -92,7 +98,7 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
 
         <nav
           aria-label="Chapters"
-          className="border-rule mt-16 grid gap-8 border-t pt-8 sm:grid-cols-2"
+          className="border-rule mt-16 grid max-w-[760px] gap-8 border-t pt-8 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]"
         >
           <div>
             {prev && (
@@ -121,15 +127,15 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
             <Link
               href={chapterHref(next)}
               rel="next"
-              className="group flex flex-col gap-1.5 sm:items-end sm:text-right"
+              className="group flex flex-col gap-1.5"
             >
               {next.course !== course && (
                 <span className="text-ink-muted text-[15px]">
                   Next course: {next.course.title}
                 </span>
               )}
-              <span className="dd-head text-accent inline-flex items-baseline gap-3 text-[26px]">
-                <span className="text-ink-faint font-mono text-[20px]">
+              <span className="dd-head text-accent inline-flex items-baseline gap-3 text-[24px]">
+                <span className="text-ink-faint font-mono text-[18px]">
                   {next.chapter.num}.
                 </span>
                 {next.chapter.title}
@@ -143,14 +149,11 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
               </span>
             </Link>
           ) : lab ? (
-            <Link
-              href={labHref(lab)}
-              className="group flex flex-col gap-1.5 sm:items-end sm:text-right"
-            >
+            <Link href={labHref(lab)} className="group flex flex-col gap-1.5">
               <span className="text-ink-muted text-[15px]">
                 Next: fix a broken platform
               </span>
-              <span className="dd-head text-accent inline-flex items-baseline gap-3 text-[26px]">
+              <span className="dd-head text-accent inline-flex items-baseline gap-3 text-[24px]">
                 {lab.lab.title}
                 <IconArrowRight
                   size={12}

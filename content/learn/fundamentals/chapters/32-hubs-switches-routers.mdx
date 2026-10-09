@@ -1,4 +1,4 @@
-import { NetSim } from "@/components/learn/widgets/devices";
+import { NetSim } from "@/components/learn/widgets/lazy";
 import { FigBdomain, FigHub } from "@content/learn/fundamentals/figures/32-hubs-switches-routers";
 
 ## Hub: repeat everything (layer 1)
@@ -198,6 +198,7 @@ traceroute 1.1.1.1
 
 <TryIt n={4} title="A real switch's learned table">
 
+- **Steps:** Managed switch CLI: `show mac address-table`
 - **What to look for:** MAC → port → VLAN, with dynamic entries aging out.
 - **From section:** [2. Switch: learn, then forward (layer 2)](#switch-learn-then-forward-layer-2)
 
@@ -209,6 +210,7 @@ show mac address-table
 
 <TryIt n={5} title="Which ports belong to which VLAN">
 
+- **Steps:** Managed switch CLI: `show vlan brief`
 - **What to look for:** Staff and warehouse ports in separate VLANs.
 - **From section:** [8. VLANs: several networks on one switch](#vlans-several-networks-on-one-switch)
 

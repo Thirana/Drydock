@@ -1,5 +1,4 @@
-import { SeqDiagram } from "@/components/learn/widgets/seq";
-import { CertSim, DhCalc } from "@/components/learn/widgets/web";
+import { CertSim, DhCalc, SeqDiagram } from "@/components/learn/widgets/lazy";
 import { FigChain } from "@content/learn/fundamentals/figures/25-tls-https";
 
 <Part n="A">Where TLS fits</Part>
@@ -328,6 +327,7 @@ curl -v --tlsv1.3 https://example.com 2>&1 | grep -i -E 'SSL connection|ALPN|sub
 
 <TryIt n={5} title="Every certificate issued for it">
 
+- **Steps:** Search your domain at `crt.sh`
 - **What to look for:** Issuers and dates you recognise, and nothing you do not.
 - **From section:** [16. Certificate Transparency](#certificate-transparency)
 

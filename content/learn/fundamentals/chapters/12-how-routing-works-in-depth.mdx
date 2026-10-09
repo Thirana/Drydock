@@ -1,5 +1,4 @@
-import { Ipv4Dump, Ipv4Header } from "@/components/learn/widgets/headers";
-import { LatCalc, LpmBits, LpmTool, RouteHops } from "@/components/learn/widgets/routing";
+import { Ipv4Dump, Ipv4Header, LatCalc, LpmBits, LpmTool, RouteHops } from "@/components/learn/widgets/lazy";
 import { FigAnycast, FigDynamic, FigPath, FigTtl } from "@content/learn/fundamentals/figures/12-how-routing-works-in-depth";
 
 ## What routing is
@@ -401,6 +400,7 @@ sudo tcpdump -n -v -c 1 -i en0 tcp
 
 <TryIt n={7} title="Anycast in action">
 
+- **Steps:** `traceroute 1.1.1.1`, and ask a friend abroad to run it too
 - **What to look for:** Same destination, different last hops and much shorter RTTs than the distance to any one "home" of 1.1.1.1.
 - **From section:** [15. Anycast: one IP, many places](#anycast-one-ip-many-places)
 

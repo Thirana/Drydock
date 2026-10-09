@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-26T02:29:57+00:00",
+  "generatedAt": "2026-10-09T00:00:00+00:00",
   "title": "Design System: Drydock",
   "extensions": {
     "colorMeta": {
@@ -262,7 +262,7 @@
       "rule-dark": {
         "role": "neutral",
         "displayName": "Hairline (dark)",
-        "canonical": "#3b3b38",
+        "canonical": "#2c2c2a",
         "tonalRamp": [
           "#131312",
           "#1b1b1a",
@@ -470,36 +470,82 @@
         "dark": "#f6c16b",
         "scope": "course drawings and widgets only; meaning set by each course's legend",
         "soft": "color-mix(in oklab, var(--dd-amber) 10%, var(--dd-ground))"
+      },
+      "mark": {
+        "role": "neutral",
+        "displayName": "Highlighter",
+        "canonical": "#fbe98a",
+        "dark": "rgba(250, 219, 95, 0.2)",
+        "scope": "one mark per block: the fact to notice first, search matches, host bits; never a link, never broken"
+      },
+      "mark-ink": {
+        "role": "neutral",
+        "displayName": "Highlighter Ink",
+        "canonical": "#121211",
+        "dark": "#fff3c4",
+        "scope": "one mark per block: the fact to notice first, search matches, host bits; never a link, never broken"
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "The home headline only."
+        "purpose": "The one headline of a landing page: 48/64/76px on home, 52/64/76px on /labs, provider and lab pages."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "The single h1 of a track view or lab page; 38px below 640px."
+        "purpose": "The single h1 of a chapter, course page, /learn, glossary or track view; 38px below 640px."
+      },
+      "headline-prose": {
+        "displayName": "Headline Prose",
+        "purpose": "Prose ## in a track view; 30px below 640px."
       },
       "headline-section": {
         "displayName": "Headline Section",
-        "purpose": "Section intros on landing and index pages; 32px below 640px."
+        "purpose": "Section intros on home, /learn, the lab page and the Harbour walkthrough; 28px below 640px."
+      },
+      "headline-chapter": {
+        "displayName": "Headline Chapter",
+        "purpose": "A chapter's numbered ## sections and the See it broken heading; 26px below 640px."
+      },
+      "title-lg": {
+        "displayName": "Title Large",
+        "purpose": "Pager next chapter, course names in Course Parts, panel and explorer headings; drawing-side headings step to 26-30px, a lab name in the /labs list 36px."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Prose h3 and register phase headings."
+        "purpose": "Prose h3, register phase headings, the glossary's mono letter."
+      },
+      "title-row": {
+        "displayName": "Title Row",
+        "purpose": "The title of a linked or disclosing row; 21px in the learning path, 18px for search results, glossary terms and register titles."
       },
       "lead": {
         "displayName": "Lead",
-        "purpose": "The paragraph under a page title, 40-62ch."
+        "purpose": "The paragraph under a page title, 40-62ch; 19px below 640px, 20px flat on landing pages, 20/22px on home."
       },
       "body": {
         "displayName": "Body",
         "purpose": "Long-form prose, max 68ch."
       },
+      "summary": {
+        "displayName": "Summary",
+        "purpose": "One-paragraph summaries beside a heading: lab and track summaries, argument reasoning, Course Parts rows."
+      },
+      "body-note": {
+        "displayName": "Body Note",
+        "purpose": "Margin notes and row bodies under a title (learning path, glossary sentences)."
+      },
       "body-sm": {
         "displayName": "Body Small",
-        "purpose": "Notes, columns, register explanations, table cells."
+        "purpose": "Column text, register explanations, table cells, pager leads, the Continue line."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Header links, chapter meta, captions, search status, footer; 15.5px for the search excerpt and the New to this? line."
+      },
+      "meta-sm": {
+        "displayName": "Meta Small",
+        "purpose": "The second line of a row: counts, Goes with, Introduced in; 14px for the smallest meta and the scroll note."
       },
       "label": {
         "displayName": "Label",
@@ -507,11 +553,23 @@
       },
       "move": {
         "displayName": "Move",
-        "purpose": "Mono move numerals, defect IDs and severity marks."
+        "purpose": "Mono move numerals, defect IDs and severity marks, 13.5-18px by context."
       },
       "code": {
         "displayName": "Code",
         "purpose": "Command blocks."
+      },
+      "figure-title": {
+        "displayName": "Figure Title",
+        "purpose": "Box titles inside course drawings."
+      },
+      "figure-sub": {
+        "displayName": "Figure Sub-line",
+        "purpose": "Addresses, ports and values inside drawings."
+      },
+      "figure-label": {
+        "displayName": "Figure Label",
+        "purpose": "Words on a wire inside drawings."
       }
     },
     "shadows": [
@@ -556,6 +614,11 @@
         "name": "reduced-motion",
         "value": "0.01ms",
         "purpose": "All animation and transition durations collapse under prefers-reduced-motion."
+      },
+      {
+        "name": "search-scrim",
+        "value": "none",
+        "purpose": "The search dialog opens over a flat 80% ground scrim with no blur and no transition."
       }
     ],
     "breakpoints": [
@@ -614,7 +677,14 @@
         "green": "Allowed traffic and replies",
         "ink": "Networks outside GCP"
       }
-    }
+    },
+    "containerQueries": [
+      {
+        "name": "same-net-stack",
+        "value": "800px",
+        "purpose": "SameNet rows stack below an 800px container width."
+      }
+    ]
   },
   "components": [
     {
@@ -637,9 +707,9 @@
       "name": "Ghost Button",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "A text action in blue; underline on hover.",
+      "description": "A text action in blue; always underlined, solid on hover.",
       "html": "<button class=\"ds-btn-ghost\">Read the register</button>",
-      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;min-height:44px;padding:0;background:none;border:0;color:var(--dd-accent);font-family:var(--font-sans,'Atkinson Hyperlegible Next',sans-serif);font-size:15px;font-weight:600;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:4px;cursor:pointer;transition:text-decoration-color 120ms ease-out}.ds-btn-ghost:hover{text-decoration-color:currentColor}.ds-btn-ghost:focus-visible{outline:2px solid var(--dd-accent);outline-offset:3px;border-radius:2px}"
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;min-height:44px;padding:0;background:none;border:0;color:var(--dd-accent);font-family:var(--font-sans,'Atkinson Hyperlegible Next',sans-serif);font-size:15px;font-weight:600;text-decoration:underline;text-decoration-thickness:1.5px;text-decoration-color:color-mix(in srgb,var(--dd-accent) 55%,transparent);text-underline-offset:4px;cursor:pointer;transition:text-decoration-color 120ms ease-out}.ds-btn-ghost:hover{text-decoration-color:currentColor}.ds-btn-ghost:focus-visible{outline:2px solid var(--dd-accent);outline-offset:3px;border-radius:2px}"
     },
     {
       "name": "Text Choice",
@@ -656,6 +726,30 @@
       "description": "A track's views as one sticky line of numbered moves; the current view is blue.",
       "html": "<nav class=\"ds-strip\" aria-label=\"Track views\"><a class=\"ds-strip-item\" href=\"#\"><span class=\"ds-strip-n\">1.</span>About</a><a class=\"ds-strip-item\" aria-current=\"page\" href=\"#\"><span class=\"ds-strip-n\">2.</span>Map</a><a class=\"ds-strip-item\" href=\"#\"><span class=\"ds-strip-n\">3.</span>Journeys</a><a class=\"ds-strip-item\" href=\"#\"><span class=\"ds-strip-n\">4.</span>Defects</a></nav>",
       "css": ".ds-strip{display:flex;gap:24px;padding:0 20px;background:color-mix(in srgb,var(--dd-ground) 95%,transparent);backdrop-filter:blur(4px);border-bottom:1px solid var(--dd-rule);font-family:var(--font-sans,'Atkinson Hyperlegible Next',sans-serif)}.ds-strip-item{display:flex;align-items:center;gap:6px;min-height:48px;font-size:15px;color:var(--dd-ink-muted);text-decoration:none;border-bottom:2px solid transparent;transition:color 150ms}.ds-strip-item:hover{color:var(--dd-ink)}.ds-strip-item[aria-current=page]{color:var(--dd-accent);font-weight:700;border-bottom-color:var(--dd-accent)}.ds-strip-n{font-family:var(--font-mono,'Atkinson Hyperlegible Mono',monospace);font-size:13px}.ds-strip-item:focus-visible{outline:2px solid var(--dd-accent);outline-offset:3px}"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Muted section links; the current one ink with a 2px blue underline; one blue call to action.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link\" aria-current=\"true\" href=\"#\">Fundamentals</a><a class=\"ds-nav-link\" href=\"#\">GCP</a><a class=\"ds-nav-link\" href=\"#\">Labs</a><a class=\"ds-nav-cta\" href=\"#\">Start learning <svg width=\"12\" height=\"12\" viewBox=\"0 0 14 14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"M2 7h10M8 3l4 4-4 4\"/></svg></a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:28px;min-height:64px;border-bottom:1px solid var(--dd-rule);font-family:var(--font-sans,'Atkinson Hyperlegible Next',sans-serif)}.ds-nav-link{font-size:15px;color:var(--dd-ink-muted);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:7px;text-decoration-color:transparent;transition:color 150ms}.ds-nav-link:hover{color:var(--dd-ink)}.ds-nav-link[aria-current]{color:var(--dd-ink);font-weight:600;text-decoration-color:var(--dd-accent)}.ds-nav-cta{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;color:var(--dd-accent);text-decoration:none}.ds-nav a:focus-visible{outline:2px solid var(--dd-accent);outline-offset:3px;border-radius:2px}"
+    },
+    {
+      "name": "Learning Path",
+      "kind": "custom",
+      "refersTo": "path-move-title",
+      "description": "The guide in order as three numbered moves on one hairline; a ruled list below 1024px.",
+      "html": "<ol class=\"ds-path\"><li><a href=\"#\"><span class=\"ds-path-n\">1.</span><span class=\"ds-path-t\">Networking fundamentals</span><span class=\"ds-path-b\">From a fetch() call to bytes on the wire, and beyond.</span><span class=\"ds-path-m\">34 chapters · 4.5 hours of reading</span></a></li><li><a href=\"#\"><span class=\"ds-path-n\">2.</span><span class=\"ds-path-t\">Networking on GCP</span><span class=\"ds-path-b\">Kadé's network, from inside the Google Cloud project.</span><span class=\"ds-path-m\">23 chapters · 4 hours of reading</span></a></li><li><a href=\"#\"><span class=\"ds-path-n\">3.</span><span class=\"ds-path-t\">Fix a broken platform: Harbour</span><span class=\"ds-path-b\">A fictional marketplace platform, built deliberately wrong.</span><span class=\"ds-path-m\">17 defects · fixed in 6 phases</span></a></li></ol>",
+      "css": ".ds-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 40px;margin:0;padding:0;list-style:none;border-top:1px solid var(--dd-rule);font-family:var(--font-sans,'Atkinson Hyperlegible Next',sans-serif)}.ds-path a{display:block;padding:20px 0 24px;text-decoration:none}.ds-path-n{display:block;font-family:var(--font-mono,'Atkinson Hyperlegible Mono',monospace);font-size:17px;font-weight:700;color:var(--dd-ink-faint);transition:color 150ms}.ds-path a:hover .ds-path-n{color:var(--dd-accent)}.ds-path-t{display:inline;margin-top:12px;font-size:21px;line-height:1.3;font-weight:700;color:var(--dd-accent);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,var(--dd-accent) 40%,transparent)}.ds-path a:hover .ds-path-t{text-decoration-color:currentColor}.ds-path-b{display:block;margin-top:8px;max-width:46ch;font-size:16.5px;line-height:1.55;color:var(--dd-ink-body)}.ds-path-m{display:block;margin-top:8px;font-size:14.5px;color:var(--dd-ink-muted)}.ds-path a:focus-visible{outline:2px solid var(--dd-accent);outline-offset:3px;border-radius:2px}"
+    },
+    {
+      "name": "Search Result",
+      "kind": "custom",
+      "refersTo": "search-input",
+      "description": "Search as a ruled list: blue title, muted location, excerpt with matches on the highlighter, section links.",
+      "html": "<div class=\"ds-search\"><label class=\"ds-search-row\"><input class=\"ds-search-in\" type=\"search\" value=\"subnet mask\" aria-label=\"Search\"></label><p class=\"ds-search-st\">Top matches for “subnet mask”. Enter opens the first.</p><ol class=\"ds-search-list\"><li><a class=\"ds-search-t\" href=\"#\">Subnet masks</a><p class=\"ds-search-w\">Fundamentals 4 · Addressing and local delivery</p><p class=\"ds-search-x\">The <mark>subnet</mark> <mark>mask</mark> is the tool that makes this decision.</p></li></ol></div>",
+      "css": ".ds-search{max-width:760px;border:1px solid var(--dd-rule);border-radius:2px;background:var(--dd-ground);font-family:var(--font-sans,'Atkinson Hyperlegible Next',sans-serif)}.ds-search-row{display:flex;min-height:56px;align-items:center;padding:0 20px;border-bottom:1px solid var(--dd-rule)}.ds-search-row:focus-within{border-bottom-color:var(--dd-accent)}.ds-search-in{flex:1;border:0;background:transparent;font:inherit;font-size:18px;color:var(--dd-ink);outline:none}.ds-search-st{margin:0;padding:16px 20px 0;font-size:15px;color:var(--dd-ink-muted)}.ds-search-list{margin:16px 20px 24px;padding:0;list-style:none;border-top:1px solid var(--dd-rule)}.ds-search-list li{padding:16px 0;border-bottom:1px solid var(--dd-rule)}.ds-search-t{font-size:18px;line-height:1.35;font-weight:700;color:var(--dd-accent);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,var(--dd-accent) 40%,transparent)}.ds-search-t:hover{text-decoration-color:currentColor}.ds-search-w{margin:4px 0 0;font-size:14px;color:var(--dd-ink-muted)}.ds-search-x{margin:6px 0 0;font-size:15.5px;line-height:1.55;color:var(--dd-ink-body)}.ds-search-x mark{background:var(--dd-mark);color:var(--dd-mark-ink);padding:0 2px}"
     },
     {
       "name": "The Score",

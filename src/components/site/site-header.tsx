@@ -15,10 +15,13 @@ interface SiteHeaderProps {
   cta?: NavLink;
 }
 
-const within = (pathname: string, link: NavLink) =>
-  (link.match ?? [link.href]).some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
+const within = (pathname: string, link: NavLink) => {
+  // Some static hosts serve "/labs" as "/labs.html".
+  const path = pathname.replace(/\.html$/, "");
+  return (link.match ?? [link.href]).some(
+    (p) => path === p || path.startsWith(`${p}/`),
   );
+};
 
 /** A quiet top bar: the name, a few plain links, the lamp. */
 export function SiteHeader({ links, cta }: SiteHeaderProps) {
