@@ -6,6 +6,7 @@ import { useEffect, useId, useState } from "react";
 import { IconArrowRight, IconMenu, IconX } from "@/components/ui/icons";
 import { LogoLockup } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Search } from "./search";
 import type { NavLink } from "@/lib/content/nav";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +84,7 @@ export function SiteHeader({ links, cta }: SiteHeaderProps) {
               </li>
             )}
           </ul>
+          <Search className="text-ink-muted hover:text-ink" />
           <ThemeToggle className="text-ink-muted hover:text-ink" />
           <button
             type="button"

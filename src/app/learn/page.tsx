@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CourseParts, LearningPath } from "@/components/learn/path";
+import { glossaryHref } from "@/lib/content/learn";
 
 export const metadata: Metadata = {
   title: "Learn",
@@ -30,6 +32,14 @@ export default function LearnPage() {
           What the courses cover
         </h2>
         <CourseParts />
+        <p className="text-ink-muted mt-10 text-[16px]">
+          Looking for one word? The{" "}
+          <Link href={glossaryHref} className="dd-link">
+            glossary
+          </Link>{" "}
+          lists every term the courses define, with the chapter that introduces
+          it.
+        </p>
       </section>
     </main>
   );

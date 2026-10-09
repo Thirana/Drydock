@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { architectureMdxComponents } from "@/components/architecture/mdx-components";
 import { ViewGuide, ViewGuideItem } from "@/components/layout/view-guide";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
+import { SearchMeta } from "@/components/site/search-meta";
 import { lessonsByDefect } from "@/lib/content/crosslinks";
 import { courseHref, getCourse } from "@/lib/content/learn";
 import { viewHref, type TrackContext } from "@/lib/content/registry";
@@ -90,7 +91,14 @@ export function TrackView({
         </div>
       </header>
 
-      <article className="gl-prose relative mx-auto w-full max-w-[1200px] flex-1 px-5 pt-10 pb-20 sm:px-8 sm:pt-14">
+      <article
+        data-pagefind-body
+        className="gl-prose relative mx-auto w-full max-w-[1200px] flex-1 px-5 pt-10 pb-20 sm:px-8 sm:pt-14"
+      >
+        <SearchMeta
+          title={isIndex ? ctx.track.heading : view.title}
+          where={`${ctx.lab.title} · ${ctx.track.title}`}
+        />
         <Content components={components} />
       </article>
 

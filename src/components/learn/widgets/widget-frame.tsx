@@ -20,6 +20,7 @@ export function WidgetFrame({
   return (
     <figure
       aria-label={label}
+      data-pagefind-ignore
       className={cn("not-prose my-10", !wide && "max-w-[760px]", className)}
     >
       <div className="border-rule bg-ground overflow-x-auto rounded-[2px] border p-4 sm:p-6">

@@ -11,7 +11,7 @@ export function DiagramFrame({
   children: ReactNode;
 }) {
   return (
-    <figure>
+    <figure data-pagefind-ignore>
       <figcaption className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 pb-3">
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-3">
           <span className="text-ink text-[16px] font-bold">{title}</span>

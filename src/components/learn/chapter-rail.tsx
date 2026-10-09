@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { IconMenu, IconX } from "@/components/ui/icons";
+import { IconCheck, IconMenu, IconX } from "@/components/ui/icons";
+import { recordVisit, useProgress } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 
 export interface RailChapter {
   num: string;
+  slug: string;
   title: string;
   /** Missing while the chapter is not published yet. */
   href?: string;
@@ -129,12 +131,15 @@ function RailNav({
   parts,
   sections,
   active,
+  opened,
   onNavigate,
 }: {
   course: { title: string; href: string };
   parts: RailPart[];
   sections: Section[];
   active?: string;
+  /** Chapters this reader has opened before, by slug. */
+  opened: ReadonlySet<string>;
   onNavigate?: () => void;
 }) {
   return (
@@ -172,7 +177,18 @@ function RailNav({
                     >
                       {ch.num}.
                     </span>
-                    <span>{ch.title}</span>
+                    <span>
+                      {ch.title}
+                      {!ch.current && opened.has(ch.slug) && (
+                        <>
+                          <IconCheck
+                            size={10}
+                            className="text-ink-faint ml-1.5 inline align-baseline"
+                          />
+                          <span className="sr-only"> (opened)</span>
+                        </>
+                      )}
+                    </span>
                   </Link>
                 ) : (
                   <span className="text-ink-faint grid grid-cols-[42px_minmax(0,1fr)] gap-x-1 py-[5px] text-[14.5px] leading-[1.35]">
@@ -209,11 +225,18 @@ export function ChapterRail({
   parts,
   current,
 }: {
-  course: { title: string; href: string };
+  course: { slug: string; title: string; href: string };
   parts: RailPart[];
-  current: { num: string; title: string };
+  current: { num: string; slug: string; title: string };
 }) {
   const { sections, active } = useSections();
+  const progress = useProgress();
+  const seen = progress?.[course.slug]?.opened;
+  const opened = new Set(Array.isArray(seen) ? seen : []);
+
+  useEffect(() => {
+    recordVisit(course.slug, current.slug);
+  }, [course.slug, current.slug]);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const activeSection = sections.find((s) => s.id === active);
@@ -238,6 +261,7 @@ export function ChapterRail({
           parts={parts}
           sections={sections}
           active={active}
+          opened={opened}
         />
       </aside>
 
@@ -286,6 +310,7 @@ export function ChapterRail({
             parts={parts}
             sections={sections}
             active={active}
+            opened={opened}
             onNavigate={close}
           />
         </div>

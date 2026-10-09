@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { ChapterList } from "@/components/learn/chapter-list";
+import { ContinueReading } from "@/components/learn/continue-reading";
 import { ButtonLink } from "@/components/ui/button";
 import { IconArrow } from "@/components/ui/icons";
 import {
   chapterHref,
   courses,
   getCourse,
+  glossaryHref,
   isPublished,
 } from "@/lib/content/learn";
 
@@ -42,7 +45,11 @@ export default async function CoursePage({
         </p>
         <p className="text-ink-muted mt-4 text-[15px]">
           {numbered} chapters in {course.parts.length - 1} parts, after the Kadé
-          reference.
+          reference. Terms are collected in the{" "}
+          <Link href={glossaryHref} className="dd-link">
+            glossary
+          </Link>
+          .
         </p>
         {first && (
           <ButtonLink
@@ -54,6 +61,15 @@ export default async function CoursePage({
             Start with {first.num}. {first.title}
           </ButtonLink>
         )}
+        <ContinueReading
+          course={course.slug}
+          chapters={course.chapters.filter(isPublished).map((c) => ({
+            slug: c.slug,
+            num: c.num,
+            title: c.title,
+            href: chapterHref({ course, chapter: c }),
+          }))}
+        />
       </header>
       <div className="mt-16 max-w-[860px]">
         <ChapterList course={course} />

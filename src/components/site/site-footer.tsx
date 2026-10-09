@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { LogoLockup } from "@/components/ui/logo";
 import { site } from "@/config/site";
-import { courseHref, courses, learnHref } from "@/lib/content/learn";
+import {
+  courseHref,
+  courses,
+  glossaryHref,
+  learnHref,
+} from "@/lib/content/learn";
 import {
   allLabs,
   allTracks,
@@ -17,6 +22,7 @@ export function SiteFooter() {
       links: [
         { href: learnHref, label: "The learning path" },
         ...courses.map((c) => ({ href: courseHref(c), label: c.title })),
+        { href: glossaryHref, label: "Glossary" },
       ],
     },
     {

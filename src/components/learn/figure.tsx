@@ -32,7 +32,10 @@ export function Figure({
     return label ? [{ hue: h, label }] : [];
   });
   return (
-    <figure className={cn("not-prose my-10", !wide && "max-w-[760px]")}>
+    <figure
+      data-pagefind-ignore
+      className={cn("not-prose my-10", !wide && "max-w-[760px]")}
+    >
       <div className="dd-fig border-rule bg-ground overflow-x-auto rounded-[2px] border p-4 sm:p-5">
         {drawing}
       </div>

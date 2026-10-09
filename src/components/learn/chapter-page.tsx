@@ -12,6 +12,7 @@ import {
 import { allLabs, labHref } from "@/lib/content/registry";
 import { ChapterRail, type RailPart } from "./chapter-rail";
 import { chapterMdxComponents } from "./mdx";
+import { SearchMeta } from "@/components/site/search-meta";
 import { SeeItBroken } from "./see-it-broken";
 
 /** One chapter: the course rail, the title and lead, the text, and the moves either side. */
@@ -35,6 +36,7 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
       .filter((c) => c.part === p.id)
       .map((c) => ({
         num: c.num,
+        slug: c.slug,
         title: c.title,
         href: isPublished(c) ? chapterHref({ course, chapter: c }) : undefined,
         current: c === chapter,
@@ -48,9 +50,17 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
   return (
     <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-8 lg:grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-x-24">
       <ChapterRail
-        course={{ title: course.title, href: courseHref(course) }}
+        course={{
+          slug: course.slug,
+          title: course.title,
+          href: courseHref(course),
+        }}
         parts={parts}
-        current={{ num: chapter.num, title: chapter.title }}
+        current={{
+          num: chapter.num,
+          slug: chapter.slug,
+          title: chapter.title,
+        }}
       />
 
       <main className="min-w-0 pt-10 pb-20 sm:pt-14">
@@ -64,7 +74,17 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
           <p className="text-ink-muted mt-5 text-[15px]">{meta.join(" · ")}</p>
         </header>
 
-        <article data-chapter className="gl-prose dd-chapter pt-6">
+        <article
+          data-chapter
+          data-pagefind-body
+          className="gl-prose dd-chapter pt-6"
+        >
+          <SearchMeta
+            title={chapter.title}
+            where={[`${course.short} ${chapter.num}`, part?.title]
+              .filter(Boolean)
+              .join(" · ")}
+          />
           <Content components={chapterMdxComponents(course)} />
         </article>
 

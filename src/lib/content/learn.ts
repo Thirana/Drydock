@@ -53,6 +53,8 @@ export function chapterByNum(
 
 export const learnHref = "/learn";
 
+export const glossaryHref = "/learn/glossary";
+
 export function courseHref(course: Course) {
   return `/learn/${course.slug}`;
 }
