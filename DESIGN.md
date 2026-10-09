@@ -1,6 +1,6 @@
 ---
 name: Drydock
-description: Deliberately broken cloud architectures, and how to fix them step by step.
+description: Learn how networks work. Then fix one that doesn’t.
 colors:
   ground: "#fbfbfa"
   sunk: "#f1f1ef"
@@ -314,14 +314,16 @@ Plain and few: one solid ink action, an outlined companion, a text link.
 - **Internal Padding:** 16px row padding; commands 14px by 16-20px, wrapping with a 2ch hanging indent.
 
 ### Navigation
-- **Top bar:** 64px tall, hairline below; the "Drydock?!" wordmark left, muted 15px links that go to ink on hover, one blue call to action with an arrow, the theme toggle.
+- **Top bar:** 64px tall, hairline below; the "Drydock?!" wordmark left, then Fundamentals · GCP · Labs as muted 15px links that go to ink on hover. The section you are in is ink and semibold with a 2px blue underline offset 7px (in the mobile menu, a 3px blue bar before it); Labs also counts provider and lab pages. Then one blue call to action with an arrow - "Start learning", to fundamentals chapter 1, left off inside the courses - and the theme toggle.
+- **The learning path:** the score at the scale of the whole site - three numbered moves (Networking fundamentals, Networking on GCP, Fix a broken platform: Harbour), each a mono faint numeral, a blue underlined title, the summary and one muted meta line of real counts. A row of three on one top hairline from 1024px, a ruled list below. On the home page under the hero, and on `/learn`.
+- **Course parts:** both courses side by side, each under an ink rule with its numeral, its parts as ruled rows (part title, then "chapters 1-10" muted with mono numbers) linking to that part on the course page.
 - **View strip:** sticky, hairline below, ground at 95% with blur. Views are written as numbered moves ("1. About", "2. Map") in 15px with a 13px mono numeral; the current view is blue, bold, with a 2px blue underline; others are muted and go to ink on hover.
 
 ### The Score (signature)
 The remediation sequence as a notation line. A hairline carries equal moves; each move is a mono numeral (faint, blue when current) and its name (muted when unplayed, ink when played, blue bold when current). The defects each move closes sit beneath in mono 13.5px: open critical/high in bold red with their mark, open medium/low in bold ink, closed ones faint and struck through. A 3px blue marker slides along the top rule to the current move over 500ms (`cubic-bezier(0.16, 1, 0.3, 1)`); the strike line draws left to right in 380ms as its move is played. Arrow keys step the moves. A live count reads "N of M defects open" with N in red.
 
 ### Defect Register (signature)
-Defects grouped by phase under a heading with a faint mono numeral, a 22px title and an ink rule. Each row is a disclosure on a three-column grid: a 56px gutter holding the red mono ID, the 18px semibold title with its severity mark and word, and a chevron that turns blue when open. Rows are separated by hairlines and wash to sunk ground on hover. Opened, a row reads symptom, explanation, concept, then a Now/Fixed pair split by a hairline, and the detect and fix commands.
+Defects grouped by phase under a heading with a faint mono numeral, a 22px title and an ink rule. Each row is a disclosure on a three-column grid: a 56px gutter holding the red mono ID, the 18px semibold title with its severity mark and word, and a chevron that turns blue when open. Rows are separated by hairlines and wash to sunk ground on hover. Opened, a row reads symptom, explanation, concept, "Learn it" (the course sections that teach the defect, as blue links with "GCP 5.1" muted after), then a Now/Fixed pair split by a hairline, and the detect and fix commands.
 
 ### Margin Mark (signature)
 The author's asides and positions (Note, Argument) sit on a 28px gutter holding a bold mono "!?" in ink - the annotator's "interesting move". Notes are 16.5px body; arguments add a 20px bold claim above 17px reasoning and a top hairline.
@@ -342,6 +344,8 @@ Text never crosses a box edge (`src/lib/architecture/text-fit.ts`). A box's sub-
 - **Numbered sections:** every `##` takes a move numeral from a CSS counter - mono, faint, hanging in the gutter from 1024px, inline before it below. Summary, Try it yourself and Commands in this chapter are unnumbered recaps.
 - **Asides on the gutter:** a key idea under "!", a note under "!?", the GCP blocks under their own mark - the problem "?" in red, the fix "!", a read-only gcloud check "$"; console, cost and exam blocks carry no mark. Each starts with a hairline and a bold title; its body is indented by the gutter, which is what shows where it ends.
 - **Builds on:** a muted line under a heading linking the fundamentals chapters a section relies on.
+- **See it broken:** after the text, before the pager, chapters that a lab defect points at list those defects - a hairline above a 26-30px heading, one sentence naming the lab, then ruled rows: the red mono ID in a 56px gutter, the defect title as a blue link into the register, its severity mark and word with "closes in phase N", and "Goes with" links to the sections it ties to. The links are written once, on the defect (`learn` in the lab model), and read both ways.
+- **Pager past the end:** after the last chapter of the last course, the next move is the first lab.
 - **Try it yourself / Commands in this chapter:** one item per command, numbered in the gutter like the sections: a bold title (what it shows), plain bullets (steps when there is more than one command or none, what to look for, where it runs, the section it goes with), then the command in a Command Block. Never a table.
 - **Commands and output:** commands use the Command Block; printed output sits in a hairline frame on the page ground, mono 13px body ink, so the two never look alike.
 - **Widgets:** a hairline frame with 24px inside, inputs 44px tall in mono with a strong-hairline border (red with a plain sentence when the value cannot be used), results in an `aria-live` region, outcomes as one ink sentence. Bit cells: teal-soft for network bits, highlighter for host bits, ink 1s and muted 0s.

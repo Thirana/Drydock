@@ -12,7 +12,7 @@ import type {
   Severity,
   Side,
 } from "@/lib/architecture/types";
-import { allTracks, trackHref, viewHref } from "./registry";
+import { allTracks, labHref, trackHref, viewHref } from "./registry";
 import { trackStats, type TrackStats } from "./stats";
 import type { IconName } from "./types";
 
@@ -50,6 +50,8 @@ export interface FeaturedTrack {
   lab: string;
   track: string;
   href: string;
+  /** The lab's own page, where the long walkthrough lives. */
+  labHref: string;
   mapHref: string;
   defectsHref: string;
   totals: TrackStats;
@@ -184,6 +186,7 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
     lab: ctx.lab.title,
     track: ctx.track.title,
     href: trackHref(ctx),
+    labHref: labHref(ctx),
     mapHref: hrefFor("map"),
     defectsHref: hrefFor("defects"),
     totals,

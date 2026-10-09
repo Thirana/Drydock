@@ -1,23 +1,33 @@
 import Link from "next/link";
 import { LogoLockup } from "@/components/ui/logo";
 import { site } from "@/config/site";
+import { courseHref, courses, learnHref } from "@/lib/content/learn";
 import {
   allLabs,
   allTracks,
   labHref,
-  providerHref,
-  providers,
+  labsHref,
   trackHref,
 } from "@/lib/content/registry";
 
 export function SiteFooter() {
   const columns = [
     {
+      title: "Learn",
+      links: [
+        { href: learnHref, label: "The learning path" },
+        ...courses.map((c) => ({ href: courseHref(c), label: c.title })),
+      ],
+    },
+    {
       title: "Labs",
-      links: allLabs().map((ctx) => ({
-        href: labHref(ctx),
-        label: ctx.lab.title,
-      })),
+      links: [
+        { href: labsHref, label: "All labs" },
+        ...allLabs().map((ctx) => ({
+          href: labHref(ctx),
+          label: ctx.lab.title,
+        })),
+      ],
     },
     {
       title: "Tracks",
@@ -25,10 +35,6 @@ export function SiteFooter() {
         href: trackHref(ctx),
         label: `${ctx.lab.title} · ${ctx.track.title}`,
       })),
-    },
-    {
-      title: "Providers",
-      links: providers.map((p) => ({ href: providerHref(p), label: p.name })),
     },
   ];
 
@@ -38,7 +44,7 @@ export function SiteFooter() {
         <div className="col-span-2 sm:col-span-1">
           <LogoLockup />
           <p className="text-ink-muted mt-3 max-w-[280px] text-[15px] leading-[1.55]">
-            {site.description}
+            {site.tagline}
           </p>
           <p className="text-ink-faint mt-5 text-[14px]">
             © {new Date().getFullYear()} {site.name}

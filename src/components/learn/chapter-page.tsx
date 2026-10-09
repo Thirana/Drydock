@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
+import { practiceFor } from "@/lib/content/crosslinks";
 import {
   chapterHref,
   chapterPosition,
@@ -8,8 +9,10 @@ import {
   neighbours,
   type ChapterContext,
 } from "@/lib/content/learn";
+import { allLabs, labHref } from "@/lib/content/registry";
 import { ChapterRail, type RailPart } from "./chapter-rail";
 import { chapterMdxComponents } from "./mdx";
+import { SeeItBroken } from "./see-it-broken";
 
 /** One chapter: the course rail, the title and lead, the text, and the moves either side. */
 export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
@@ -39,6 +42,8 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
   }));
 
   const { prev, next } = neighbours(ctx);
+  // After the last chapter, the path continues into the first lab.
+  const lab = next ? undefined : allLabs()[0];
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-8 lg:grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-x-24">
@@ -62,6 +67,8 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
         <article data-chapter className="gl-prose dd-chapter pt-6">
           <Content components={chapterMdxComponents(course)} />
         </article>
+
+        <SeeItBroken labs={practiceFor(ctx)} />
 
         <nav
           aria-label="Chapters"
@@ -113,6 +120,26 @@ export function ChapterPage({ ctx }: { ctx: ChapterContext }) {
               </span>
               <span className="text-ink-body max-w-[48ch] text-[16px] leading-[1.55] text-pretty">
                 {next.chapter.lead}
+              </span>
+            </Link>
+          ) : lab ? (
+            <Link
+              href={labHref(lab)}
+              className="group flex flex-col gap-1.5 sm:items-end sm:text-right"
+            >
+              <span className="text-ink-muted text-[15px]">
+                Next: fix a broken platform
+              </span>
+              <span className="dd-head text-accent inline-flex items-baseline gap-3 text-[26px]">
+                {lab.lab.title}
+                <IconArrowRight
+                  size={12}
+                  className="size-4 self-center transition-transform duration-200 group-hover:translate-x-1"
+                />
+              </span>
+              <span className="text-ink-body max-w-[48ch] text-[16px] leading-[1.55] text-pretty">
+                {lab.lab.summary}
+                {lab.lab.disclaimer && <> {lab.lab.disclaimer}</>}
               </span>
             </Link>
           ) : (

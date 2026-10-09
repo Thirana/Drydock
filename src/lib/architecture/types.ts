@@ -129,6 +129,13 @@ export interface ComponentSheet {
   facts: Fact[];
 }
 
+/** A place in a course: a chapter by slug, and optionally one of its `##` sections by its heading. */
+export interface ChapterRef {
+  course: string;
+  chapter: string;
+  section?: string;
+}
+
 export interface Defect {
   id: string;
   title: string;
@@ -137,6 +144,8 @@ export interface Defect {
   phase: number;
   severity: Severity;
   blockedBy: string[];
+  /** Course sections that teach what this defect gets wrong, the main one first. */
+  learn?: ChapterRef[];
   symptom: string;
   explanation: string;
   concept: string;

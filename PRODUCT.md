@@ -49,11 +49,11 @@ Inside a lab, the order of the fixes is the argument. Drydock does not stop at a
 - **Scope:** the fundamentals course is provider-neutral, with its cloud examples on Google Cloud. The GCP course and the labs are Google Cloud only. Planned growth is more tracks for Harbour (e.g. IAM) and possibly more GCP labs; other providers are not planned.
 - **Not a template:** Kadé and Harbour are fictional. Neither is a production template, a best-practice reference, or an audit of any real system. Names, addresses and identifiers are invented; public addresses use documentation ranges.
 - **Terminology:** course, part, chapter, section, figure (a static drawing), widget (an interactive figure), Kadé; provider, lab, track, view; defect (IDs like D1, D3a), severity (critical, high, medium, low), phase, "as found", phase rail, packet journey, hop, defect register, remediation sequence.
-- **Open fact:** the About page says "Fifteen problems" while the Harbour network model currently registers 17 defects (D3 is split into D3a and D3b, among others). Reconcile before copy work repeats either number.
+- Harbour has 17 defects (D3 is split into D3a and D3b); the About page and the home page say so.
 
 ## Brand Commitments
 
-- Name: **Drydock**. Tagline: "Learn how networks work. Then fix one that doesn’t." (adopted 2026-10-05; `src/config/site.ts` switches to it when the courses ship). The previous tagline, "Deliberately broken cloud architectures, and how to fix them step by step.", now describes the labs.
+- Name: **Drydock**. Tagline: "Learn how networks work. Then fix one that doesn’t." (adopted 2026-10-05; in `src/config/site.ts` since the courses shipped). The previous tagline, "Deliberately broken cloud architectures, and how to fix them step by step.", now describes the labs.
 - Lab disclaimer: "Harbour is fictional. The shape is real."
 - Course story: Kadé, a small online grocery shop in Colombo. The reader is its backend engineer.
 - Voice: one author with opinions - first person in the site's own pages and the labs, including disagreeing with textbook answers where a given system warrants it; second person ("you") inside the courses, where the reader plays Kadé's engineer.

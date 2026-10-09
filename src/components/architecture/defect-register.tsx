@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { SegmentedControl } from "@/components/ui/controls";
 import { IconCheck, IconChevronDown } from "@/components/ui/icons";
 import {
@@ -21,6 +22,7 @@ import type {
 } from "@/lib/architecture/types";
 import { cn } from "@/lib/utils";
 import { keyFlags } from "@/lib/architecture/key-flags";
+import type { Lesson } from "@/lib/content/crosslinks";
 import { CommandBlock } from "./command-block";
 import { DEFECT_CHIP } from "./defect-link";
 import { SeverityBadge } from "./severity-badge";
@@ -34,7 +36,14 @@ const matches = (d: Defect, phase: PhaseFilter, severity: SeverityFilter) =>
   (phase === "all" || phase === String(d.phase)) &&
   (severity === "all" || severity === d.severity);
 
-export function DefectRegister({ model }: { model: ArchitectureModel }) {
+export function DefectRegister({
+  model,
+  lessons = {},
+}: {
+  model: ArchitectureModel;
+  /** Course sections that teach each defect, by defect ID. */
+  lessons?: Record<string, Lesson[]>;
+}) {
   const sorted = useMemo(
     () => [...model.defects].sort(byPhaseThenSeverity),
     [model],
@@ -184,6 +193,7 @@ export function DefectRegister({ model }: { model: ArchitectureModel }) {
                   defect={d}
                   model={model}
                   byId={byId}
+                  lessons={lessons[d.id] ?? []}
                   open={open.has(d.id)}
                   onToggle={(isOpen) =>
                     setOpen((current) => {
@@ -209,6 +219,7 @@ function Entry({
   defect: d,
   model,
   byId,
+  lessons,
   open,
   onToggle,
   chip,
@@ -216,6 +227,7 @@ function Entry({
   defect: Defect;
   model: ArchitectureModel;
   byId: Map<string, Defect>;
+  lessons: Lesson[];
   open: boolean;
   onToggle: (open: boolean) => void;
   chip: (d: Defect) => ReactNode;
@@ -275,6 +287,22 @@ function Entry({
               {d.concept}
             </p>
           </div>
+
+          {lessons.length > 0 && (
+            <div className="border-rule grid gap-x-5 gap-y-1 border-t pt-4 sm:grid-cols-[80px_minmax(0,1fr)]">
+              <p className="dd-label text-ink">Learn it</p>
+              <ul className="space-y-1.5 text-[16px] leading-[1.5]">
+                {lessons.map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="dd-link">
+                      {l.section ?? l.chapter}
+                    </Link>
+                    <span className="text-ink-muted"> · {l.where}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {(blockers.length > 0 || blocks.length > 0) && (
             <div className="border-rule grid gap-x-10 gap-y-4 border-t pt-4 sm:grid-cols-2">

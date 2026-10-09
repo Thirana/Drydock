@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { architectureMdxComponents } from "@/components/architecture/mdx-components";
 import { ViewGuide, ViewGuideItem } from "@/components/layout/view-guide";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
+import { lessonsByDefect } from "@/lib/content/crosslinks";
+import { courseHref, getCourse } from "@/lib/content/learn";
 import { viewHref, type TrackContext } from "@/lib/content/registry";
 import type { TrackView as TrackViewData } from "@/lib/content/types";
 
@@ -20,9 +22,11 @@ export function TrackView({
   const isIndex = index === 0;
   const components: MDXComponents = {
     ...(ctx.track.architecture &&
-      architectureMdxComponents(ctx.track.architecture, {
-        defects: viewHref(ctx, "defects"),
-      })),
+      architectureMdxComponents(
+        ctx.track.architecture,
+        { defects: viewHref(ctx, "defects") },
+        lessonsByDefect(ctx.track.architecture.defects),
+      )),
     ViewGuide,
     ViewGuideItem: ({
       view: slug,
@@ -46,6 +50,8 @@ export function TrackView({
     },
   };
   const { Content } = view;
+  // A provider's labs are taught by the course of the same name.
+  const course = getCourse(ctx.provider.slug);
 
   return (
     <main className="relative flex min-w-0 flex-1 flex-col">
@@ -57,6 +63,15 @@ export function TrackView({
           <p className="text-ink-body mt-4 text-[19px] leading-[1.55] text-pretty sm:text-[20px]">
             {isIndex ? ctx.track.summary : (view.lead ?? view.description)}
           </p>
+          {course && (
+            <p className="text-ink-muted mt-3 text-[15.5px] leading-[1.5]">
+              New to this? Learn it first in{" "}
+              <Link href={courseHref(course)} className="dd-link">
+                {course.title}
+              </Link>
+              .
+            </p>
+          )}
           {isIndex && (
             <dl className="border-rule mt-8 border-t">
               {ctx.track.meta.map((m) => (

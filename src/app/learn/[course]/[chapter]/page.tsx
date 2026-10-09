@@ -29,9 +29,11 @@ export async function generateMetadata({
 }: PageProps<"/learn/[course]/[chapter]">): Promise<Metadata> {
   const ctx = await resolve(params);
   if (!ctx) return {};
+  const title = `${ctx.chapter.title} · ${ctx.course.title}`;
   return {
-    title: `${ctx.chapter.title} · ${ctx.course.title}`,
+    title,
     description: ctx.chapter.lead,
+    openGraph: { title, description: ctx.chapter.lead, type: "article" },
   };
 }
 

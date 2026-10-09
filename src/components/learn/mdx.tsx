@@ -27,6 +27,7 @@ import {
 } from "./blocks";
 import { Caption, Note } from "@/components/mdx/primitives";
 import { IconCheck, IconX } from "@/components/ui/icons";
+import { headingId } from "@/lib/content/heading-id";
 import { chapterByNum, chapterHref, isPublished } from "@/lib/content/learn";
 import type { Course, Hue } from "@/lib/content/types";
 import { cn } from "@/lib/utils";
@@ -56,10 +57,7 @@ function textOf(node: ReactNode): string {
 }
 
 function slugOf(node: ReactNode) {
-  return textOf(node)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+  return headingId(textOf(node));
 }
 
 /** A section heading. Numbered ones take their move numeral from a CSS counter. */
