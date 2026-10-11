@@ -196,7 +196,7 @@ export function LeaseSim({ wide }: { wide?: boolean }) {
           {r.ev.map((e, i) => (
             <g key={i}>
               <line x1={X(e.t)} y1="44" x2={X(e.t)} y2="86" style={{ stroke: e.k === "ok" ? "var(--dd-ink)" : "var(--dd-fault)", strokeWidth: 2 }} />
-              <text className="mid" x={X(e.t)} y="100" style={{ fill: e.k === "ok" ? "var(--dd-ink)" : "var(--dd-fault)", fontSize: 13 }}>
+              <text className="mid" x={X(e.t)} y="100" style={{ fill: e.k === "ok" ? "var(--dd-ink)" : "var(--dd-fault)", fontSize: 15 }}>
                 {e.k === "ok" ? "✓" : "✕"}
               </text>
             </g>

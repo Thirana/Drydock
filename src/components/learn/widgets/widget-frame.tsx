@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { ExpandDrawing } from "../expand-drawing";
+import { FitText } from "../fit-text";
 import { ScrollX } from "../scroll-x";
 
 /**
@@ -27,6 +29,8 @@ export function WidgetFrame({
       <ScrollX className="border-rule bg-ground rounded-[2px] border p-4 sm:p-6">
         {children}
       </ScrollX>
+      <FitText />
+      <ExpandDrawing />
     </figure>
   );
 }

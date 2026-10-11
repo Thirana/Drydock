@@ -582,7 +582,7 @@ export function E2eJourney({ wide }: { wide?: boolean }) {
               return (
                 <g key={n} opacity={on ? 1 : 0.75}>
                   <rect className={on ? `n ${hue}` : "n"} x={N.x - hw(n)} y={N.y - hh} width={hw(n) * 2} height={hh * 2} rx="2" strokeWidth={on ? 2.25 : undefined} />
-                  <text className="mid" x={N.x} y={N.y - 3} fontSize="12">{N.t}</text>
+                  <text className="mid" x={N.x} y={N.y - 3} fontSize="14">{N.t}</text>
                   <text className="s mid" x={N.x} y={N.y + 14}>{N.s}</text>
                 </g>
               );

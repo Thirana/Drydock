@@ -20,7 +20,7 @@ Staff computers and warehouse devices are kept on separate networks, so a proble
 
 ## A router has several interfaces
 
-This is the key idea of the chapter. A router has more than one network interface (<Ch n="2">chapter 2</Ch>), and each has its own IP on a **different** network. That is what lets one box join separate networks.
+This is the key idea of the chapter. A router has more than one network interface (<Ch n="2" section="Network interfaces">chapter 2</Ch>), and each has its own IP on a **different** network. That is what lets one box join separate networks.
 
 <Table>
   <thead>
@@ -40,6 +40,17 @@ This is the key idea of the chapter. A router has more than one network interfac
 A device's gateway must be on its own network (<Ch n="5">chapter 5</Ch>), so staff devices use 172.16.1.1 and warehouse devices use 172.16.2.1. Same router, different doors.
 
 </Key>
+
+<Note>
+
+**What if the two networks are in different places?** Here they share one building, so each switch has its own cable to the router. Further apart, the idea stays the same and only the "cable" changes:
+
+- **Nearby, on one site.** Copper Ethernet reaches about 100 m; fiber between buildings goes much further. One cable can even carry both networks: with <Ch n="32" section="VLANs: several networks on one switch">VLANs</Ch>, the router gets a virtual interface for each network on a single port.
+- **Different cities.** Each site gets its own router and internet connection, and a site-to-site VPN joins them: an encrypted tunnel over the internet that each router uses like one more interface. <Ch course="gcp" n="15">GCP chapter 15</Ch> joins the Kadé office to Google Cloud this way.
+
+Either way, the two networks need ranges that do not overlap (<Ch n="3" section="CIDR in the cloud">chapter 3</Ch>).
+
+</Note>
 
 ## Switch and router
 

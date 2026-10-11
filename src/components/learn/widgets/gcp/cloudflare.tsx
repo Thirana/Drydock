@@ -434,9 +434,9 @@ function LockView({ c, what }: { c: LockCase; what: string }) {
   return (
     <div className="space-y-3">
       <Drawing h={330} label={`${who[0]} ${who[1]}: the three layers of the origin lock`}>
-        <Box x={16} y={90} w={170} h={80} c={who[2]} />
-        <T x={30} y={118} k="t" size={13}>{who[0]}</T>
-        <T x={30} y={140} size={9.5}>{who[1]}</T>
+        <Box x={16} y={90} w={200} h={80} c={who[2]} />
+        <T x={28} y={118} k="t" size={13}>{who[0]}</T>
+        <T x={28} y={140} size={9.5}>{who[1]}</T>
         <Box x={420} y={40} w={262} h={180} c="purple" />
         <T x={434} y={64} k="t" size={13}>GCP load balancer</T>
         <T x={434} y={82} size={10.5}>Cloud Armor kade-edge-policy</T>
@@ -458,7 +458,7 @@ function LockView({ c, what }: { c: LockCase; what: string }) {
         </g>
         {c.path === "run" ? (
           <>
-            <path className="w fault" d={`M186 130 C 300 330, 660 330, ${stop ? 748 : 757} 162`} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
+            <path className="w fault" d={`M216 130 C 300 330, 660 330, ${stop ? 748 : 757} 162`} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
             <T x={470} y={312} k="s mid" size={11}>skips the load balancer entirely</T>
             {stop && <Mark cx={752} cy={168} ok={false} />}
           </>
@@ -469,11 +469,11 @@ function LockView({ c, what }: { c: LockCase; what: string }) {
                 <Box x={236} y={100} w={140} h={60} />
                 <T x={248} y={126} k="t" size={11.5}>Cloudflare edge</T>
                 <T x={248} y={146} size={10}>{c.path === "good" ? "adds x-kade-edge" : "no Kadé header"}</T>
-                <Wire x1={186} y1={130} x2={233} y2={130} />
+                <Wire x1={216} y1={130} x2={233} y2={130} />
                 <line className={cn("w", stop && "fault")} x1={376} y1={130} x2={stop ? 430 : 417} y2={stop ? hitY : 130} markerEnd={stop ? undefined : "url(#dd-ah-muted)"} />
               </>
             ) : (
-              <line className="w fault" x1={186} y1={130} x2={stop ? 430 : 417} y2={stop ? hitY : 130} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
+              <line className="w fault" x1={216} y1={130} x2={stop ? 430 : 417} y2={stop ? hitY : 130} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
             )}
             {stop ? (
               <Mark cx={432} cy={hitY} ok={false} />
@@ -499,28 +499,28 @@ export function OriginLock() {
 export function CfCache() {
   const boxes: [number, string, string, string?][] = [
     [16, "Shopper", "GET /images/rice.jpg"],
-    [226, "Cloudflare cache", "at the edge, near the shopper"],
-    [456, "Cloud CDN cache", "at Google's edge", "purple"],
-    [686, "kade-static bucket", "Cloud Storage", "blue"],
+    [248, "Cloudflare cache", "at the edge, near the shopper"],
+    [480, "Cloud CDN cache", "at Google's edge", "purple"],
+    [712, "kade-static bucket", "Cloud Storage", "blue"],
   ];
   return (
     <WidgetFrame wide label="Cloudflare cache in front of Cloud CDN">
       <Drawing h={176} label="A request passes the Cloudflare cache, then Cloud CDN, then the bucket">
         {boxes.map(([x, t, s, c]) => (
           <g key={t}>
-            <Box x={x} y={40} w={190} h={80} c={c} />
-            <T x={x + 14} y={68} k="t" size={12.5}>{t}</T>
-            <T x={x + 14} y={90} size={10.5}>{s}</T>
+            <Box x={x} y={40} w={216} h={80} c={c} />
+            <T x={x + 11} y={68} k="t" size={12.5}>{t}</T>
+            <T x={x + 11} y={90} size={10.5}>{s}</T>
           </g>
         ))}
-        <Wire x1={206} y1={80} x2={223} y2={80} />
-        <Wire x1={416} y1={80} x2={453} y2={80} />
-        <Wire x1={646} y1={80} x2={683} y2={80} />
-        <T x={321} y={146} k="s mid" bold size={11}>HIT: answered here</T>
-        <T x={321} y={164} k="f mid" size={10.5}>most requests</T>
-        <T x={551} y={146} k="s mid" bold size={11}>HIT on a Cloudflare miss</T>
-        <T x={551} y={164} k="f mid" size={10.5}>shields the bucket</T>
-        <T x={781} y={146} k="s mid" size={11}>only when both miss</T>
+        <Wire x1={232} y1={80} x2={245} y2={80} />
+        <Wire x1={464} y1={80} x2={477} y2={80} />
+        <Wire x1={696} y1={80} x2={709} y2={80} />
+        <T x={356} y={146} k="s mid" bold size={11}>HIT: answered here</T>
+        <T x={356} y={164} k="f mid" size={10.5}>most requests</T>
+        <T x={588} y={146} k="s mid" bold size={11}>HIT on a Cloudflare miss</T>
+        <T x={588} y={164} k="f mid" size={10.5}>shields the bucket</T>
+        <T x={820} y={146} k="s mid" size={11}>only when both miss</T>
       </Drawing>
       <div className="mt-4">
         <Result tone="warn">

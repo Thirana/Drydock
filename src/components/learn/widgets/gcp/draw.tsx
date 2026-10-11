@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { legible } from "../../legible";
 import { arrowHead, type ArrowHue } from "../../diagram-defs";
 
 /*
@@ -93,7 +94,7 @@ export function T({
       x={x}
       y={y}
       style={{
-        ...(size ? { fontSize: `${size}px` } : null),
+        ...(size ? { fontSize: `${legible(size)}px` } : null),
         ...(bold ? { fontWeight: 600 } : null),
         ...(end ? { textAnchor: "end" } : null),
       }}
@@ -158,7 +159,7 @@ export function Mark({ cx, cy, ok, r = 11 }: { cx: number; cy: number; ok: boole
 /** A small capitals heading inside a drawing ("CONNECTION TABLE"). */
 export function Caps({ x, y, children }: { x: number; y: number; children: ReactNode }) {
   return (
-    <text className="f" x={x} y={y} style={{ fontSize: "11px", letterSpacing: ".05em" }}>
+    <text className="f" x={x} y={y} style={{ fontSize: `${legible(11)}px`, letterSpacing: ".05em" }}>
       {children}
     </text>
   );

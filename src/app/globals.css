@@ -288,7 +288,9 @@
   }
   /* A link that reads as text until you reach for it. */
   /* A link: blue and always underlined, so it never passes for text. */
-  .dd-link {
+  /* Links inside a margin note (.dd-note) read as links too. */
+  .dd-link,
+  .dd-note a {
     color: var(--dd-accent);
     font-weight: 600;
     text-decoration: underline;
@@ -301,8 +303,21 @@
     text-underline-offset: 0.22em;
     transition: text-decoration-color 150ms;
   }
-  .dd-link:hover {
+  .dd-link:hover,
+  .dd-note a:hover {
     text-decoration-color: currentColor;
+  }
+  /* A margin note's own lists and paragraphs. */
+  .dd-note ul {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+    list-style: disc;
+  }
+  .dd-note li + li {
+    margin-top: 0.25rem;
+  }
+  .dd-note :is(p, ul) + p {
+    margin-top: 0.75rem;
   }
 
   /* Highlighter: one per block, on the fact or value to notice first. */
@@ -405,7 +420,7 @@
   }
   .gl-prose :where(th):not(:where(.not-prose, .not-prose *)) {
     border-bottom: 1px solid var(--dd-ink);
-    padding: 0.6rem 1.25rem 0.6rem 0;
+    padding: 0.6rem 1.75rem 0.6rem 0;
     color: var(--dd-ink);
     font-size: 14px;
     font-weight: 700;
@@ -414,7 +429,7 @@
   }
   .gl-prose :where(td):not(:where(.not-prose, .not-prose *)) {
     border-bottom: 1px solid var(--dd-rule);
-    padding: 0.85rem 1.25rem 0.85rem 0;
+    padding: 0.85rem 1.75rem 0.85rem 0;
     color: var(--dd-ink-body);
     font-size: 16px;
     line-height: 1.55;
@@ -443,7 +458,7 @@
   }
   /* A part heading carries the rule; the section that opens it does not. */
   .dd-chapter .dd-part + h2 {
-    margin-top: 1.25rem !important;
+    margin-top: 2.5rem !important;
     border-top: 0 !important;
     padding-top: 0 !important;
   }
@@ -477,38 +492,50 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 @layer components {
-  /* Drawings keep a readable size and scroll sideways on narrow screens. */
+  /*
+   * Drawings are 920-960 units wide and their text is sized in those units,
+   * so the drawing's scale is the text's scale. Never let it shrink far:
+   * below 1024px a drawing keeps nearly its natural width and scrolls; from
+   * 1024px its frame breaks out into the right margin (.dd-breakout).
+   */
   .dd-fig svg {
     display: block;
     width: 100%;
-    min-width: 680px;
+    min-width: 880px;
     height: auto;
+  }
+  @media (min-width: 1024px) {
+    .dd-fig svg {
+      min-width: 0;
+    }
   }
   .dd-fig text {
     fill: var(--dd-ink);
     font-family:
       var(--font-atkinson), "Atkinson Hyperlegible Next", ui-sans-serif,
       sans-serif;
-    font-size: 13px;
+    font-size: 14px;
   }
   /* Title of a box. */
   .dd-fig text.t {
-    font-size: 13.5px;
+    font-size: 15px;
     font-weight: 600;
   }
-  /* Sub-line: addresses, ports, values. */
+  /* Sub-line: addresses, ports, values. Body ink and a little weight: at
+     this size grey mono is what made drawings hard to read. */
   .dd-fig text.s {
-    fill: var(--dd-ink-muted);
+    fill: var(--dd-ink-body);
+    font-weight: 500;
     font-family:
       var(--font-atkinson-mono), "Atkinson Hyperlegible Mono", ui-monospace,
       monospace;
     font-variant-numeric: tabular-nums;
-    font-size: 11.5px;
+    font-size: 13px;
   }
   /* Words on a wire (a sub-line on a wire keeps the sub-line style). */
   .dd-fig text.l:not(.s) {
     fill: var(--dd-ink-muted);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
   }
   .dd-fig text.f {
@@ -623,14 +650,14 @@
   /* A number inside a filled dot. */
   .dd-fig text.bn {
     fill: var(--dd-ground);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     text-anchor: middle;
   }
   /* A chapter or note reference at the end of a row. */
   .dd-fig text.ch {
-    fill: var(--dd-ink-faint);
-    font-size: 11px;
+    fill: var(--dd-ink-muted);
+    font-size: 12.5px;
     text-anchor: end;
   }
   /* A cross on a broken path. */
@@ -830,4 +857,61 @@
     animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/*
+ * Course drawings break out of the reading column into the right margin, up to
+ * their natural size (960 units + frame), leaving 24px of page at the edge, so
+ * their text is drawn near 1:1. The offsets follow the chapter layout: the
+ * column starts 364px in below 1200px (gutter 32 + rail 236 + gap 96), and at
+ * 50vw - 236px above. Unlayered, so it outranks a frame's max-width utility.
+ */
+@media (min-width: 1024px) {
+  [data-chapter] figure:has(.dd-fig) {
+    width: min(1004px, max(100%, 100vw - 388px));
+    max-width: none;
+  }
+}
+@media (min-width: 1200px) {
+  [data-chapter] figure:has(.dd-fig) {
+    width: min(1004px, max(100%, 50vw + 212px));
+  }
+}
+
+/*
+ * An expanded course drawing (ExpandDrawing): the figure itself fills the
+ * window on a solid page ground (a see-through one let the page show), its bar on top, the frame sized by script
+ * (--dd-x-width) and centred. "Actual size" draws the drawing 1:1 (--dd-x-svg)
+ * and the frame pans. `:root` matches the breakout rule's weight, which it
+ * must override.
+ */
+:root figure.dd-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  width: auto;
+  max-width: none;
+  padding: 0 24px 32px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--dd-ground);
+}
+:root figure.dd-expanded .dd-x-bar {
+  order: -1;
+  align-self: stretch;
+}
+:root figure.dd-expanded > :not(.dd-x-bar, [hidden]) {
+  width: var(--dd-x-width, 100%);
+  max-width: 100%;
+  flex-shrink: 0;
+}
+:root figure.dd-expanded .dd-fig svg {
+  min-width: 0;
+}
+:root figure.dd-expanded.dd-actual .dd-fig svg {
+  min-width: var(--dd-x-svg);
 }

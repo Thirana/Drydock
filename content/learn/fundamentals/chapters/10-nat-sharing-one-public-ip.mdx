@@ -1,5 +1,5 @@
-import { NatLookup } from "@/components/learn/widgets/lazy";
-import { FigCloudnat, FigSwap, FigTimeouts, FigTraverse } from "@content/learn/fundamentals/figures/10-nat-sharing-one-public-ip";
+import { NatLookup, NatRewrite } from "@/components/learn/widgets/lazy";
+import { FigCloudnat, FigSwap, FigTimeouts, FigTraverse, FigTunnel } from "@content/learn/fundamentals/figures/10-nat-sharing-one-public-ip";
 
 <Part n="A">How NAT works</Part>
 
@@ -36,18 +36,9 @@ kade-api only ever sees 203.0.113.45. It has no idea the laptop exists.
 
 ## What exactly is rewritten
 
-NAT changes more than one field. Using the <Ch n="1">chapter 1</Ch> envelopes, here is the outgoing packet as it leaves the router's WAN side:
+NAT changes more than one field. Here is one packet, drawn as the <Ch n="1">chapter 1</Ch> envelopes, just before and just after the home router. Switch to the reply to see the same swap in reverse:
 
-<Fields>
-  <Field label="IP · source address" changed>203.0.113.45</Field>
-  <Field label="IP · destination address">34.87.120.15</Field>
-  <Field label="TCP · source port" changed>40001</Field>
-  <Field label="TCP · destination port">443</Field>
-  <Field label="IP · header checksum" changed>recalculated</Field>
-  <Field label="TCP · checksum" changed>recalculated</Field>
-  <Field label="Data (HTTP, TLS-encrypted)">not touched</Field>
-  <Field label="Frame · MACs">new pair anyway, as at every hop</Field>
-</Fields>
+<NatRewrite wide />
 
 <Caption>A **checksum** is a small number computed from the header so the receiver can spot damage. Change any field and the checksum must be recomputed, or the packet is thrown away as corrupt.</Caption>
 
@@ -122,7 +113,32 @@ Everything in Part A is SNAT. Port forwarding (section 10) is DNAT. GCP's extern
 
 ## Port limits
 
-Ports 1024 to 65535 are the ones NAT normally hands out: **64,512 ports per public IP, per protocol**. Because each row also records the destination (section 5), the same public port can be reused for different destinations. So the real limit is: **about 64,000 connections at the same time from one public IP to one destination IP and port.**
+How many connections can share one public IP? Three steps:
+
+1. **There are about 64,500 ports to hand out.** NAT normally uses ports 1024 to 65535: 64,512 per public IP, and TCP and UDP each get their own set.
+1. **A port can be used more than once.** Each NAT row also records where the connection is going (section 5). So the same public port can carry two connections at once, as long as they go to different places:
+
+<Table>
+  <thead>
+    <tr><th>Private side</th><th>Public side</th><th>Going to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>192.168.1.23:52814</Mono><Sub>laptop</Sub></td><td><Mono>203.0.113.45:40001</Mono></td><td><Mono>34.87.120.15:443</Mono><Sub>kade-api</Sub></td></tr>
+    <tr><td><Mono>192.168.1.40:61022</Mono><Sub>phone</Sub></td><td><Mono>203.0.113.45:40001</Mono></td><td><Mono>198.51.100.7:443</Mono><Sub>another site</Sub></td></tr>
+  </tbody>
+</Table>
+
+<Caption>Same public port, different destinations: a reply from each one still matches exactly one row.</Caption>
+
+3. **So ports only run out toward one busy destination.** Every connection to the same destination IP and port needs a different public port.
+
+<Key title="The real limit">
+
+About 64,000 connections at the same time from one public IP to one destination IP and port. Connections to other destinations do not count against it.
+
+</Key>
+
+How close real setups get:
 
 <Table>
   <thead>
@@ -173,9 +189,11 @@ A reply always matches a row, because the connection was started from inside. A 
 
 <NatLookup />
 
-## Port forwarding, UPnP and hairpin NAT
+## Port forwarding
 
-To host something behind NAT, you add a <Term>port forwarding</Term> rule: a fixed row (DNAT) that maps a public port to one internal device. Say you want a teammate to try the Kadé Node app running on your laptop, port 3000:
+Every row so far was made by a connection that started inside. <Term>Port forwarding</Term> is a row you write yourself, ahead of time, into the router's NAT table. You add it on the router's admin page: open its LAN address, 192.168.1.1, in a browser and look for a menu called "Port forwarding" (some routers say "Virtual server"). A packet that arrives from outside then finds a match instead of being dropped.
+
+You are building Kadé's checkout and testing it on your laptop, where kade-api runs on port 3000. When a payment settles, PayGate sends a <Term>webhook</Term>: its server makes a request to a Kadé URL to say "payment done". This time the connection starts on the internet, not on your laptop. So you add this rule in the router's settings:
 
 <Table>
   <tbody>
@@ -185,12 +203,28 @@ To host something behind NAT, you add a <Term>port forwarding</Term> rule: a fix
 
 <Caption>Anyone who connects to 203.0.113.45:8443 now reaches your laptop. Remove the rule when you are done: it is an open door into your home network.</Caption>
 
+Follow one packet from PayGate:
+
+1. PayGate's server sends a packet to **203.0.113.45:8443**, your router's public IP. That is the address you gave PayGate as your webhook URL.
+2. The router looks for a row whose public side is 203.0.113.45:8443. Nothing inside started this connection, so without the rule there is no such row and the packet is dropped, as in section 9.
+3. With the rule, the row is there. The router changes the destination to **192.168.1.23:3000** and sends the packet to your laptop.
+4. Your laptop replies. On the way out, the router changes the source back to **203.0.113.45:8443**, so PayGate sees the reply come from the address it connected to.
+
+How this row differs from the ones in Part A:
+
 <Table>
+  <thead>
+    <tr><th></th><th>Normal row</th><th>Forwarded row</th></tr>
+  </thead>
   <tbody>
-    <tr><td>**UPnP**</td><td>A protocol that lets apps inside the network ask the router to open a port automatically. Games and some smart devices use it. Handy, but any program on the LAN, including malware, can open a door the same way. Many guides suggest turning it off.</td></tr>
-    <tr><td>**Hairpin NAT**</td><td>From your own laptop, open 203.0.113.45:8443. The packet goes to the router and has to turn straight back inside. Routers that support "hairpin NAT" (also called NAT loopback) handle it; others fail. Inside the LAN, just use 192.168.1.23:3000.</td></tr>
+    <tr><td>**Added by**</td><td>The router, when a device inside connects out</td><td>You, in the router's settings</td></tr>
+    <tr><td>**Who connects**</td><td>The device inside</td><td>Anyone on the internet</td></tr>
+    <tr><td>**Lasts**</td><td>Until the connection closes or goes idle (section 8)</td><td>Until you remove it</td></tr>
+    <tr><td>**Rewrites**</td><td>The source: SNAT</td><td>The destination: DNAT (section 6)</td></tr>
   </tbody>
 </Table>
+
+You have met a forwarded row already: kade-api's external IP (section 6). GCP keeps a fixed row that sends 34.87.120.15 to 10.10.1.10, and the VM itself only knows its private address. Section 15 shows it in full.
 
 ## Without port forwarding: tunnels and hole punching
 
@@ -198,7 +232,28 @@ Port forwarding needs access to the router, and does not work at all behind carr
 
 ### Reverse tunnels
 
-The laptop opens an **outgoing** connection to a tunnel service and keeps it open. Visitors connect to the service, and it sends their traffic back down that open connection. Outgoing connections always get a NAT row, so this works through any NAT. Examples: Cloudflare Tunnel, ngrok, or `ssh -R` to a server you own.
+The laptop opens an **outgoing** connection to a tunnel service and keeps it open. Visitors connect to the service's public URL, and it sends their traffic back down that open connection. Outgoing connections always get a NAT row, so this works through any NAT. Here is the PayGate webhook from section 10 again, this time with no port forwarding:
+
+<Figure hues={["plum", "teal", "green", "amber"]} drawing={<FigTunnel />} />
+
+Examples: Cloudflare Tunnel, ngrok, or `ssh -R` to a server you own.
+
+Why does the direct webhook fail while the tunnelled one gets in? Step 1 leaves one row in the router:
+
+<Table>
+  <thead>
+    <tr><th>Private side</th><th>Public side</th><th>Talking to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><Mono>192.168.1.23:51200</Mono></td><td><Mono>203.0.113.45:40020</Mono></td><td><Mono>tunnel service:443</Mono></td></tr>
+  </tbody>
+</Table>
+
+- **Straight to 203.0.113.45:8443:** no row has port 8443, and none is talking to PayGate. The router cannot tell which device it is for, so it drops it.
+- **Even on port 40020:** most home routers also check who is sending. PayGate is not the tunnel service, so it is still dropped.
+- **Through the tunnel:** the webhook arrives inside the tunnel service's own connection, from the tunnel service to port 40020. That matches the row exactly, so it goes to the laptop.
+
+A NAT row is not an open port. It lets in only the replies of one conversation.
 
 ### Hole punching (peer to peer)
 
@@ -246,7 +301,7 @@ Whether step 3 works depends on how each NAT behaves. The classic names:
 
 <Col title="NAT">
 
-Built to save addresses. Blocking unknown inbound traffic is a side effect, and UPnP or a forwarding rule can undo it.
+Built to save addresses. Blocking unknown inbound traffic is a side effect, and a single port forwarding rule undoes it.
 
 </Col>
 
@@ -315,7 +370,7 @@ This completes the addressing part of the course: IP addresses, networks and mas
     <tr><td>6</td><td>Kinds</td><td>Static 1:1, dynamic pool, PAT many:1; SNAT out, DNAT in</td><td>SNAT, DNAT</td></tr>
     <tr><td>7</td><td>Limits</td><td>~64,500 ports per IP per destination; Cloud NAT: 64 per VM by default</td><td>port exhaustion</td></tr>
     <tr><td>8</td><td>Timeouts</td><td>Idle rows are deleted; keepalives prevent silent drops</td><td>idle timeout, keepalive</td></tr>
-    <tr><td>9-10</td><td>Inbound</td><td>No row → dropped; forwarding adds a fixed row; UPnP and hairpin</td><td>port forwarding, UPnP, hairpin NAT</td></tr>
+    <tr><td>9-10</td><td>Inbound</td><td>No row → dropped; port forwarding adds a fixed row that rewrites the destination</td><td>port forwarding</td></tr>
     <tr><td>11</td><td>Traversal</td><td>Tunnels go out and stay open; hole punching needs a cone NAT</td><td>STUN, TURN, ICE, symmetric NAT</td></tr>
     <tr><td>12</td><td>Side effects</td><td>Breaks inbound, IPs in data, shared limits, lost device in logs</td><td>ALG, double NAT</td></tr>
     <tr><td>13</td><td>Not a firewall</td><td>Protection is a side effect; IPv6 usually has no NAT</td><td>stateful firewall</td></tr>
@@ -386,19 +441,7 @@ sysctl net.netfilter.nf_conntrack_udp_timeout
 
 </TryIt>
 
-<TryIt n={6} title="Ports opened on your router by UPnP">
-
-- **What to look for:** Rows you never added by hand.
-- **Runs on:** install miniupnpc
-- **From section:** [10. Port forwarding, UPnP and hairpin NAT](#port-forwarding-upnp-and-hairpin-nat)
-
-```sh
-upnpc -l
-```
-
-</TryIt>
-
-<TryIt n={7} title="A reverse tunnel to your local app">
+<TryIt n={6} title="A reverse tunnel to your local app">
 
 - **What to look for:** A public URL that reaches your laptop with no port forwarding.
 - **From section:** [11. Without port forwarding: tunnels and hole punching](#without-port-forwarding-tunnels-and-hole-punching)
@@ -409,7 +452,7 @@ cloudflared tunnel --url http://localhost:3000
 
 </TryIt>
 
-<TryIt n={8} title="The VM's interfaces">
+<TryIt n={7} title="The VM's interfaces">
 
 - **What to look for:** Only 10.10.1.10. The external IP lives in GCP's network, not on the VM.
 - **Runs on:** run on kade-api
@@ -421,7 +464,7 @@ ip addr
 
 </TryIt>
 
-<TryIt n={9} title="A Cloud NAT's settings">
+<TryIt n={8} title="A Cloud NAT's settings">
 
 - **What to look for:** IP allocation (manual = static), min ports per VM, timeouts.
 - **From section:** [14. Cloud NAT](#cloud-nat)
@@ -432,7 +475,7 @@ gcloud compute routers nats describe NAT --router=ROUTER --region=REGION
 
 </TryIt>
 
-<TryIt n={10} title="Which VM holds which NAT ports">
+<TryIt n={9} title="Which VM holds which NAT ports">
 
 - **What to look for:** Port ranges per VM interface.
 - **From section:** [14. Cloud NAT](#cloud-nat)

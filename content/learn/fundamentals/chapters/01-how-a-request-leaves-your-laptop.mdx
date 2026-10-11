@@ -7,11 +7,7 @@ import { FigArp, FigChunks, FigChunks2, FigDns, FigExample, FigHandoff } from "@
 
 You open Kadé's website on your laptop at home. The page calls Kadé's API: a Node.js app running on a virtual machine (VM) called kade-api in Google Cloud (GCP). The call uses HTTPS. The full setup, with every address, is in <Ch n="0">chapter 0</Ch>.
 
-<Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigExample />}>
-
-These are the Kadé scenario's addresses (<Ch n="0">chapter 0</Ch>). The same four values below appear again in later chapters.
-
-</Figure>
+<Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigExample />} />
 
 In code, it starts with one line:
 
@@ -109,7 +105,7 @@ Nothing on the path knows this was a GET request. The meaning is rebuilt only wh
 
 ## The browser hands off to the OS
 
-The browser prepares the message, but it never puts anything on the network itself. It hands the bytes to the operating system's <Term>TCP/IP stack</Term>: the part of macOS, Windows or Linux that implements TCP, UDP, ICMP and IP. The OS also picks the source port. The stack then drives the <Term>NIC</Term> (Network Interface Card), the hardware that turns bits into signals.
+The browser prepares the message, but it never puts anything on the network itself. It hands the bytes to the operating system's <Term>TCP/IP stack</Term>: the part of macOS, Windows or Linux that implements TCP, UDP, ICMP and IP. The OS also picks the source port. When the data is ready to go, the stack passes it to the <Term>NIC</Term> (Network Interface Card): the hardware that turns bits into signals, electrical pulses on a cable or radio waves in the air.
 
 <Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigHandoff />} />
 
@@ -136,7 +132,7 @@ Two limits decide the chunk size:
 
 <Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigChunks2 />}>
 
-Sizes in bytes, not to scale. The Ethernet header and FCS sit outside the MTU, so the full frame on the cable is 1,518 bytes.
+Sizes in bytes, not to scale.
 
 </Figure>
 
@@ -254,7 +250,7 @@ Electrical pulses on a copper cable.
 
 <Col title="Fiber">
 
-<Sketch><svg viewBox="0 0 200 44" preserveAspectRatio="none" aria-hidden="true"></svg></Sketch>
+<Sketch><svg viewBox="0 0 200 44" preserveAspectRatio="none" aria-hidden="true"><path d="M0 12 H200 M0 32 H200" style={{ strokeWidth: 1, opacity: 0.5 }} /><path d="M6 22 H30 M44 22 H54 M68 22 H96 M110 22 H120 M134 22 H146 M160 22 H188" style={{ strokeWidth: 5, strokeLinecap: "round" }} /></svg></Sketch>
 
 Pulses of light in a glass strand.
 

@@ -82,7 +82,7 @@ export function FigTtl() {
 export function FigDynamic() {
   return (
     <svg viewBox="0 0 920 250" role="img" aria-label="BGP: Google announces 34.87.0.0/16 to LankaNet; the transit provider announces a default and 34.0.0.0/8; LankaNet announces 198.51.100.0/24 to both, so replies can come back.">
-      <rect className="n teal" x="16" y="90" width="170" height="70" rx="2" />
+      <rect className="n teal" x="16" y="90" width="205" height="70" rx="2" />
       <text className="t" x="32" y="118">Kadé office</text>
       <text className="s" x="32" y="138">no AS · static default</text>
       <rect className="n" x="300" y="90" width="210" height="70" rx="2" />
@@ -94,11 +94,11 @@ export function FigDynamic() {
       <rect className="n" x="700" y="160" width="204" height="70" rx="2" />
       <text className="t" x="716" y="188">Transit · AS 64510</text>
       <text className="s" x="716" y="208">reaches everywhere</text>
-      <line className="w" x1="186" y1="125" x2="298" y2="125" markerEnd="url(#dd-ah-muted)" />
+      <line className="w" x1="221" y1="125" x2="298" y2="125" markerEnd="url(#dd-ah-muted)" />
       <line className="w green" x1="698" y1="50" x2="512" y2="102" markerEnd="url(#dd-ah-green)" />
       <text className="s" x="540" y="54">{"\"34.87.0.0/16 via me\""}</text>
       <line className="w green" x1="698" y1="195" x2="512" y2="148" markerEnd="url(#dd-ah-green)" />
-      <text className="s" x="520" y="210">{"\"0.0.0.0/0 and 34.0.0.0/8 via me\""}</text>
+      <text className="s" x="432" y="214">{"\"0.0.0.0/0 and 34.0.0.0/8 via me\""}</text>
       <line className="w amber dash" x1="512" y1="115" x2="698" y2="70" markerEnd="url(#dd-ah-amber)" />
       <line className="w amber dash" x1="512" y1="138" x2="698" y2="180" markerEnd="url(#dd-ah-amber)" />
       <text className="s" x="540" y="120">{"\"198.51.100.0/24 via me\""}</text>
@@ -109,29 +109,29 @@ export function FigDynamic() {
 export function FigAnycast() {
   return (
     <svg viewBox="0 0 920 280" role="img" aria-label="A shopper in Colombo and a shopper in London both connect to the same anycast IP; each reaches a nearby Google edge, which carries traffic over Google's network to kade-api in Singapore.">
-      <rect className="n plum" x="16" y="40" width="190" height="56" rx="2" />
+      <rect className="n plum" x="16" y="40" width="205" height="56" rx="2" />
       <text className="t" x="30" y="64">Shopper in Colombo</text>
       <text className="s" x="30" y="84">→ 34.120.7.9</text>
-      <rect className="n plum" x="16" y="184" width="190" height="56" rx="2" />
+      <rect className="n plum" x="16" y="184" width="205" height="56" rx="2" />
       <text className="t" x="30" y="208">Shopper in London</text>
       <text className="s" x="30" y="228">→ 34.120.7.9 (same IP)</text>
-      <rect className="n green" x="300" y="40" width="200" height="56" rx="2" />
+      <rect className="n green" x="300" y="40" width="236" height="56" rx="2" />
       <text className="t" x="316" y="64">Google edge</text>
       <text className="s" x="316" y="84">near Colombo · announces it</text>
-      <rect className="n green" x="300" y="184" width="200" height="56" rx="2" />
+      <rect className="n green" x="300" y="184" width="236" height="56" rx="2" />
       <text className="t" x="316" y="208">Google edge</text>
       <text className="s" x="316" y="228">London · announces it too</text>
-      <line className="w amber" x1="206" y1="68" x2="298" y2="68" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber" x1="206" y1="212" x2="298" y2="212" markerEnd="url(#dd-ah-amber)" />
-      <text className="s" x="212" y="60">short hop</text>
-      <text className="s" x="212" y="204">short hop</text>
+      <line className="w amber" x1="221" y1="68" x2="298" y2="68" markerEnd="url(#dd-ah-amber)" />
+      <line className="w amber" x1="221" y1="212" x2="298" y2="212" markerEnd="url(#dd-ah-amber)" />
+      <text className="s" x="226" y="60">short hop</text>
+      <text className="s" x="226" y="204">short hop</text>
       <rect className="zone" x="560" y="20" width="344" height="240" rx="2" />
       <text className="s" x="576" y="42">{"Google's private backbone"}</text>
       <rect className="n" x="700" y="110" width="190" height="62" rx="2" />
       <text className="t" x="716" y="136">kade-api</text>
       <text className="s" x="716" y="156">Singapore</text>
-      <line className="w green" x1="500" y1="68" x2="698" y2="130" markerEnd="url(#dd-ah-green)" />
-      <line className="w green" x1="500" y1="212" x2="698" y2="154" markerEnd="url(#dd-ah-green)" />
+      <line className="w green" x1="536" y1="68" x2="698" y2="130" markerEnd="url(#dd-ah-green)" />
+      <line className="w green" x1="536" y1="212" x2="698" y2="154" markerEnd="url(#dd-ah-green)" />
     </svg>
   );
 }

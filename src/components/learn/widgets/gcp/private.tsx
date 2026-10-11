@@ -491,7 +491,7 @@ function TtlBar({ a, b, old, y, at, label }: { a: number; b: number; old: boolea
     <g>
       <rect className={cn("n", !old && "green")} x={x1} y={y} width={Math.max(x2 - x1 - 2, 1)} height={30} rx="2" />
       {late !== null && <rect className="n fault" x={at(late)} y={y} width={Math.max(x2 - at(late) - 2, 1)} height={30} rx="2" />}
-      {label && x2 - x1 > 90 && (
+      {label && x2 - x1 > 118 && (
         <T x={x1 + 8} y={y + 20} size={11} bold={!old}>
           {label}
         </T>

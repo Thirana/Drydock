@@ -124,7 +124,7 @@ export function LineChart(o: ChartSpec) {
       })}
       {o.marks?.map((m, i) => (
         <g key={i}>
-          <text className="mid" x={X(m.x)} y={Y(m.y) + 5} style={{ fill: STROKE[m.c], fontSize: 15, fontWeight: 700 }}>✕</text>
+          <text className="mid" x={X(m.x)} y={Y(m.y) + 5} style={{ fill: STROKE[m.c], fontSize: 15.0, fontWeight: 700 }}>✕</text>
           {m.t && <text className="s halo" x={X(m.x) + 8} y={Y(m.y) - 8}>{m.t}</text>}
         </g>
       ))}

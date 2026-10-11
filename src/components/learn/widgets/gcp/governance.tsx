@@ -47,15 +47,15 @@ export function DriftModel() {
         <T x={634} y={80} size={11}>a rule opened, an IP</T>
         <T x={634} y={98} size={11}>added</T>
         <Wire x1={580} y1={75} x2={617} y2={75} />
-        <Box x={620} y={170} w={200} h={120} c="blue" />
+        <Box x={620} y={170} w={216} h={120} c="blue" />
         <T x={634} y={196} k="t" size={12}>DETECT</T>
         <T x={634} y={218} size={10.5}>audit log alerts</T>
         <T x={634} y={234} size={10.5}>Security Command Center</T>
         <T x={634} y={250} size={10.5}>Asset Inventory · drift plan</T>
         <T x={634} y={274} bold size={10.5}>found in minutes</T>
         <Wire x1={720} y1={120} x2={720} y2={167} c="blue" />
-        <path className="w green" d="M820 230 C 900 230, 900 20, 600 20 L 585 30" markerEnd="url(#dd-ah-green)" />
-        <T x={860} y={40} bold size={10.5}>fixed again</T>
+        <path className="w green" d="M836 230 C 904 230, 904 20, 600 20 L 585 30" markerEnd="url(#dd-ah-green)" />
+        <T x={866} y={40} bold size={10.5}>fixed again</T>
       </Drawing>
     </WidgetFrame>
   );
@@ -466,13 +466,13 @@ export function IacFlow() {
     <WidgetFrame wide label="Infrastructure as code">
       <Drawing h={272} label="A change goes from Git through review and CI to GCP; a console change is caught by the daily drift plan">
         {steps.map(([t, s, c], i) => {
-          const x = 16 + 189 * i;
+          const x = 16 + 186 * i;
           return (
             <g key={t}>
-              <Box x={x} y={30} w={170} h={70} c={c} />
-              <T x={x + 12} y={58} k="t" size={12}>{t}</T>
-              <T x={x + 12} y={80} size={10.5}>{s}</T>
-              {i < 4 && <Wire x1={x + 170} y1={65} x2={x + 186} y2={65} />}
+              <Box x={x} y={30} w={178} h={70} c={c} />
+              <T x={x + 8} y={58} k="t" size={12}>{t}</T>
+              <T x={x + 8} y={80} size={10.5}>{s}</T>
+              {i < 4 && <Wire x1={x + 178} y1={65} x2={x + 184} y2={65} />}
             </g>
           );
         })}

@@ -35,7 +35,7 @@ export function Note({ children }: { children: ReactNode }) {
       >
         !?
       </span>
-      <div className="text-ink-body [&_code]:bg-code [&_code]:text-ink text-[16.5px] leading-[1.6] [&_code]:rounded-[2px] [&_code]:px-1 [&_code]:font-mono [&_code]:text-[0.88em]">
+      <div className="dd-note text-ink-body [&_code]:bg-code [&_code]:text-ink text-[16.5px] leading-[1.6] [&_code]:rounded-[2px] [&_code]:px-1 [&_code]:font-mono [&_code]:text-[0.88em]">
         <span className="sr-only">Note: </span>
         {children}
       </div>

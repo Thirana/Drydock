@@ -239,7 +239,7 @@ export function MultiSeqDrawing({
         return (
           <g key={i}>
             <rect className={hue === "muted" || hue === "fault" ? "n" : `n ${hue}`} x={X(i) - bw / 2} y="8" width={bw} height="46" rx="2" />
-            <text className="mid" x={X(i)} y="36" fontSize="12.5">
+            <text className="mid" x={X(i)} y="36" fontSize="14.5">
               {l.t}
             </text>
             <line className="w dash" x1={X(i)} y1="54" x2={X(i)} y2={H - 4} />

@@ -60,32 +60,32 @@ export function FigToday() {
       <text className="bn" x="746" y="226">6</text>
       <path className="w plum" d="M434 160 C 470 160, 470 150, 503 150" markerEnd="url(#dd-ah-plum)" />
       <text className="s" x="506" y="326">firewall rules (priority 1000; names start with kade-)</text>
-      <text className="f" x="520" y="346" style={{"fontSize": "11px"}}>name</text>
-      <text className="f" x="688" y="346" style={{"fontSize": "11px"}}>ports</text>
-      <text className="f" x="800" y="346" style={{"fontSize": "11px"}}>from</text>
+      <text className="f" x="520" y="346" style={{"fontSize": "12.5px"}}>name</text>
+      <text className="f" x="652" y="346" style={{"fontSize": "12.5px"}}>ports</text>
+      <text className="f" x="790" y="346" style={{"fontSize": "12.5px"}}>from</text>
       <circle className="bad" cx="508" cy="362" r="8" />
       <text className="bn" x="508" y="366">2</text>
       <text className="t" x="520" y="367">allow-ssh</text>
-      <text className="s" x="688" y="366">tcp:22</text>
-      <text className="s" x="800" y="366">0.0.0.0/0</text>
+      <text className="s" x="652" y="366">tcp:22</text>
+      <text className="s" x="790" y="366">0.0.0.0/0</text>
       <circle className="bad" cx="508" cy="382" r="8" />
       <text className="bn" x="508" y="386">3</text>
       <text className="t" x="520" y="387">allow-web</text>
-      <text className="s" x="688" y="386">tcp:80,443,8080</text>
-      <text className="s" x="800" y="386">0.0.0.0/0</text>
+      <text className="s" x="652" y="386">tcp:80,443,8080</text>
+      <text className="s" x="790" y="386">0.0.0.0/0</text>
       <circle className="bad" cx="508" cy="402" r="8" />
       <text className="bn" x="508" y="406">4</text>
       <text className="t" x="520" y="407">allow-internal</text>
-      <text className="s" x="688" y="406">all</text>
-      <text className="s" x="800" y="406">10.10.0.0/16</text>
+      <text className="s" x="652" y="406">all</text>
+      <text className="s" x="790" y="406">10.10.0.0/16</text>
       <circle className="ok" cx="508" cy="422" r="5" />
       <text className="t" x="520" y="427">allow-lb</text>
-      <text className="s" x="688" y="426">tcp:8080</text>
-      <text className="s" x="800" y="426">Google LB ranges</text>
+      <text className="s" x="652" y="426">tcp:8080</text>
+      <text className="s" x="790" y="426">Google LB ranges</text>
       <circle className="ok" cx="508" cy="442" r="5" />
       <text className="t" x="520" y="447">allow-icmp</text>
-      <text className="s" x="688" y="446">icmp</text>
-      <text className="s" x="800" y="446">home + office</text>
+      <text className="s" x="652" y="446">icmp</text>
+      <text className="s" x="790" y="446">home + office</text>
       <rect className="zone fault" x="476" y="476" width="452" height="104" rx="2" />
       <circle className="bad" cx="910" cy="494" r="8" />
       <text className="bn" x="910" y="498">1</text>

@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import { WidgetFrame } from "./widget-frame";
+import { ExpandDrawing } from "../expand-drawing";
+import { FitText } from "../fit-text";
 
 /*
  * Chapter 1's two drawings of one request: the whole trip from browser to
@@ -144,6 +146,8 @@ export function Envelope({ level, wide }: { level: string; wide?: boolean }) {
         </svg>
       </div>
       <p className="text-ink-muted mt-2 text-[14px] md:hidden">Wide by design - scroll it sideways.</p>
+      <FitText />
+      <ExpandDrawing />
     </figure>
   );
 }

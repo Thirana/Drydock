@@ -46,7 +46,7 @@ function Journey({ data: j, label }: { data: JourneyData; label: string }) {
   const [mode, setMode] = useState<"req" | "ret" | "brk">("req");
   const [k, setK] = useState(0);
   const [breakId, setBreakId] = useState(j.breaks[0].id);
-  const w = j.w ?? 126;
+  const w = j.w ?? 140;
   const brk = j.breaks.find((b) => b.id === breakId)!;
   const path = mode === "ret" ? j.ret : j.req;
   const at = mode === "brk" ? brk.at : Math.min(k, path.length - 1);
@@ -119,8 +119,8 @@ function Journey({ data: j, label }: { data: JourneyData; label: string }) {
           return (
             <g key={key}>
               <Box x={x} y={y} w={w} h={64} c={failed ? "red" : nodeColour(t, c)} className={on && !failed ? "cur" : undefined} />
-              <T x={x + 11} y={y + 26} k="t" size={11.5}>{t}</T>
-              <T x={x + 11} y={y + 46} size={10}>{s}</T>
+              <T x={x + 9} y={y + 26} k="t" size={11.5}>{t}</T>
+              <T x={x + 9} y={y + 46} size={10}>{s}</T>
             </g>
           );
         })}
@@ -289,106 +289,110 @@ export function FinalMap() {
   return (
     <WidgetFrame wide label="Kadé's platform, finished">
       <div className="dd-fig">
-        <svg viewBox="0 0 960 606" role="img" aria-label="Kadé's finished platform: outside GCP, the Google front door, kade-vpc, governance and observability">
-          <rect className="zone" x="10" y="10" width="190" height="584" rx="2" />
-          <text className="s" x="22" y="30" style={{"fontSize": "11px"}}>OUTSIDE GCP</text>
-          <rect className="n" x="22" y="44" width="166" height="58" rx="2" />
-          <text className="t" x="32" y="64" style={{"fontSize": "11.5px"}}>Shoppers</text>
-          <text className="s" x="32" y="81" style={{"fontSize": "10px"}}>phones, browsers</text>
-          <rect className="n" x="22" y="118" width="166" height="74" rx="2" />
-          <text className="t" x="32" y="138" style={{"fontSize": "11.5px"}}>Cloudflare</text>
-          <text className="s" x="32" y="155" style={{"fontSize": "10px"}}>DNS for kade.lk · proxy</text>
-          <text className="f" x="32" y="170" style={{"fontSize": "9.5px"}}>WAF · cache · Full (strict)</text>
-          <rect className="n" x="22" y="212" width="166" height="74" rx="2" />
-          <text className="t" x="32" y="232" style={{"fontSize": "11.5px"}}>Kadé office</text>
-          <text className="s" x="32" y="249" style={{"fontSize": "10px"}}>172.16.0.0/16</text>
-          <text className="f" x="32" y="264" style={{"fontSize": "9.5px"}}>↔ HA VPN + BGP</text>
-          <rect className="n" x="22" y="306" width="166" height="74" rx="2" />
-          <text className="t" x="32" y="326" style={{"fontSize": "11.5px"}}>PayGate</text>
-          <text className="s" x="32" y="343" style={{"fontSize": "10px"}}>allows 34.87.200.7</text>
-          <text className="f" x="32" y="358" style={{"fontSize": "9.5px"}}>← calls via Cloud NAT</text>
-          <rect className="zone plum" x="212" y="10" width="236" height="584" rx="2" />
-          <text className="s" x="224" y="30" style={{"fontSize": "11px"}}>GOOGLE FRONT DOOR</text>
+        <svg viewBox="0 0 960 656" role="img" aria-label="Kadé's finished platform: outside GCP, the Google front door, kade-vpc, governance and observability">
+          <rect className="zone" x="10" y="10" width="190" height="636" rx="2" />
+          <text className="s" x="22" y="30" style={{"fontSize": "12.5px"}}>OUTSIDE GCP</text>
+          <rect className="n" x="16" y="44" width="178" height="58" rx="2" />
+          <text className="t" x="26" y="64" style={{"fontSize": "13px"}}>Shoppers</text>
+          <text className="s" x="26" y="81" style={{"fontSize": "12px"}}>phones, browsers</text>
+          <rect className="n" x="16" y="118" width="178" height="74" rx="2" />
+          <text className="t" x="26" y="138" style={{"fontSize": "13px"}}>Cloudflare</text>
+          <text className="s" x="26" y="155" style={{"fontSize": "12px"}}>DNS for kade.lk · proxy</text>
+          <text className="f" x="26" y="170" style={{"fontSize": "12px"}}>WAF · cache · Full (strict)</text>
+          <rect className="n" x="16" y="212" width="178" height="74" rx="2" />
+          <text className="t" x="26" y="232" style={{"fontSize": "13px"}}>Kadé office</text>
+          <text className="s" x="26" y="249" style={{"fontSize": "12px"}}>172.16.0.0/16</text>
+          <text className="f" x="26" y="264" style={{"fontSize": "12px"}}>↔ HA VPN + BGP</text>
+          <rect className="n" x="16" y="306" width="178" height="74" rx="2" />
+          <text className="t" x="26" y="326" style={{"fontSize": "13px"}}>PayGate</text>
+          <text className="s" x="26" y="343" style={{"fontSize": "12px"}}>allows 34.87.200.7</text>
+          <text className="f" x="26" y="358" style={{"fontSize": "12px"}}>← calls via Cloud NAT</text>
+          <rect className="zone plum" x="212" y="10" width="236" height="636" rx="2" />
+          <text className="s" x="224" y="30" style={{"fontSize": "12.5px"}}>GOOGLE FRONT DOOR</text>
           <rect className="n plum" x="224" y="44" width="212" height="74" rx="2" />
-          <text className="t" x="234" y="64" style={{"fontSize": "11.5px"}}>Global external App LB</text>
-          <text className="s" x="234" y="81" style={{"fontSize": "10px"}}>34.120.88.10 · :443 + :80</text>
-          <text className="f" x="234" y="96" style={{"fontSize": "9.5px"}}>cert map · SSL policy kade-tls</text>
+          <text className="t" x="234" y="64" style={{"fontSize": "13px"}}>Global external App LB</text>
+          <text className="s" x="234" y="81" style={{"fontSize": "12px"}}>34.120.88.10 · :443 + :80</text>
+          <text className="f" x="234" y="96" style={{"fontSize": "12px"}}>cert map · SSL policy kade-tls</text>
           <rect className="n amber" x="224" y="132" width="212" height="74" rx="2" />
-          <text className="t" x="234" y="152" style={{"fontSize": "11.5px"}}>kade-url-map</text>
-          <text className="s" x="234" y="169" style={{"fontSize": "10px"}}>api.kade.lk → kade-api</text>
-          <text className="f" x="234" y="184" style={{"fontSize": "9.5px"}}>www → static · /media/* → media</text>
+          <text className="t" x="234" y="152" style={{"fontSize": "13px"}}>kade-url-map</text>
+          <text className="s" x="234" y="169" style={{"fontSize": "12px"}}>api.kade.lk → kade-api</text>
+          <text className="f" x="234" y="184" style={{"fontSize": "12px"}}>www → static · /media/* → media</text>
           <rect className="n amber" x="224" y="220" width="212" height="74" rx="2" />
-          <text className="t" x="234" y="240" style={{"fontSize": "11.5px"}}>Cloud Armor kade-edge-policy</text>
-          <text className="s" x="234" y="257" style={{"fontSize": "10px"}}>Cloudflare + secret header</text>
-          <text className="f" x="234" y="272" style={{"fontSize": "9.5px"}}>WAF · rate limit per visitor</text>
+          <text className="t" x="234" y="240" style={{"fontSize": "13px"}}>Cloud Armor kade-edge-policy</text>
+          <text className="s" x="234" y="257" style={{"fontSize": "12px"}}>Cloudflare + secret header</text>
+          <text className="f" x="234" y="272" style={{"fontSize": "12px"}}>WAF · rate limit per visitor</text>
           <rect className="n teal" x="224" y="308" width="212" height="58" rx="2" />
-          <text className="t" x="234" y="328" style={{"fontSize": "11.5px"}}>kade-api-backend</text>
-          <text className="s" x="234" y="345" style={{"fontSize": "10px"}}>serverless NEG</text>
-          <text className="f" x="234" y="360" style={{"fontSize": "9.5px"}}>→ Cloud Run kade-api</text>
+          <text className="t" x="234" y="328" style={{"fontSize": "13px"}}>kade-api-backend</text>
+          <text className="s" x="234" y="345" style={{"fontSize": "12px"}}>serverless NEG</text>
+          <text className="f" x="234" y="360" style={{"fontSize": "12px"}}>→ Cloud Run kade-api</text>
           <rect className="n teal" x="224" y="374" width="212" height="58" rx="2" />
-          <text className="t" x="234" y="394" style={{"fontSize": "11.5px"}}>kade-media-backend</text>
-          <text className="s" x="234" y="411" style={{"fontSize": "10px"}}>instance group · RATE 80</text>
-          <text className="f" x="234" y="426" style={{"fontSize": "9.5px"}}>→ kade-media-mig (sn-app)</text>
+          <text className="t" x="234" y="394" style={{"fontSize": "13px"}}>kade-media-backend</text>
+          <text className="s" x="234" y="411" style={{"fontSize": "12px"}}>instance group · RATE 80</text>
+          <text className="f" x="234" y="426" style={{"fontSize": "12px"}}>→ kade-media-mig (sn-app)</text>
           <rect className="n teal" x="224" y="440" width="212" height="44" rx="2" />
-          <text className="t" x="234" y="460" style={{"fontSize": "11.5px"}}>kade-static</text>
-          <text className="s" x="234" y="477" style={{"fontSize": "10px"}}>bucket · Cloud CDN</text>
+          <text className="t" x="234" y="460" style={{"fontSize": "13px"}}>kade-static</text>
+          <text className="s" x="234" y="477" style={{"fontSize": "12px"}}>bucket · Cloud CDN</text>
           <rect className="n teal" x="224" y="494" width="212" height="88" rx="2" />
-          <text className="t" x="234" y="514" style={{"fontSize": "11.5px"}}>Cloud Run kade-api</text>
-          <text className="s" x="234" y="531" style={{"fontSize": "10px"}}>ingress: internal + LB</text>
-          <text className="f" x="234" y="546" style={{"fontSize": "9.5px"}}>egress: Direct VPC → sn-run</text>
+          <text className="t" x="234" y="514" style={{"fontSize": "13px"}}>Cloud Run kade-api</text>
+          <text className="s" x="234" y="531" style={{"fontSize": "12px"}}>ingress: internal + LB</text>
+          <text className="f" x="234" y="546" style={{"fontSize": "12px"}}>egress: Direct VPC → sn-run</text>
           <rect className="zone teal" x="460" y="10" width="490" height="400" rx="2" />
-          <text className="s" x="472" y="30" style={{"fontSize": "11px"}}>kade-prod · kade-vpc · plan 10.10.0.0/16 · asia-southeast1</text>
+          <text className="s" x="472" y="30" style={{"fontSize": "12.5px"}}>kade-prod · kade-vpc · plan 10.10.0.0/16 · asia-southeast1</text>
           <rect className="zone" x="472" y="42" width="230" height="140" rx="2" />
-          <text className="s" x="482" y="60" style={{"fontSize": "10.5px"}}>sn-app 10.10.1.0/24</text>
+          <text className="s" x="482" y="60" style={{"fontSize": "12px"}}>sn-app 10.10.1.0/24</text>
           <rect className="n green" x="482" y="68" width="210" height="50" rx="2" />
-          <text className="t" x="492" y="88" style={{"fontSize": "11.5px"}}>kade-media-mig</text>
-          <text className="s" x="492" y="105" style={{"fontSize": "10px"}}>regional · 2-8 VMs</text>
+          <text className="t" x="492" y="88" style={{"fontSize": "13px"}}>kade-media-mig</text>
+          <text className="s" x="492" y="105" style={{"fontSize": "12px"}}>regional · 2-8 VMs</text>
           <rect className="n green" x="482" y="124" width="210" height="50" rx="2" />
-          <text className="t" x="492" y="144" style={{"fontSize": "11.5px"}}>kade-worker</text>
-          <text className="s" x="492" y="161" style={{"fontSize": "10px"}}>10.10.1.20 · inventory API</text>
+          <text className="t" x="492" y="144" style={{"fontSize": "13px"}}>kade-worker</text>
+          <text className="s" x="492" y="161" style={{"fontSize": "12px"}}>10.10.1.20 · inventory API</text>
           <rect className="zone" x="472" y="192" width="230" height="64" rx="2" />
-          <text className="s" x="482" y="210" style={{"fontSize": "10.5px"}}>sn-run 10.10.3.0/24</text>
-          <text className="f" x="482" y="230" style={{"fontSize": "10px"}}>Cloud Run egress addresses</text>
-          <text className="f" x="482" y="246" style={{"fontSize": "10px"}}>sn-data 10.10.2.0/24: empty</text>
-          <rect className="zone plum" x="472" y="266" width="230" height="74" rx="2" />
-          <text className="s" x="482" y="284" style={{"fontSize": "10.5px"}}>PSA 10.10.32.0/20 (peering)</text>
-          <rect className="n green" x="482" y="292" width="210" height="40" rx="2" />
-          <text className="t" x="492" y="312" style={{"fontSize": "11.5px"}}>Cloud SQL kade-sql</text>
-          <text className="s" x="492" y="329" style={{"fontSize": "10px"}}>10.10.32.3 · TLS only</text>
-          <rect className="n amber" x="472" y="352" width="230" height="48" rx="2" />
-          <text className="t" x="482" y="372" style={{"fontSize": "11.5px"}}>Firewall (by service account)</text>
-          <text className="s" x="482" y="389" style={{"fontSize": "10px"}}>lb-to-media · IAP SSH · warehouse</text>
+          <text className="s" x="482" y="210" style={{"fontSize": "12px"}}>sn-run 10.10.3.0/24</text>
+          <text className="f" x="482" y="230" style={{"fontSize": "12px"}}>Cloud Run egress addresses</text>
+          <text className="f" x="482" y="246" style={{"fontSize": "12px"}}>sn-data 10.10.2.0/24: empty</text>
+          <rect className="zone plum" x="472" y="266" width="230" height="80" rx="2" />
+          <text className="s" x="482" y="284" style={{"fontSize": "12px"}}>PSA 10.10.32.0/20 (peering)</text>
+          <rect className="n green" x="482" y="292" width="210" height="46" rx="2" />
+          <text className="t" x="492" y="311" style={{"fontSize": "13px"}}>Cloud SQL kade-sql</text>
+          <text className="s" x="492" y="329" style={{"fontSize": "12px"}}>10.10.32.3 · TLS only</text>
+          <rect className="n amber" x="472" y="352" width="230" height="62" rx="2" />
+          <text className="t" x="482" y="372" style={{"fontSize": "13px"}}>Firewall (by service account)</text>
+          <text className="s" x="482" y="389" style={{"fontSize": "12px"}}>lb-to-media · IAP SSH</text>
+          <text className="s" x="482" y="405" style={{"fontSize": "12px"}}>warehouse</text>
           <rect className="n teal" x="714" y="42" width="224" height="58" rx="2" />
-          <text className="t" x="724" y="62" style={{"fontSize": "11.5px"}}>Cloud NAT kade-nat</text>
-          <text className="s" x="724" y="79" style={{"fontSize": "10px"}}>34.87.200.7 · kade-router</text>
+          <text className="t" x="724" y="62" style={{"fontSize": "13px"}}>Cloud NAT kade-nat</text>
+          <text className="s" x="724" y="79" style={{"fontSize": "12px"}}>34.87.200.7 · kade-router</text>
           <rect className="n teal" x="714" y="108" width="224" height="58" rx="2" />
-          <text className="t" x="724" y="128" style={{"fontSize": "11.5px"}}>HA VPN kade-havpn</text>
-          <text className="s" x="724" y="145" style={{"fontSize": "10px"}}>2 tunnels · kade-vpn-router</text>
-          <text className="f" x="724" y="160" style={{"fontSize": "9.5px"}}>BGP 64512 ↔ 65010</text>
+          <text className="t" x="724" y="128" style={{"fontSize": "13px"}}>HA VPN kade-havpn</text>
+          <text className="s" x="724" y="145" style={{"fontSize": "12px"}}>2 tunnels · kade-vpn-router</text>
+          <text className="f" x="724" y="160" style={{"fontSize": "12px"}}>BGP 64512 ↔ 65010</text>
           <rect className="n plum" x="714" y="174" width="224" height="58" rx="2" />
-          <text className="t" x="724" y="194" style={{"fontSize": "11.5px"}}>Cloud DNS</text>
-          <text className="s" x="724" y="211" style={{"fontSize": "10px"}}>private zone kade.internal</text>
-          <text className="f" x="724" y="226" style={{"fontSize": "9.5px"}}>db · worker · fwd office.kade.lan</text>
+          <text className="t" x="724" y="194" style={{"fontSize": "13px"}}>Cloud DNS</text>
+          <text className="s" x="724" y="211" style={{"fontSize": "12px"}}>private zone kade.internal</text>
+          <text className="f" x="724" y="226" style={{"fontSize": "12px"}}>db · worker · fwd office.kade.lan</text>
           <rect className="n plum" x="714" y="240" width="224" height="58" rx="2" />
-          <text className="t" x="724" y="260" style={{"fontSize": "11.5px"}}>Private Google Access</text>
-          <text className="s" x="724" y="277" style={{"fontSize": "10px"}}>on all subnets</text>
-          <text className="f" x="724" y="292" style={{"fontSize": "9.5px"}}>Cloud Storage · Secret Manager</text>
+          <text className="t" x="724" y="260" style={{"fontSize": "13px"}}>Private Google Access</text>
+          <text className="s" x="724" y="277" style={{"fontSize": "12px"}}>on all subnets</text>
+          <text className="f" x="724" y="292" style={{"fontSize": "12px"}}>Cloud Storage · Secret Manager</text>
           <rect className="n plum" x="714" y="306" width="224" height="94" rx="2" />
-          <text className="t" x="724" y="326" style={{"fontSize": "11.5px"}}>Admin access</text>
-          <text className="s" x="724" y="343" style={{"fontSize": "10px"}}>IAP · OS Login</text>
-          <text className="f" x="724" y="358" style={{"fontSize": "9.5px"}}>no external IPs anywhere</text>
-          <rect className="zone" x="460" y="420" width="490" height="84" rx="2" />
-          <text className="s" x="472" y="440" style={{"fontSize": "11px"}}>GOVERNANCE · org kade.lk / folder production</text>
-          <text className="s" x="472" y="460" style={{"fontSize": "10px"}}>org policies: no external IPs · no public Cloud SQL · Cloud Run ingress</text>
-          <text className="s" x="472" y="476" style={{"fontSize": "10px"}}>no default network · OS Login · no service account keys</text>
-          <text className="s" x="472" y="492" style={{"fontSize": "10px"}}>folder firewall policy: no 22/3389 from internet · VPC-SC dry run · CI writes</text>
-          <rect className="zone" x="460" y="512" width="490" height="82" rx="2" />
-          <text className="s" x="472" y="532" style={{"fontSize": "11px"}}>OBSERVABILITY</text>
-          <text className="s" x="472" y="552" style={{"fontSize": "10px"}}>LB logs 100% · Cloud Run JSON logs with CF-Ray · flow logs sn-app, sn-run</text>
-          <text className="s" x="472" y="568" style={{"fontSize": "10px"}}>NAT errors · dashboard (6 panels) · 8 alerts · uptime check via Cloudflare</text>
-          <text className="s" x="472" y="584" style={{"fontSize": "10px"}}>saved Connectivity Tests · Ops Agent on VMs</text>
+          <text className="t" x="724" y="326" style={{"fontSize": "13px"}}>Admin access</text>
+          <text className="s" x="724" y="343" style={{"fontSize": "12px"}}>IAP · OS Login</text>
+          <text className="f" x="724" y="358" style={{"fontSize": "12px"}}>no external IPs anywhere</text>
+          <rect className="zone" x="460" y="420" width="490" height="116" rx="2" />
+          <text className="s" x="472" y="440" style={{"fontSize": "12.5px"}}>GOVERNANCE · org kade.lk / folder production</text>
+          <text className="s" x="472" y="460" style={{"fontSize": "12px"}}>org policies: no external IPs · no public Cloud SQL</text>
+          <text className="s" x="472" y="476" style={{"fontSize": "12px"}}>Cloud Run ingress · no default network · OS Login</text>
+          <text className="s" x="472" y="492" style={{"fontSize": "12px"}}>no service account keys</text>
+          <text className="s" x="472" y="508" style={{"fontSize": "12px"}}>folder firewall policy: no 22/3389 from internet</text>
+          <text className="s" x="472" y="524" style={{"fontSize": "12px"}}>VPC-SC dry run · CI writes</text>
+          <rect className="zone" x="460" y="548" width="490" height="98" rx="2" />
+          <text className="s" x="472" y="568" style={{"fontSize": "12.5px"}}>OBSERVABILITY</text>
+          <text className="s" x="472" y="588" style={{"fontSize": "12px"}}>LB logs 100% · Cloud Run JSON logs with CF-Ray</text>
+          <text className="s" x="472" y="604" style={{"fontSize": "12px"}}>flow logs sn-app, sn-run · NAT errors · dashboard (6 panels)</text>
+          <text className="s" x="472" y="620" style={{"fontSize": "12px"}}>8 alerts · uptime check via Cloudflare</text>
+          <text className="s" x="472" y="636" style={{"fontSize": "12px"}}>saved Connectivity Tests · Ops Agent on VMs</text>
           <path className="w" d="M105 102 L 105 115" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
-          <path className="w" d="M188 150 C 204 150, 206 84, 221 82" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
+          <path className="w" d="M194 150 C 206 150, 208 84, 221 82" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
           <path className="w" d="M330 118 L 330 129" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
           <path className="w" d="M330 206 L 330 217" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
           <path className="w" d="M330 294 L 330 305" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />

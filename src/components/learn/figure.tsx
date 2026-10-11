@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { Hue } from "@/lib/content/types";
 import { cn } from "@/lib/utils";
+import { ExpandDrawing } from "./expand-drawing";
+import { FitText } from "./fit-text";
 import { Swatch } from "./swatch";
 
 const ORDER: Hue[] = ["plum", "teal", "green", "amber"];
@@ -39,6 +41,8 @@ export function Figure({
       <div className="dd-fig border-rule bg-ground overflow-x-auto rounded-[2px] border p-4 sm:p-5">
         {drawing}
       </div>
+      <FitText />
+      <ExpandDrawing />
       {(key.length > 0 || children) && (
         <figcaption className="mt-3 space-y-2">
           {key.length > 0 && (

@@ -132,7 +132,7 @@ export function NetSim({ wide }: { wide?: boolean }) {
             return (
               <g key={k}>
                 <rect className={cn("n", k === "R" ? "teal" : undefined, acc && "dst")} x={n.x - 75} y={n.y - 22} width="150" height="44" rx="2" />
-                <text className="t mid" x={n.x} y={n.y + 5} fontSize="12.5">{n.t}</text>
+                <text className="t mid" x={n.x} y={n.y + 5} fontSize="14.5">{n.t}</text>
               </g>
             );
           })}
@@ -149,7 +149,7 @@ export function NetSim({ wide }: { wide?: boolean }) {
                   height="58"
                   rx="2"
                 />
-                <text className="mid" x={n.x} y={n.y - 4} fontSize="12">{n.t}</text>
+                <text className="mid" x={n.x} y={n.y - 4} fontSize="14">{n.t}</text>
                 <text className="s mid" x={n.x} y={n.y + 12}>{n.ip}</text>
                 {c && (
                   <text className="l mid" x={n.x} y={n.y + 27}>

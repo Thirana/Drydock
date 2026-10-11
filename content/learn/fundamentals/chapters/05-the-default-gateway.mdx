@@ -1,4 +1,4 @@
-import { FigGateway, FigOnward } from "@content/learn/fundamentals/figures/05-the-default-gateway";
+import { FigCloud, FigGateway, FigOnward } from "@content/learn/fundamentals/figures/05-the-default-gateway";
 
 ## Where we are
 
@@ -135,7 +135,15 @@ One rule is fixed: **the gateway must be on your own network.** The laptop has t
 
 ## In the cloud
 
-kade-api's default gateway is 10.10.1.1, one of the 4 addresses GCP keeps in each subnet (<Ch n="3">chapter 3</Ch>). GCP hands it out with DHCP, just like the home router. The VPC also has its own route table, created for you:
+kade-api's default gateway is 10.10.1.1, one of the 4 addresses GCP keeps in each subnet (<Ch n="3">chapter 3</Ch>). GCP hands it out with DHCP, just like the home router. But it is not a box. In GCP there is no physical router and no shared cable: the network is software running on every machine that hosts VMs, and 10.10.1.1 is an address that software answers for. You cannot log in to it or see it. GCP even sets things up so that the VM sends almost everything to the gateway, including traffic to its own subnet (<Ch course="gcp" n="1" section="What the VM sees: a /32 and one gateway">GCP chapter 1</Ch> shows how).
+
+<Figure wide hues={["plum", "teal", "green", "amber"]} drawing={<FigCloud />}>
+
+kade-api hands every packet to 10.10.1.1. The VPC's route table then decides where it really goes: a packet for kade-db stays inside the VPC; a packet for the internet goes to the default internet gateway, and needs a public address to get any further.
+
+</Figure>
+
+The VPC's route table is created for you:
 
 <Table>
   <thead>
@@ -148,11 +156,34 @@ kade-api's default gateway is 10.10.1.1, one of the 4 addresses GCP keeps in eac
   </tbody>
 </Table>
 
+It works like the laptop's table: the most specific match wins. A packet from kade-api to kade-db (10.10.2.5) matches two routes:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Route</th><th>Does 10.10.2.5 fall in it?</th><th>Prefix</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><Mono>10.10.1.0/24</Mono></td><td>No</td><td></td></tr>
+    <tr><td>2</td><td><Mono>10.10.2.0/24</Mono></td><td>Yes</td><td><Mono>/24</Mono></td></tr>
+    <tr><td>3</td><td><Mono>0.0.0.0/0</Mono></td><td>Yes, it matches every address</td><td><Mono>/0</Mono></td></tr>
+  </tbody>
+</Table>
+
+/24 is more specific than /0, so it wins and the packet stays inside the VPC. 0.0.0.0/0 has zero network bits, so it matches every address. That is why it is the **default route**: it is used only when nothing more specific matches (<Ch n="12" section="Longest prefix match">chapter 12</Ch> goes deeper).
+
 <Note>
 
-**A route is not enough.** kade-db also sees the 0.0.0.0/0 route, but it has no external IP, so it still cannot reach the internet. To send traffic out without a public address it needs NAT (Cloud NAT, a later chapter). A route says which way to go; it does not give you the right to go.
+**A route is not enough.** kade-db also sees the 0.0.0.0/0 route, but it has no external IP, so it still cannot reach the internet. To send traffic out without a public address it needs NAT (<Ch n="10" section="Cloud NAT">Cloud NAT, chapter 10</Ch>). A route says which way to go; it does not give you the right to go. In the cloud, three things must line up for a packet to get through:
+
+- **A route says which way.** The most specific match wins.
+- **A firewall rule says whether it is allowed.** In GCP this applies even between two VMs in the same subnet: outgoing is allowed and incoming is denied, unless a rule says otherwise (<Ch course="gcp" n="5.1" section="Nothing is trusted for being inside">GCP chapter 5.1</Ch>).
+- **A public address is needed for the internet.** An external IP works both ways (<Ch course="gcp" n="3" section="The external IP is not on the VM">GCP chapter 3</Ch>); Cloud NAT works outwards only.
+
+GCP chapter 7 puts all three together, trip by trip, in <Ch course="gcp" n="7" section="A route, a rule, an address: the full picture">the full picture</Ch>.
 
 </Note>
+
+<Recalls label="On GCP"><Recall course="gcp" n="1" section="What the VM sees: a /32 and one gateway">The VM sends everything to the gateway</Recall><Recall course="gcp" n="4" section="One route table for the whole VPC">The VPC route table</Recall><Recall course="gcp" n="5.1" section="Nothing is trusted for being inside">Firewalls inside a subnet</Recall><Recall course="gcp" n="3" section="The external IP is not on the VM">How an external IP works</Recall><Recall course="gcp" n="7" section="A route, a rule, an address: the full picture">The full picture</Recall></Recalls>
 
 ## Summary
 
@@ -168,7 +199,7 @@ kade-api's default gateway is 10.10.1.1, one of the 4 addresses GCP keeps in eac
     <tr><td>5</td><td>Addresses</td><td>Destination IP stays kade-api; only the MAC points to the gateway</td><td></td></tr>
     <tr><td>6</td><td>Setup</td><td>Comes from DHCP; must be inside your own network</td><td></td></tr>
     <tr><td>7</td><td>Debugging</td><td>Check route → gateway → internet → DNS, closest first</td><td></td></tr>
-    <tr><td>8</td><td>Cloud</td><td>Subnet gateway .1; VPC default route to default-internet-gateway</td><td>subnet route</td></tr>
+    <tr><td>8</td><td>Cloud</td><td>Gateway .1 is software; the VPC route table decides; a route, a firewall rule and a public address must all line up</td><td>subnet route</td></tr>
   </tbody>
 </Table>
 

@@ -76,11 +76,25 @@ function H2({ children }: { children?: ReactNode }) {
 }
 
 /** Ruled rows; scrolls sideways inside itself when the page is narrow. */
-function Table({ children }: { children: ReactNode }) {
+function Table({
+  widths,
+  children,
+}: {
+  /** Column widths, e.g. ["28%", "36%", "36%"], when even columns read better. */
+  widths?: string[];
+  children: ReactNode;
+}) {
   return (
     <div className="my-8">
       <ScrollX>
         <table className="w-full min-w-[560px] border-collapse text-left">
+          {widths && (
+            <colgroup>
+              {widths.map((w, i) => (
+                <col key={i} style={{ width: w }} />
+              ))}
+            </colgroup>
+          )}
           {children}
         </table>
       </ScrollX>
@@ -327,10 +341,13 @@ export function chapterMdxComponents(course: Course): MDXComponents {
   function Ch({
     n,
     course: other,
+    section,
     children,
   }: {
     n: string;
     course?: string;
+    /** A `##` heading in that chapter, to link straight to it. */
+    section?: string;
     children: ReactNode;
   }) {
     const slug = other ?? course.slug;
@@ -338,17 +355,34 @@ export function chapterMdxComponents(course: Course): MDXComponents {
     const target = chapterByNum(slug, n) ?? chapterByNum(slug, `${n}.1`);
     if (!target || !isPublished(target.chapter)) return <>{children}</>;
     return (
-      <Link href={chapterHref(target)} title={target.chapter.title}>
+      <Link
+        href={
+          section
+            ? `${chapterHref(target)}#${headingId(section)}`
+            : chapterHref(target)
+        }
+        title={section ?? target.chapter.title}
+      >
         {children}
       </Link>
     );
   }
 
-  /** "Builds on" links into the fundamentals course, under a heading. */
-  function Recalls({ children }: { children: ReactNode }) {
+  /**
+   * A muted line of chapter links under a heading: "Builds on" (the default)
+   * for what a section relies on, or another label such as "On GCP" for
+   * where the other course takes it further.
+   */
+  function Recalls({
+    label = "Builds on",
+    children,
+  }: {
+    label?: string;
+    children: ReactNode;
+  }) {
     return (
       <p className="not-prose text-ink-muted -mt-1 mb-6 flex max-w-[760px] flex-wrap gap-x-2 gap-y-1 text-[15px] leading-[1.5]">
-        <span>Builds on</span>
+        <span>{label}</span>
         {Children.toArray(children).map((child, i) => (
           <span key={i} className="inline-flex gap-x-2">
             {i > 0 && <span aria-hidden="true">·</span>}
@@ -362,10 +396,13 @@ export function chapterMdxComponents(course: Course): MDXComponents {
   function Recall({
     n,
     course: other = "fundamentals",
+    section,
     children,
   }: {
     n: string;
     course?: string;
+    /** A `##` heading in that chapter, to link straight to it. */
+    section?: string;
     children: ReactNode;
   }) {
     const target = chapterByNum(other, n);
@@ -377,7 +414,14 @@ export function chapterMdxComponents(course: Course): MDXComponents {
     if (!target || !isPublished(target.chapter))
       return <span className="text-ink-body">{label}</span>;
     return (
-      <Link href={chapterHref(target)} className="dd-link">
+      <Link
+        href={
+          section
+            ? `${chapterHref(target)}#${headingId(section)}`
+            : chapterHref(target)
+        }
+        className="dd-link"
+      >
         {label}
       </Link>
     );

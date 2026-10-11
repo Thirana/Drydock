@@ -146,18 +146,18 @@ typography:
     fontFeature: "\"tnum\" 1"
   figure-title:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "13.5px"
+    fontSize: "15px"
     fontWeight: 600
     lineHeight: 1.2
   figure-sub:
     fontFamily: "Atkinson Hyperlegible Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
-    fontSize: "11.5px"
-    fontWeight: 400
+    fontSize: "13px"
+    fontWeight: 500
     lineHeight: 1.2
     fontFeature: "\"tnum\" 1"
   figure-label:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "12px"
+    fontSize: "13px"
     fontWeight: 600
     lineHeight: 1.2
 rounded:
@@ -326,7 +326,7 @@ The ramp is set in px per role, stepping up once at 640px (`sm`) and, for displa
 - **Label** (600, 13px, 0.01em, sentence case, muted ink): names a group of data - "Phase", "Severity", "Learn it", footer column heads. Never set above a heading.
 - **Move** (mono 700, 13.5-18px): move numerals ("3."), defect IDs, severity marks. 13-14px inline with text, 15-17px at the head of a row, 18px beside a 24px+ heading.
 - **Code** (mono 400, 14px, 13.5px from 1024px, 1.7): command blocks; inline code at 0.86em on code ground.
-- **Figure** (inside drawings and widgets only): box titles sans 600 13.5px; sub-lines (addresses, ports, values) mono 11.5px; words on a wire sans 600 12px in muted ink; widget cell and axis text 11-12.5px. Nothing below 11px outside a drawing.
+- **Figure** (inside drawings and widgets only, in drawing units, which render near 1:1): box titles sans 600 15; sub-lines (addresses, ports, values) mono 500 13 in body ink; words on a wire sans 600 13 in muted ink; other drawing text 14. Sizes a drawing sets itself pass through `legible()` (x1.15, never below 12). A text that outgrows its box, zone or column is fitted down to no less than 11. On screen that is about 12.5px for most drawing text and never below 10px.
 
 ### Named Rules
 **The Plain Label Rule.** Labels are small, sentence-case and literal, and they label data, not headings. No uppercase tracking, no kicker line above a title.
@@ -412,7 +412,13 @@ The author's asides and positions (Note, Argument) sit on a 28px gutter holding 
 "Drydock" in 19px bold ink with a blue mono "?!" set high beside it - the dubious-move mark that names the site.
 
 ### Figures and Diagrams
-Course figures (`.dd-fig`): the same hairline 2px frame on ground. Boxes are 2px-cornered with a 1.25px stroke - ink-faint for a neutral box, a hue with its soft fill for a box the legend names. Titles in sans 13.5px semibold ink, sub-lines (addresses, ports) in mono 11.5px muted. Wires 1.5px with a matching arrowhead (`DiagramDefs`, rendered once by the course layout); dashed means "not built yet" or "optional", exactly as in the lab. The key sits under the drawing as small swatch-and-word pairs, then the caption in muted 15px. On narrow screens a drawing keeps 680px and scrolls sideways, with the plain note only when it overflows. Address-block charts (`blk`: used, plan, goog, res, free) and status dots (ink for fine, red for broken) are part of the same vocabulary.
+Course figures (`.dd-fig`): the same hairline 2px frame on ground. Boxes are 2px-cornered with a 1.25px stroke - ink-faint for a neutral box, a hue with its soft fill for a box the legend names. Titles in sans 15 semibold ink, sub-lines (addresses, ports) in mono 13 at weight 500 in body ink - grey, light and small together were what made drawings hard to read. Wires 1.5px with a matching arrowhead (`DiagramDefs`, rendered once by the course layout); dashed means "not built yet" or "optional", exactly as in the lab. The key sits under the drawing as small swatch-and-word pairs, then the caption in muted 15px. A drawing is drawn 920-960 units wide and its text is sized in those units, so the drawing's scale is the text's scale, and it is never shrunk far: from 1024px a course drawing's frame breaks out of the reading column into the right margin, up to its natural size (1004px, keeping 24px of page at the edge); below 1024px it keeps 880px and scrolls sideways, with the plain note only when it overflows.
+
+**The Bend Arrow Rule** (the "bend arrow approach"). Wires in course drawings run in straight horizontal and vertical segments with square 90° bends (`<path d="M x y H … V … H …">`), never on a diagonal. A wire leaves from the side and height of what it belongs to - a route table's row, the box it starts at - and enters its target square on. Several sources going to one target join a shared trunk and arrive as one line with one arrowhead, the way a phone, laptop and TV all reach the home router in Fundamentals 5. Place boxes so the bends land in clear space: move a box rather than bend a wire through text or another box. Lay a target level with its source when you can, so the wire stays straight. Curves are kept for drawings where the curve itself is the point (a packet looping back, a path around something).
+
+**Fitting** (`FitText`, in every course figure and widget frame): after the drawing renders, and again when a widget changes it or the web fonts load, a text that outgrows its box, its zone or the gap before the next text on its line shrinks just enough to fit, never below 11 units; a label on a wire that is meant to cross a zone's dashed line gets a ring of page colour so the line breaks behind it; a free sentence wider than the drawing wraps and the drawing grows to hold it. Hand-fixed geometry comes first - fitting is for the long tail.
+
+**Expand** (`ExpandDrawing`): under every frame that holds a drawing, a right-aligned muted "Expand" with a drawn icon. It opens the figure itself - so a widget keeps its state - over the whole window on solid page ground, with a sticky bar: "Fit to screen | Actual size" (a SegmentedControl) and Close. Fit sizes a plain drawing to the window both ways (up to 1.6x) and a widget to its width; Actual size draws 1:1 and pans, the default on a phone. Esc or Close returns to the same place; Tab stays inside while it is open; focus goes back to Expand. Address-block charts (`blk`: used, plan, goog, res, free) and status dots (ink for fine, red for broken) are part of the same vocabulary.
 
 Lab figures: caption above (16px bold title, muted meta, a line legend of traffic / not built yet / defective path), the drawing below inside a hairline 2px frame on ground. Drawn in the monochrome tones; defect marks and defective paths in red; selected regions washed blue.
 
@@ -421,6 +427,7 @@ Text never crosses a box edge (`src/lib/architecture/text-fit.ts`). A box's sub-
 ### Course chapters
 - **Chapter rail:** sticky, text only, 236px on the left from 1024px, 96px from the text column (the section numerals hang in that gap). Course title, parts as plain labels, chapters as numbered rows (mono faint numeral, body-ink title; the current one blue and bold; unpublished ones faint and not linked). Under the current chapter its sections, with a 2px blue marker that slides to the section in view (500ms, the score's curve). Below 1024px it folds into a sticky 48px strip - "Chapters" muted, a strong-hairline "/", then the mono numeral, the chapter title in ink semibold and the section in view muted, and a chevron - that opens the same list as a full-height sheet (`<dialog>`).
 - **Chapter header:** the title as the headline, the lead, then one muted meta line under it - part, "chapter 4 of 34", reading time. Nothing sits above the title.
+- **Chapter parts** (`Part`, long chapters only): a 3px ink rule, then a 48px solid ink square holding the part letter in mono, beside "PART A" (13.5px mono, uppercase, muted) over the part title (26px bold). Ink, never a hue: hues belong to drawings. The section that opens the part follows 40px below, without its own rule.
 - **Numbered sections:** every `##` takes a move numeral from a CSS counter - mono, faint, hanging in the gutter from 1024px, inline before it below. Summary, Try it yourself and Commands in this chapter are unnumbered recaps.
 - **Asides on the gutter:** a key idea under "!", a note under "!?", the GCP blocks under their own mark - the problem "?" in red, the fix "!", a read-only gcloud check "$"; console, cost and exam blocks carry no mark. Each starts with a hairline and a bold title; its body is indented by the gutter, which is what shows where it ends.
 - **Builds on:** a muted line under a heading linking the fundamentals chapters a section relies on.

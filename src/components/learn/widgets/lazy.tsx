@@ -351,11 +351,17 @@ export const V6Tool = dynamic(() =>
 export const ArpFan = dynamic(() =>
   import("./local-delivery").then((m) => m.ArpFan),
 );
+export const ArpMessages = dynamic(() =>
+  import("./local-delivery").then((m) => m.ArpMessages),
+);
 export const ArpSim = dynamic(() =>
   import("./local-delivery").then((m) => m.ArpSim),
 );
 export const HopExplorer = dynamic(() =>
   import("./local-delivery").then((m) => m.HopExplorer),
+);
+export const NatRewrite = dynamic(() =>
+  import("./local-delivery").then((m) => m.NatRewrite),
 );
 export const NatLookup = dynamic(() =>
   import("./local-delivery").then((m) => m.NatLookup),

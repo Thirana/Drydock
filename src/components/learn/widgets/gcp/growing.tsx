@@ -69,8 +69,8 @@ export function VpcOptions() {
         <Wire x1={276} y1={384} x2={244} y2={357} dash />
         {vpc(508, 294, "staging-vpc")}
         {vpc(728, 294, "kade-vpc")}
-        <Box x={528} y={332} w={140} h={34} c="orange" />
-        <T x={538} y={354} size={10.5}>endpoint 10.20.2.50</T>
+        <Box x={516} y={332} w={166} h={34} c="orange" />
+        <T x={526} y={354} size={10.5}>endpoint 10.20.2.50</T>
         <Box x={748} y={332} w={140} h={34} c="green" />
         <T x={758} y={354} size={10.5}>one service only</T>
         <Wire x1={668} y1={349} x2={745} y2={349} c="orange" />

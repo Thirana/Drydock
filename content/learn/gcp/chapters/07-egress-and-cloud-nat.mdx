@@ -1,5 +1,5 @@
 import { NatCalc } from "@/components/learn/widgets/lazy";
-import { FigSplit } from "@content/learn/gcp/figures/07-egress-and-cloud-nat";
+import { FigSplit, FigThree } from "@content/learn/gcp/figures/07-egress-and-cloud-nat";
 
 <Box kind="problem" title="The problem">
 
@@ -311,6 +311,54 @@ Cloud NAT charges an hourly fee for each VM (or serverless instance) using the g
 </Table>
 
 <Caption><Ch n="16">Chapter 16</Ch> covers reading these logs.</Caption>
+
+## A route, a rule, an address: the full picture
+
+<Recalls><Recall n="5">The default gateway</Recall><Recall n="10">NAT</Recall></Recalls>
+
+With Cloud NAT in place, every piece of the question "will this packet get through?" has been covered. Three separate things decide it, and all three must line up:
+
+1. **A route says which way.** The VPC route table picks the most specific match, and `0.0.0.0/0` is used only when nothing more specific matches (<Ch n="4">chapter 4</Ch>).
+2. **A firewall rule says whether it is allowed.** This applies even between two VMs in the same subnet. Outgoing is allowed and incoming is denied, unless a rule says otherwise (<Ch n="5.1">chapter 5.1</Ch>).
+3. **A public address is needed to talk to the internet.** An external IP works both ways (<Ch n="3">chapter 3</Ch>). Cloud NAT works outwards only.
+
+<Figure wide hues={["teal", "amber", "green"]} labels={{ teal: "Route", amber: "Firewall rule", green: "Traffic that gets through" }} drawing={<FigThree />}>
+
+Every trip passes the same three checks, in this order. A trip that stays inside the VPC, or inside Google, never needs a public address. Before this chapter, kade-api-1's calls to PayGate had a route and an allowed firewall, and stopped at the third check.
+
+</Figure>
+
+Out of a VM:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>From → to</th><th>Route that matches</th><th>Also needs</th><th>Source the receiver sees</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>VM → VM, same subnet<Sub>kade-api-1 → kade-api-2</Sub></td><td>Subnet route `10.10.1.0/24`</td><td>An ingress rule (<Ch n="5.1">ch 5.1</Ch>)</td><td>The sender's internal IP, `10.10.1.10`</td></tr>
+    <tr><td>2</td><td>VM → VM, other subnet, same VPC<Sub>kade-api-1 → kade-db</Sub></td><td>Subnet route `10.10.2.0/24`</td><td>An ingress rule</td><td>The sender's internal IP, `10.10.1.10`</td></tr>
+    <tr><td>3</td><td>VM → VM in another VPC</td><td>None, by default</td><td>Peering or a VPN (<Ch n="14">ch 14</Ch>, <Ch n="15">15</Ch>)</td><td>The sender's internal IP, with peering</td></tr>
+    <tr><td>4</td><td>VM with an external IP → internet</td><td>`0.0.0.0/0`</td><td>Nothing more</td><td>The VM's external IP</td></tr>
+    <tr><td>5</td><td>VM without an external IP → internet<Sub>kade-api-1 → PayGate</Sub></td><td>`0.0.0.0/0`</td><td>Cloud NAT (this chapter)</td><td>The NAT IP, `34.87.200.7`</td></tr>
+    <tr><td>6</td><td>VM without an external IP → Google APIs</td><td>`0.0.0.0/0`</td><td>Private Google Access on the subnet (<Ch n="9">ch 9</Ch>)</td><td>It stays inside Google</td></tr>
+    <tr><td>7</td><td>VM → another VM's external IP</td><td>`0.0.0.0/0`</td><td>The sender needs an external IP or NAT</td><td>The sender's public IP. Avoid this (<Ch n="3" section="Between your own VMs, always use internal addresses">ch 3</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+Into a VM, from the internet:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Target</th><th>Reachable?</th><th>Why</th><th>Source the VM sees</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A VM with an external IP, on port 443</td><td>Only if an ingress rule allows it</td><td>Incoming is denied by default</td><td>The client's public IP</td></tr>
+    <tr><td>2</td><td>A VM with no external IP, such as kade-db</td><td>Never directly</td><td>There is no public address to send to</td><td>-</td></tr>
+    <tr><td>3</td><td>A VM with only Cloud NAT</td><td>Never directly</td><td>Cloud NAT is outgoing only</td><td>-</td></tr>
+  </tbody>
+</Table>
+
+To reach a VM with no external IP from outside, put something in front that has one. For websites and APIs that is a **load balancer**: the public IP lives on the load balancer, which forwards to the VMs on their internal IPs (<Ch n="11">chapter 11</Ch>). Behind a proxy load balancer such as Kadé's, the VM sees the load balancer's address and finds the client's in a header (<Ch n="12.1" section="The real client IP">chapter 12.1</Ch>). For SSH and admin it is **IAP TCP forwarding**, which needs only a firewall rule for Google's IAP range `35.235.240.0/20` (<Ch n="6.1">chapter 6.1</Ch>).
 
 ## Back to Kadé
 

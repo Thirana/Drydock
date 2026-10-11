@@ -366,7 +366,7 @@ export function RtSim({ wide }: { wide?: boolean }) {
     stats.push([name, req, empty, avg < 1 ? `${Math.round(avg * 1000)} ms` : `${avg.toFixed(1)} s`, li < 2 ? "~700 B per request" : "2-8 B per message"]);
     return (
       <g key={name}>
-        <text className="t" x="16" y={y + 20} fontSize="12.5">{name}</text>
+        <text className="t" x="16" y={y + 20} fontSize="14.5">{name}</text>
         <line className="w dash" x1="175" y1={y + 16} x2="890" y2={y + 16} />
         {evs.map((e) => (
           <polygon key={`s${e}`} points={`${X(e)},${y - 4} ${X(e) + 4},${y} ${X(e)},${y + 4} ${X(e) - 4},${y}`} style={{ fill: "var(--dd-ink)" }} />

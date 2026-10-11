@@ -25,7 +25,7 @@ export function FigWhy() {
       <rect x="528" y="100" width="28" height="36" rx="2" style={{"fill": "var(--dd-amber)", "opacity": ".8"}} />
       <rect x="560" y="100" width="28" height="36" rx="2" style={{"fill": "var(--dd-amber)", "opacity": ".8"}} />
       <text className="s" x="336" y="156">full: the next arrivals are dropped</text>
-      <text className="l" x="600" y="124" style={{"fontSize": "18px"}}>✕</text>
+      <text className="l" x="600" y="124" style={{"fontSize": "18.0px"}}>✕</text>
       <line className="w green" x1="650" y1="115" x2="760" y2="115" markerEnd="url(#dd-ah-green)" />
       <text className="s" x="662" y="104">100 Mbit/s</text>
       <rect className="n" x="764" y="92" width="140" height="46" rx="2" />

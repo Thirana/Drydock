@@ -32,3 +32,139 @@ export function FigSplit() {
     </svg>
   );
 }
+
+/** A pass at a check: a drawn tick in ink. */
+function Pass({ x, y }: { x: number; y: number }) {
+  return (
+    <path
+      d={`M${x - 7} ${y} l5 5 l10 -11`}
+      style={{ fill: "none", stroke: "var(--dd-ink)", strokeWidth: 2.25 }}
+    />
+  );
+}
+
+/** A stop at a check: a red cross. */
+function Stop({ x, y }: { x: number; y: number }) {
+  return (
+    <path
+      d={`M${x - 6} ${y - 6} l12 12 m0 -12 l-12 12`}
+      style={{ fill: "none", stroke: "var(--dd-fault)", strokeWidth: 2.25 }}
+    />
+  );
+}
+
+/** A check this trip does not need. */
+function Skip({ x, y }: { x: number; y: number }) {
+  return (
+    <path
+      d={`M${x - 6} ${y} h12`}
+      style={{ fill: "none", stroke: "var(--dd-ink-faint)", strokeWidth: 2.25 }}
+    />
+  );
+}
+
+const CHECKS = [
+  { x: 300, hue: "teal", t: "1 · Route", s: "which way" },
+  { x: 520, hue: "amber", t: "2 · Firewall rule", s: "whether it is allowed" },
+  { x: 740, hue: "", t: "3 · Public address", s: "to use the internet" },
+] as const;
+
+type Mark = "pass" | "stop" | "skip";
+
+const TRIPS: { t: string; s: string; y: number; checks: [Mark, string][] }[] = [
+  {
+    t: "kade-api-1 → kade-db",
+    s: "10.10.1.10 → 10.10.2.5",
+    y: 112,
+    checks: [
+      ["pass", "10.10.2.0/24"],
+      ["pass", "ingress rule"],
+      ["skip", "stays in the VPC"],
+    ],
+  },
+  {
+    t: "kade-api-1 → PayGate",
+    s: "before Cloud NAT",
+    y: 176,
+    checks: [
+      ["pass", "0.0.0.0/0"],
+      ["pass", "egress allowed"],
+      ["stop", "none: dropped"],
+    ],
+  },
+  {
+    t: "kade-api-1 → PayGate",
+    s: "with Cloud NAT",
+    y: 240,
+    checks: [
+      ["pass", "0.0.0.0/0"],
+      ["pass", "egress allowed"],
+      ["pass", "NAT IP 34.87.200.7"],
+    ],
+  },
+  {
+    t: "kade-db → Cloud Storage",
+    s: "Private Google Access on",
+    y: 304,
+    checks: [
+      ["pass", "0.0.0.0/0"],
+      ["pass", "egress allowed"],
+      ["skip", "stays in Google"],
+    ],
+  },
+];
+
+export function FigThree() {
+  return (
+    <svg
+      viewBox="0 0 960 350"
+      role="img"
+      aria-label="Every trip passes three checks in order: a route, a firewall rule, and, for the internet, a public address. kade-api-1 to kade-db needs no public address. kade-api-1 to PayGate is dropped at the third check until Cloud NAT gives it the NAT IP. kade-db to Cloud Storage stays inside Google with Private Google Access."
+    >
+      {CHECKS.map((c) => (
+        <g key={c.t}>
+          <rect className={`n ${c.hue}`} x={c.x} y="16" width="204" height="54" rx="2" />
+          <text className="t" x={c.x + 14} y="40">{c.t}</text>
+          <text className="s" x={c.x + 14} y="60">{c.s}</text>
+          <rect className="zone" x={c.x} y="80" width="204" height="258" rx="2" />
+        </g>
+      ))}
+      {TRIPS.map((trip) => {
+        const stopAt = trip.checks.findIndex(([m]) => m === "stop");
+        const end = stopAt < 0 ? 948 : CHECKS[stopAt].x + 14;
+        return (
+          <g key={trip.t + trip.s}>
+            <text className="t" x="16" y={trip.y - 2}>{trip.t}</text>
+            <text className="s" x="16" y={trip.y + 18}>{trip.s}</text>
+            <line
+              className="w green"
+              x1="282"
+              y1={trip.y - 6}
+              x2={end}
+              y2={trip.y - 6}
+              markerEnd={stopAt < 0 ? "url(#dd-ah-green)" : undefined}
+            />
+            {trip.checks.map(([mark, words], i) => {
+              const x = CHECKS[i].x + 18;
+              const y = trip.y - 6;
+              return (
+                <g key={i}>
+                  {/* A disc of page colour, so the mark reads over the line. */}
+                  {(i <= stopAt || stopAt < 0) && (
+                    <circle cx={x} cy={y} r="12" style={{ fill: "var(--dd-ground)" }} />
+                  )}
+                  {mark === "pass" && <Pass x={x} y={y} />}
+                  {mark === "stop" && <Stop x={x} y={y} />}
+                  {mark === "skip" && <Skip x={x} y={y} />}
+                  <text className="s" x={CHECKS[i].x + 12} y={trip.y + 18}>
+                    {words}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

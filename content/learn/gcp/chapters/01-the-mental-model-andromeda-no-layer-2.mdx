@@ -104,6 +104,8 @@ kade-api-1 (zone a) runs a SQL query on kade-db (zone b). Step through what happ
 
 Two things to take from this. First, the packet your VM builds (source `10.10.1.10`, destination `10.10.2.5`) arrives exactly as it was sent. Google puts it inside its own outer envelope to cross the physical network, then takes it back out. The VMs never see that envelope. Second, the MAC addresses in the frame are only there because the guest OS expects them. The data plane throws them away and routes on the IP.
 
+kade-api-1 and kade-db are in different subnets, yet no step in the walk is a router hop. Between two subnets of one VPC the path is exactly the same as inside one subnet: the data plane on kade-api-1's host matches the subnet route and sends the packet straight to the host running kade-db. The only differences are which subnet route matched and which firewall rules apply (<Ch n="5.1">chapter 5.1</Ch>).
+
 ## What the VM sees: a /32 and one gateway
 
 <Recalls><Recall n="4">Subnet masks</Recall><Recall n="5">The default gateway</Recall></Recalls>
@@ -111,6 +113,8 @@ Two things to take from this. First, the packet your VM builds (source `10.10.1.
 In the fundamentals course, the subnet mask decided everything: same network, send directly; different network, send to the gateway. GCP uses that same rule to switch direct sending off.
 
 On Linux, DHCP gives the VM a **/32** mask. A /32 network holds exactly one address, the VM itself. So to the VM, **every other address is on a different network**, even kade-api-2 in the same subnet. Everything goes to the gateway `10.10.1.1`, and the only MAC the VM ever needs is the gateway's.
+
+That gateway is not a machine. There is no router behind `10.10.1.1`: it is an address the data plane on every host answers for (section 02). You cannot log in to it or find it in any list of resources. The VM's own route table stays simple, "send everything to `.1`", and the real decision is made by the VPC's route table (<Ch n="4">chapter 4</Ch>).
 
 <Box kind="check" title="gcloud check">
 
