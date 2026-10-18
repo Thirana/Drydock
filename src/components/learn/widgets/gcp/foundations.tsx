@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils";
 import data from "../data/gcp.json";
 import { Field, FieldError } from "../field";
 import { Verdict } from "../quiz";
-import { Action, Choices, KeyValues, Select, Steps, WidgetNote } from "../ui";
+import { Action, Choices, KeyValues, Select, WidgetNote } from "../ui";
 import { WidgetFrame } from "../widget-frame";
 import { CaseExplorer, Result, type Case, type Tone } from "./case-explorer";
-import { Box, Drawing, T, Wire, Zone } from "./draw";
+import { arrowHead } from "../../diagram-defs";
+import { Box, Drawing, Mark, T, Wire, Zone } from "./draw";
 import { Check, Examples, GroupLabel, StepNav, Table } from "./kit";
 
 /* Part 1 · Foundations (chapters 1-4). */
@@ -20,7 +21,7 @@ const cidr = (c: string) => {
   return { net: ipToInt(base)!, p: Number(bits) };
 };
 
-// ── Chapter 1 ──────────────────────────────────────────────────────────────
+// ── Chapter 1.2 ──────────────────────────────────────────────────────────────
 
 const PKTWALK = data.PKTWALK as { h: string; t: string; f: [string, string, string][] }[];
 
@@ -40,8 +41,8 @@ export function PktWalk() {
         <Box x={330} y={10} w={300} h={54} c="purple" />
         <T x={346} y={33} k="t">control plane</T>
         <T x={346} y={52}>already pushed: 10.10.2.5 is on host B</T>
-        <Wire x1={400} y1={64} x2={334} y2={120} c="purple" dash />
-        <Wire x1={560} y1={64} x2={626} y2={120} c="purple" dash />
+        <Wire x1={360} y1={64} x2={360} y2={120} c="purple" dash />
+        <Wire x1={600} y1={64} x2={600} y2={120} c="purple" dash />
         <Zone x={16} y={90} w={420} h={220} />
         <T x={30} y={110}>physical host A · zone a</T>
         <Zone x={524} y={90} w={420} h={220} />
@@ -84,6 +85,175 @@ export function PktWalk() {
     </WidgetFrame>
   );
 }
+
+// ── Chapter 1.1 ────────────────────────────────────────────────────────────
+
+type Setup = "today" | "target";
+type Failure = "none" | "a" | "b" | "region";
+
+const OUTAGE: Record<Setup, Record<Failure, [ok: boolean, text: string]>> = {
+  today: {
+    none: [true, "api.kade.lk works. The load balancer spreads requests over kade-api-1 and kade-api-2, and both use kade-db."],
+    a: [true, "api.kade.lk works, on half the servers. Health checks mark kade-api-1 as down within seconds, and the load balancer sends every request to kade-api-2."],
+    b: [false, "api.kade.lk is down. kade-api-1 is still running, but kade-db was in zone b, so every order fails. One zonal database is a single point of failure for the whole shop."],
+    region: [false, "api.kade.lk is down. The load balancer is global, so its IP still answers, but every backend was in asia-southeast1. Shoppers get an error page from the load balancer."],
+  },
+  target: {
+    none: [true, "api.kade.lk works. Cloud Run runs kade-api across the region's zones. kade-sql keeps a primary in one zone and a standby copy in another."],
+    a: [true, "api.kade.lk works. Cloud Run keeps serving from zones b and c, and kade-sql only loses its standby. kade-worker is a zonal VM, so tonight's backup waits until zone a is back."],
+    b: [true, "api.kade.lk works after a short pause. kade-sql fails over: the standby in zone a becomes the primary, usually within about a minute, on the same private IP. Cloud Run keeps serving from zones a and c."],
+    region: [false, "api.kade.lk is down. Everything Kadé runs is in one region. Surviving this needs a second region with its own copy of the data, which Kadé does not pay for."],
+  },
+};
+
+const ZONE_X = { a: 32, b: 336, c: 640 } as const;
+
+/** A resource in the drawing; faded with a cross when its zone is down. */
+function OutRes({ x, y, w, t, s, c, down }: { x: number; y: number; w: number; t: string; s: string; c: string; down?: boolean }) {
+  return (
+    <g className={down ? "off" : undefined}>
+      <Box x={x} y={y} w={w} h={52} c={c} />
+      <T x={x + 14} y={y + 22} k="t">
+        {t}
+      </T>
+      <T x={x + 14} y={y + 42}>
+        {s}
+      </T>
+      {down && <Mark cx={x + w - 20} cy={y + 26} ok={false} />}
+    </g>
+  );
+}
+
+/** Pick a failure and see which of Kadé's pieces survive it, today and after the course. */
+export function OutageSim() {
+  const [setup, setSetup] = useState<Setup>("today");
+  const [fail, setFail] = useState<Failure>("b");
+  const [ok, text] = OUTAGE[setup][fail];
+  const down = (z: "a" | "b" | "c") => fail === "region" || fail === z;
+  const failedOver = setup === "target" && fail === "b";
+  return (
+    <WidgetFrame wide label="What does an outage take down?">
+      <GroupLabel>{"Kadé's setup"}</GroupLabel>
+      <Choices
+        label="Kadé's setup"
+        value={setup}
+        onChange={setSetup}
+        options={[
+          { value: "today", label: "Today: VMs and one database VM" },
+          { value: "target", label: "After the course: Cloud Run and Cloud SQL" },
+        ]}
+      />
+      <div className="mt-4">
+        <GroupLabel>What fails</GroupLabel>
+        <Choices
+          label="What fails"
+          value={fail}
+          onChange={setFail}
+          options={[
+            { value: "none", label: "Nothing" },
+            { value: "a", label: "Zone a" },
+            { value: "b", label: "Zone b" },
+            { value: "region", label: "The whole region" },
+          ]}
+        />
+      </div>
+      <div className="mt-5">
+        <Drawing
+          h={440}
+          label={`Kadé ${setup === "today" ? "today" : "after the course"}, with ${fail === "none" ? "nothing failing" : fail === "region" ? "the whole region down" : `zone ${fail} down`}. ${text}`}
+        >
+          <Box x={16} y={16} w={170} h={56} />
+          <T x={30} y={49} k="t">
+            Shoppers
+          </T>
+          <Box x={376} y={16} w={208} h={56} c="purple" />
+          <T x={390} y={38} k="t">
+            Load balancer
+          </T>
+          <T x={390} y={58}>
+            global · 34.120.88.10
+          </T>
+          <path className="w" d="M186 44 H374" markerEnd={arrowHead("muted")} />
+
+          <rect className={cn("zone", fail === "region" ? "fault" : "plum")} x="16" y="104" width="928" height="320" rx="2" />
+          <T x={928} y={126} end k={fail === "region" ? "s c-red" : "s"} bold={fail === "region"}>
+            {fail === "region" ? "region asia-southeast1 is down" : "region asia-southeast1"}
+          </T>
+          {(["a", "b", "c"] as const).map((z) => (
+            <g key={z}>
+              <rect className={cn("zone", down(z) && "fault")} x={ZONE_X[z]} y="140" width="288" height="272" rx="2" />
+              <T x={ZONE_X[z] + 16} y={164} k={down(z) ? "t c-red" : "t"}>
+                {down(z) ? `zone ${z}: down` : `zone ${z}`}
+              </T>
+            </g>
+          ))}
+
+          {setup === "today" ? (
+            <>
+              <path className={cn("w green", down("a") && "off")} d="M480 72 V88 H176 V194" markerEnd={arrowHead("green")} />
+              <path className={cn("w green", down("b") && "off")} d="M480 72 V194" markerEnd={arrowHead("green")} />
+              <path className={cn("w teal", (down("a") || down("b")) && "off")} d="M176 248 V294 H350" markerEnd={arrowHead("teal")} />
+              <path className={cn("w teal", down("b") && "off")} d="M480 248 V266" markerEnd={arrowHead("teal")} />
+              <OutRes x={48} y={196} w={256} t="kade-api-1" s="VM · zonal" c="blue" down={down("a")} />
+              <OutRes x={352} y={196} w={256} t="kade-api-2" s="VM · zonal" c="blue" down={down("b")} />
+              <OutRes x={352} y={268} w={256} t="kade-db" s="database VM · zonal" c="blue" down={down("b")} />
+              <T x={656} y={222} k="f">
+                no Kadé resources
+              </T>
+            </>
+          ) : (
+            <>
+              <path className={cn("w green", fail === "region" && "off")} d="M480 72 V194" markerEnd={arrowHead("green")} />
+              <path
+                className={cn("w plum", fail === "region" && "off")}
+                d={failedOver ? "M176 248 V266" : "M480 248 V266"}
+                markerEnd={arrowHead("plum")}
+              />
+              <path className={cn("w plum dash", (down("a") || down("b")) && "off")} d="M304 294 H350" />
+              <OutRes
+                x={48}
+                y={196}
+                w={864}
+                t="Cloud Run · kade-api"
+                s={
+                  fail === "none" || fail === "region"
+                    ? "regional: Google runs it across the zones"
+                    : `regional: still serving from the zones that are up`
+                }
+                c="purple"
+                down={fail === "region"}
+              />
+              <OutRes
+                x={48}
+                y={268}
+                w={256}
+                t={failedOver ? "kade-sql primary" : "kade-sql standby"}
+                s={failedOver ? "took over from zone b" : "a copy, ready to take over"}
+                c="purple"
+                down={down("a")}
+              />
+              <OutRes
+                x={352}
+                y={268}
+                w={256}
+                t="kade-sql primary"
+                s="Cloud SQL · regional (HA)"
+                c="purple"
+                down={down("b")}
+              />
+              <OutRes x={48} y={340} w={256} t="kade-worker" s="VM · zonal" c="blue" down={down("a")} />
+            </>
+          )}
+        </Drawing>
+      </div>
+      <div aria-live="polite" className="mt-4">
+        <Result tone={ok ? "ok" : "fault"}>{text}</Result>
+      </div>
+    </WidgetFrame>
+  );
+}
+
+// ── Chapter 1.1, the quiz ──────────────────────────────────────────────────
 
 const SCOPE = data.SCOPE as [string, string, "g" | "r" | "z", string][];
 const SCOPE_NAMES = { g: "Global", r: "Regional", z: "Zonal" } as const;
@@ -531,7 +701,7 @@ const ROUTE_STEPS: [number, string][] = [
 type RouteState = "win" | "out" | "refused";
 
 /** GCP's route selection, step by step: which routes drop out where. */
-function selectRoute(c: RouteCase, down: string | null) {
+function selectRoute(c: Pick<RouteCase, "tags" | "dst" | "routes">, down: readonly string[] = []) {
   const dst = ipToInt(c.dst)!;
   const st: Record<string, [RouteState, string, number]> = {};
   const counts: Record<number, number> = {};
@@ -561,7 +731,7 @@ function selectRoute(c: RouteCase, down: string | null) {
   const longest = Math.max(...left.map((r) => r.p));
   left = left.filter((r) => (r.p < longest ? ((st[r.n] = ["out", `less specific than /${longest}`, 5]), false) : true));
   counts[5] = left.length;
-  left = left.filter((r) => (r.dep && r.dep === down ? ((st[r.n] = ["out", `next hop ${r.dep} is down`, 6]), false) : true));
+  left = left.filter((r) => (r.dep && down.includes(r.dep) ? ((st[r.n] = ["out", `next hop ${r.dep} is down`, 6]), false) : true));
   counts[6] = left.length;
   const lowest = Math.min(...left.map((r) => r.pr));
   left = left.filter((r) => (r.pr > lowest ? ((st[r.n] = ["out", `priority ${r.pr} loses to ${lowest}`, 7]), false) : true));
@@ -578,7 +748,93 @@ function selectRoute(c: RouteCase, down: string | null) {
   return { st, counts, dec, win: left };
 }
 
-function RouteDrawing({ c, sel }: { c: RouteCase; sel: ReturnType<typeof selectRoute> }) {
+type RouteSel = ReturnType<typeof selectRoute>;
+
+/** The selection order as a strip: routes still in the running after each step, the deciding step marked. */
+function RouteStrip({ steps, sel }: { steps: [number, string][]; sel: RouteSel & { special?: object } }) {
+  const decided = sel.win.length > 0 || !!sel.special;
+  return (
+    <ol className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, minWidth: Math.max(700, steps.length * 80) }}>
+      {steps.map(([n, label]) => {
+        const dec = n === sel.dec;
+        const after = n > sel.dec;
+        const count = sel.counts[n];
+        return (
+          <li key={n} className={cn("rounded-[2px] border px-2 py-2", dec ? (decided ? "border-ink" : "border-fault") : "border-rule", after && "opacity-50")}>
+            <span className="text-ink-faint block font-mono text-[11.5px]">step {n}</span>
+            <span className={cn("block text-[13.5px] leading-[1.3]", dec ? "text-ink font-bold" : "text-ink-body")}>{label}</span>
+            <span className={cn("mt-1 block font-mono text-[12px]", dec ? "text-ink" : "text-ink-faint")}>
+              {dec ? (
+                decided ? (
+                  <span className="dd-mark">decides here</span>
+                ) : (
+                  <span className="text-fault font-semibold">0 left: drop</span>
+                )
+              ) : after ? (
+                "not needed"
+              ) : count === undefined ? (
+                "-"
+              ) : (
+                `${count} left`
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Every route in the running, with the step that removed it or the word that it won. */
+function RouteRows({ routes, sel }: { routes: Route[]; sel: RouteSel }) {
+  return (
+    <Table
+      head={["Destination", "Specificity", "Priority", "Next hop", "Tags", "Result"]}
+      mono={[0, 2, 4]}
+      minWidth={720}
+      marked={(i) => sel.st[routes[i].n]?.[0] === "win"}
+      faded={(i) => sel.st[routes[i].n]?.[0] === "out"}
+      rows={routes.map((r) => {
+        const [state, why, step] = sel.st[r.n] ?? ["out", "", 0];
+        return [
+          r.d,
+          <span key="p" className="inline-flex items-center gap-2 font-mono text-[13px]">
+            <span aria-hidden="true" className="bg-sunk inline-block h-2 w-16 rounded-[1px]">
+              <span className="bg-ink-faint block h-full" style={{ width: `${Math.max(4, (r.p / 32) * 100)}%` }} />
+            </span>
+            /{r.p}
+          </span>,
+          r.kind === "subnet" ? "-" : r.pr,
+          <span key="h" className="inline-flex items-baseline gap-2">
+            <span className="border-rule-strong text-ink-muted rounded-[2px] border px-1 font-mono text-[11px]">{HOP_LABEL[r.ht]}</span>
+            <span className="font-mono text-[13px]">{r.hop.replace("instance ", "").replace("default-internet-gateway", "internet gw")}</span>
+          </span>,
+          r.tags.length ? r.tags.join(", ") : "no tags",
+          state === "win" ? (
+            <span key="r">
+              <b>{why.startsWith("ECMP") ? "ECMP" : "Wins"}</b>
+              <span className="text-ink-muted block text-[13.5px] font-normal">
+                {why.startsWith("ECMP") ? "shares connections" : `→ ${r.hop}`}
+              </span>
+            </span>
+          ) : state === "refused" ? (
+            <span key="r" className="text-fault">
+              <b>Refused</b>
+              <span className="block text-[13.5px]">{why}</span>
+            </span>
+          ) : (
+            <span key="r">
+              out at step {step}
+              <span className="block text-[13.5px]">{why}</span>
+            </span>
+          ),
+        ];
+      })}
+    />
+  );
+}
+
+function RouteDrawing({ c, sel }: { c: RouteCase; sel: RouteSel }) {
   if (c.extra === "nest") {
     const groups = Object.values(
       c.routes
@@ -712,7 +968,7 @@ function RouteDrawing({ c, sel }: { c: RouteCase; sel: ReturnType<typeof selectR
 }
 
 function RouteView({ c, what }: { c: RouteCase; what: string }) {
-  const sel = selectRoute(c, what === "normal" ? null : what);
+  const sel = selectRoute(c, what === "normal" ? [] : [what]);
   return (
     <div className="space-y-5">
       <p className="text-ink-body text-[15.5px]">
@@ -721,81 +977,9 @@ function RouteView({ c, what }: { c: RouteCase; what: string }) {
       </p>
       <div>
         <p className="text-ink-faint mb-2 text-[13.5px]">Steps 1-2: no special path, no policy-based route</p>
-        <ol className="grid min-w-[700px] grid-cols-7 gap-1.5">
-          {ROUTE_STEPS.map(([n, label]) => {
-            const dec = n === sel.dec;
-            const after = n > sel.dec;
-            const count = sel.counts[n];
-            return (
-              <li
-                key={n}
-                className={cn("rounded-[2px] border px-2.5 py-2", dec ? "border-ink" : "border-rule", after && "opacity-50")}
-              >
-                <span className="text-ink-faint block font-mono text-[11.5px]">step {n}</span>
-                <span className={cn("block text-[13.5px] leading-[1.3]", dec ? "text-ink font-bold" : "text-ink-body")}>{label}</span>
-                <span className={cn("mt-1 block font-mono text-[12px]", dec ? "text-ink" : "text-ink-faint")}>
-                  {dec ? (
-                    sel.win.length ? (
-                      <span className="dd-mark">decides here</span>
-                    ) : (
-                      <span className="text-fault font-semibold">0 left: drop</span>
-                    )
-                  ) : after ? (
-                    "not needed"
-                  ) : count === undefined ? (
-                    "-"
-                  ) : (
-                    `${count} left`
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+        <RouteStrip steps={ROUTE_STEPS} sel={sel} />
       </div>
-      <Table
-        head={["Destination", "Specificity", "Priority", "Next hop", "Tags", "Result"]}
-        mono={[0, 2, 4]}
-        minWidth={720}
-        marked={(i) => sel.st[c.routes[i].n]?.[0] === "win"}
-        faded={(i) => sel.st[c.routes[i].n]?.[0] === "out"}
-        rows={c.routes.map((r) => {
-          const [state, why, step] = sel.st[r.n] ?? ["out", "", 0];
-          return [
-            r.d,
-            <span key="p" className="inline-flex items-center gap-2 font-mono text-[13px]">
-              <span aria-hidden="true" className="bg-sunk inline-block h-2 w-16 rounded-[1px]">
-                <span className="bg-ink-faint block h-full" style={{ width: `${Math.max(4, (r.p / 32) * 100)}%` }} />
-              </span>
-              /{r.p}
-            </span>,
-            r.kind === "subnet" ? "-" : r.pr,
-            <span key="h" className="inline-flex items-baseline gap-2">
-              <span className="border-rule-strong text-ink-muted rounded-[2px] border px-1 font-mono text-[11px]">{HOP_LABEL[r.ht]}</span>
-              <span className="font-mono text-[13px]">{r.hop.replace("instance ", "").replace("default-internet-gateway", "internet gw")}</span>
-            </span>,
-            r.tags.length ? r.tags.join(", ") : "no tags",
-            state === "win" ? (
-              <span key="r">
-                <b>{why.startsWith("ECMP") ? "ECMP" : "Wins"}</b>
-                <span className="text-ink-muted block text-[13.5px] font-normal">
-                  {why.startsWith("ECMP") ? "shares connections" : `→ ${r.hop}`}
-                </span>
-              </span>
-            ) : state === "refused" ? (
-              <span key="r" className="text-fault">
-                <b>Refused</b>
-                <span className="block text-[13.5px]">{why}</span>
-              </span>
-            ) : (
-              <span key="r">
-                out at step {step}
-                <span className="block text-[13.5px]">{why}</span>
-              </span>
-            ),
-          ];
-        })}
-      />
+      <RouteRows routes={c.routes} sel={sel} />
       {sel.win.length === 0 && (
         <Result tone="fault">
           <b>No route left → packet dropped</b> (the VM gets ICMP &quot;network unreachable&quot;)
@@ -813,6 +997,373 @@ export function RouteEx() {
       label="Route selection examples"
       cases={ROUTE_CASES}
       render={(c, what) => <RouteView c={c} what={what} />}
+    />
+  );
+}
+
+type TagVm = { n: string; tags: string[] };
+type TagHop = { t: string; s: string };
+
+type TagCase = Case & {
+  goal: string;
+  vms: TagVm[];
+  /** One destination, or a choice of them: [ip, label]. */
+  dsts: [string, string][];
+  routes: Route[];
+  /** A route the scenario deleted, drawn as a ghost row. */
+  gone?: string;
+  /** Next hops by route name, drawn in line with each row. */
+  hops: Record<string, TagHop>;
+  /** "What if" keys that remove a VM's tags instead of stopping a next hop. */
+  untag?: Record<string, string>;
+  /** A path that should never happen: [vm, what]. Drawn in red. */
+  leak?: [string, string];
+};
+
+const via = (t: string, s: string): TagHop => ({ t, s });
+const GW = via("internet gateway", "straight out");
+
+const TAG_CASES: TagCase[] = [
+  {
+    k: "A",
+    t: "Some VMs through a proxy",
+    goal: "kade-worker's internet traffic goes through kade-proxy; every other VM goes direct.",
+    vms: [
+      { n: "kade-api-1", tags: ["api"] },
+      { n: "kade-db", tags: [] },
+      { n: "kade-worker", tags: ["via-proxy"] },
+    ],
+    dsts: [["8.8.8.8", "the internet"]],
+    routes: [
+      route("default", "0.0.0.0/0", 1000, "default-internet-gateway", "gw"),
+      route("kade-via-proxy", "0.0.0.0/0", 900, "instance kade-proxy", "vm", ["via-proxy"], "static", "kade-proxy"),
+    ],
+    hops: { default: GW, "kade-via-proxy": via("kade-proxy", "VM · then the internet") },
+    what: [
+      ["normal", "Normal"],
+      ["kade-proxy", "What if kade-proxy is stopped?"],
+    ],
+    take: {
+      normal:
+        "The tag decides who sees route 2; priority picks the winner. Only kade-worker has both routes, and <b>900 beats 1000</b>. kade-proxy needs IP forwarding on (chapter 3) and its own way out: an external IP or Cloud NAT.",
+      "kade-proxy":
+        "Route 2 drops out at step 6, and the default route has <b>exactly the same destination</b>, so it takes over. kade-worker goes straight out, uninspected, until kade-proxy is back.",
+    },
+    cfg: "Route 1:  0.0.0.0/0 → default-internet-gateway   prio 1000   no tags (all VMs)\nRoute 2:  0.0.0.0/0 → instance kade-proxy        prio 900    tags: [via-proxy]\n\nkade-worker (via-proxy):  both apply, both /0 → 900 beats 1000 → kade-proxy\nkade-api-1 (no such tag): route 2 does not apply → route 1 → direct",
+  },
+  {
+    k: "B",
+    t: "No internet for some VMs",
+    goal: "kade-db can never reach the internet; the other VMs can.",
+    vms: [
+      { n: "kade-api-1", tags: ["internet"] },
+      { n: "kade-db", tags: [] },
+      { n: "kade-worker", tags: ["internet"] },
+    ],
+    dsts: [["8.8.8.8", "the internet"]],
+    gone: "0.0.0.0/0 · prio 1000 · every VM",
+    routes: [route("internet", "0.0.0.0/0", 1000, "default-internet-gateway", "gw", ["internet"])],
+    hops: { internet: GW },
+    untag: { "untag-worker": "kade-worker" },
+    what: [
+      ["normal", "Normal"],
+      ["untag-worker", "What if kade-worker misses the tag?"],
+    ],
+    take: {
+      normal:
+        "The untagged default route is deleted and added back with the tag <b>internet</b>. kade-db has no tag, so <b>no route applies</b> and the packet is dropped. No route means no path, which is safer than sending traffic somewhere to die.",
+      "untag-worker":
+        "Every VM that needs the internet must carry the tag. A new VM, or one rebuilt from an old template, quietly loses the internet. Cloud NAT also needs a default route the VM can see (section 08), and an egress firewall rule (chapter 5) is often the simpler tool.",
+    },
+    cfg: "Delete the untagged default route, then:\nRoute 1:  0.0.0.0/0 → default-internet-gateway   prio 1000   tags: [internet]\n\nkade-api-1, kade-worker tagged \"internet\" → internet as before\nkade-db, no tag → no route to 0.0.0.0/0 → packet dropped (network unreachable)",
+  },
+  {
+    k: "C",
+    t: "Why a blackhole VM leaks",
+    goal: "kade-db's internet traffic is sent to a VM that throws it away.",
+    vms: [
+      { n: "kade-api-1", tags: ["api"] },
+      { n: "kade-db", tags: ["no-egress"] },
+    ],
+    dsts: [["8.8.8.8", "the internet"]],
+    routes: [
+      route("default", "0.0.0.0/0", 1000, "default-internet-gateway", "gw"),
+      route("blackhole", "0.0.0.0/0", 900, "instance blackhole-vm", "vm", ["no-egress"], "static", "blackhole-vm"),
+    ],
+    hops: { default: GW, blackhole: via("blackhole-vm", "VM · packets sink here") },
+    what: [
+      ["normal", "Normal day"],
+      ["blackhole-vm", "What if blackhole-vm is stopped for patching?"],
+    ],
+    leak: ["kade-db", "blackhole-vm"],
+    take: {
+      normal: "On a normal day it works: 900 beats 1000, and kade-db's packets sink at blackhole-vm.",
+      "blackhole-vm":
+        "Route 2 drops out at step 6, and the default route has the same destination, so <b>kade-db reaches the internet</b>. Anything that must fail closed should not depend on a VM being up. Use Scenario B or a firewall rule.",
+    },
+    cfg: "Route 1:  0.0.0.0/0 → default-internet-gateway   prio 1000   no tags\nRoute 2:  0.0.0.0/0 → instance blackhole-vm      prio 900    tags: [no-egress]\n\nNormal day:  kade-db (no-egress) → route 2 → packets sink at blackhole-vm\nblackhole-vm stopped for patching:\n             route 2 ignored (step 6) → route 1 → kade-db reaches the internet",
+  },
+  {
+    k: "D",
+    t: "Only some destinations",
+    goal: "Only kade-worker's calls to PayGate go through kade-inspect.",
+    vms: [
+      { n: "kade-api-1", tags: ["api"] },
+      { n: "kade-worker", tags: ["inspected"] },
+    ],
+    dsts: [
+      ["192.0.2.10", "PayGate"],
+      ["8.8.8.8", "anywhere else"],
+    ],
+    routes: [
+      route("default", "0.0.0.0/0", 1000, "default-internet-gateway", "gw"),
+      route("paygate", "192.0.2.0/24", 1000, "instance kade-inspect", "vm", ["inspected"], "static", "kade-inspect"),
+    ],
+    hops: { default: GW, paygate: via("kade-inspect", "VM · then PayGate") },
+    what: [
+      ["normal", "Normal"],
+      ["kade-inspect", "What if kade-inspect is stopped?"],
+    ],
+    take: {
+      normal:
+        "Here <b>specificity</b> does the work, not priority: both routes have 1000, and the /24 wins for PayGate. The tag only limits who sees the specific route.",
+      "kade-inspect":
+        "Different from Scenarios A and C: kade-worker's PayGate calls are <b>dropped</b>. The /0 was already removed at step 5 as less specific, and GCP never falls back to a less specific route (Example E in section 05).",
+    },
+    cfg: "Route 1:  0.0.0.0/0     → default-internet-gateway   prio 1000   no tags\nRoute 2:  192.0.2.0/24  → instance kade-inspect      prio 1000   tags: [inspected]\n\nkade-worker (inspected):\n  to 192.0.2.10 → route 2 (the /24 is more specific; priority not needed)\n  to anything else on the internet → route 1\nkade-api-1 (no tag): everything → route 1",
+  },
+  {
+    k: "E",
+    t: "A tagged pair of VPN tunnels",
+    goal: "VMs tagged via-office send all traffic to the office, shared across two tunnels.",
+    vms: [
+      { n: "kade-api-1", tags: ["api"] },
+      { n: "kade-worker", tags: ["via-office"] },
+    ],
+    dsts: [["8.8.8.8", "the internet"]],
+    routes: [
+      route("default", "0.0.0.0/0", 1000, "default-internet-gateway", "gw"),
+      route("office-a", "0.0.0.0/0", 900, "vpn tunnel-a", "vpn", ["via-office"], "static", "tunnel-a"),
+      route("office-b", "0.0.0.0/0", 900, "vpn tunnel-b", "vpn", ["via-office"], "static", "tunnel-b"),
+    ],
+    hops: {
+      default: GW,
+      "office-a": via("tunnel-a", "VPN · to the office"),
+      "office-b": via("tunnel-b", "VPN · to the office"),
+    },
+    what: [
+      ["normal", "Normal"],
+      ["tunnel-a", "What if tunnel-a goes down?"],
+    ],
+    take: {
+      normal:
+        "Routes 2 and 3 tie on prefix, priority and next hop type, so each connection is hashed onto one tunnel (<b>ECMP</b>). This works for tagged static routes to Classic VPN tunnels. HA VPN uses dynamic routes from BGP, which cannot carry tags (chapter 15).",
+      "tunnel-a": "tunnel-a's route drops out at step 6, and tunnel-b carries every connection. Nobody has to change a route.",
+    },
+    cfg: "Route 2:  0.0.0.0/0 → vpn tunnel-a   prio 900   tags: [via-office]\nRoute 3:  0.0.0.0/0 → vpn tunnel-b   prio 900   tags: [via-office]\n\nVM tagged via-office → routes 2 and 3 tie → ECMP across both tunnels\nUntagged VM          → default route",
+  },
+  {
+    k: "F",
+    t: "A VM with two tags",
+    goal: "kade-worker carries both via-proxy and inspected. Which route wins?",
+    vms: [
+      { n: "kade-api-1", tags: ["api"] },
+      { n: "kade-worker", tags: ["via-proxy", "inspected"] },
+    ],
+    dsts: [
+      ["192.0.2.10", "PayGate"],
+      ["8.8.8.8", "anywhere else"],
+    ],
+    routes: [
+      route("default", "0.0.0.0/0", 1000, "default-internet-gateway", "gw"),
+      route("kade-via-proxy", "0.0.0.0/0", 900, "instance kade-proxy", "vm", ["via-proxy"], "static", "kade-proxy"),
+      route("paygate", "192.0.2.0/24", 1000, "instance kade-inspect", "vm", ["inspected"], "static", "kade-inspect"),
+    ],
+    hops: {
+      default: GW,
+      "kade-via-proxy": via("kade-proxy", "VM · then the internet"),
+      paygate: via("kade-inspect", "VM · then PayGate"),
+    },
+    take: "Tags decide <b>which routes are candidates</b>, not the winner. With two tags, all three routes apply to kade-worker and compete under the normal rules: the most specific prefix first, then the lowest priority number.",
+    cfg: "kade-worker tags: [via-proxy, inspected]\n\nCandidates for 192.0.2.10:\n  0.0.0.0/0     → default gateway   prio 1000   applies (no tags)\n  0.0.0.0/0     → kade-proxy        prio 900    applies (via-proxy)\n  192.0.2.0/24  → kade-inspect      prio 1000   applies (inspected)\nLongest prefix: 192.0.2.0/24 → kade-inspect WINS\n\nCandidates for 8.8.8.8: only the two /0 routes → prio 900 → kade-proxy WINS",
+  },
+];
+
+/** A route's state for the picked VM, in a few words. */
+function tagWhy(state: RouteState, why: string) {
+  if (state === "win") return why.startsWith("ECMP") ? "shares (ECMP)" : "wins";
+  if (why.startsWith("VM lacks")) return "not for this VM";
+  if (why.startsWith("does not")) return "does not contain it";
+  if (why.startsWith("less")) return "less specific";
+  if (why.startsWith("next hop")) return "next hop is down";
+  if (why.startsWith("priority")) return "loses on priority";
+  return why;
+}
+
+function TagView({ c, what }: { c: TagCase; what: string }) {
+  const [vmName, setVm] = useState(c.vms[c.vms.length - 1].n);
+  const [dstIp, setDst] = useState(c.dsts[0][0]);
+  const untagged = c.untag?.[what];
+  const vms = c.vms.map((v) => (v.n === untagged ? { ...v, tags: [] } : v));
+  const vm = vms.find((v) => v.n === vmName) ?? vms[0];
+  const dst = c.dsts.find(([ip]) => ip === dstIp) ?? c.dsts[0];
+  const down = c.untag?.[what] || what === "normal" ? null : what;
+  const sel = selectRoute({ routes: c.routes, tags: vm.tags, dst: dst[0] }, down ? [down] : []);
+  const leak = !!c.leak && c.leak[0] === vm.n && c.leak[1] === what && sel.win.length > 0;
+
+  // Rows: a ghost for a deleted route first, then the live routes.
+  const rows = [...(c.gone ? [null] : []), ...c.routes];
+  const top = 40;
+  const pitch = 68;
+  const rowY = (i: number) => top + i * pitch;
+  const vmY = (i: number) => top + i * pitch;
+  const h = top + Math.max(rows.length, vms.length) * pitch + 4;
+  const vi = vms.indexOf(vm);
+  const vy = vmY(vi) + 26;
+  const wins = sel.win.map((r) => rows.indexOf(r));
+
+  const hop = (r: Route) => c.hops[r.n];
+  const winHops = sel.win.map((r) => hop(r).t);
+  let verdict: string;
+  if (!sel.win.length)
+    verdict = sel.counts[4]
+      ? `${vm.n} → ${dst[0]}: dropped. The most specific route's next hop is down, and GCP never falls back to a less specific route.`
+      : `${vm.n} → ${dst[0]}: no route applies, so the packet is dropped.`;
+  else if (sel.win.length > 1) verdict = `${vm.n} → ${dst[0]}: ${winHops.join(" and ")} tie, so connections are shared across them (ECMP).`;
+  else {
+    const w = sel.win[0];
+    const lost = c.routes.filter((r) => sel.st[r.n]?.[2] === 7 && sel.st[r.n]?.[0] === "out");
+    const why =
+      sel.dec === 4
+        ? "It is the only route that applies to this VM and contains the destination."
+        : sel.dec === 5
+          ? `The /${w.p} is more specific than the other routes.`
+          : sel.dec === 6
+            ? "The other route's next hop is down, so this one takes over."
+            : sel.dec === 7 && lost.length
+              ? `Both apply; priority ${w.pr} beats ${lost[0].pr}.`
+              : "";
+    verdict = `${vm.n} → ${dst[0]}: ${hop(w).t}. ${why}`;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-ink-body text-[15.5px]">
+        <span className="text-ink font-semibold">Goal:</span> {c.goal}
+      </p>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-ink-muted text-[14px]">Packet from</span>
+          <Choices label="Packet from" value={vm.n} onChange={setVm} options={vms.map((v) => ({ value: v.n, label: v.n }))} />
+        </div>
+        {c.dsts.length > 1 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="text-ink-muted text-[14px]">to</span>
+            <Choices
+              label="Destination"
+              value={dst[0]}
+              onChange={setDst}
+              options={c.dsts.map(([ip, l]) => ({ value: ip, label: `${l} · ${ip}` }))}
+            />
+          </div>
+        )}
+      </div>
+      <Drawing
+        h={h}
+        label={`Scenario ${c.k}. ${verdict}`}
+      >
+        <T x={16} y={22} k="f">VMs and their tags</T>
+        <T x={296} y={22} k="f">kade-vpc route table</T>
+        <T x={748} y={22} k="f">next hop</T>
+
+        {vms.map((v, i) => (
+          <g key={v.n}>
+            <Box x={16} y={vmY(i)} w={250} h={52} c="blue" className={v === vm ? "cur" : undefined} />
+            <T x={28} y={vmY(i) + 22} k="t">
+              {v.n}
+            </T>
+            <T x={28} y={vmY(i) + 42}>
+              {v.tags.length ? `tags: ${v.tags.join(", ")}` : "no tags"}
+            </T>
+          </g>
+        ))}
+
+        {rows.map((r, i) => {
+          const y = rowY(i);
+          if (!r)
+            return (
+              <g key="gone">
+                <rect className="ghost" x={296} y={y} width={408} height={52} rx="2" />
+                <T x={308} y={y + 22} k="f">
+                  {c.gone}
+                </T>
+                <T x={308} y={y + 42} k="f">
+                  deleted
+                </T>
+              </g>
+            );
+          const [state, why] = sel.st[r.n] ?? ["out", ""];
+          const won = state === "win";
+          const off = state === "out" && why.startsWith("VM lacks");
+          const dead = down !== null && r.dep === down;
+          const h2 = hop(r);
+          return (
+            <g key={r.n}>
+              <g className={off ? "off" : undefined}>
+                <Box x={296} y={y} w={408} h={52} c={dead ? "red" : r.tags.length ? "orange" : "blue"} className={won ? (leak ? undefined : "cur") : undefined} />
+                <T x={308} y={y + 22} k="t">
+                  {`${r.d} · prio ${r.pr}`}
+                </T>
+                <T x={308} y={y + 42}>
+                  {r.tags.length ? `for tag ${r.tags.join(", ")}` : "for every VM"}
+                </T>
+                <T x={692} y={y + 42} k={won ? "s" : "f"} bold={won} end>
+                  {tagWhy(state, why)}
+                </T>
+              </g>
+              <Wire x1={704} y1={y + 26} x2={745} y2={y + 26} cur={won && !leak} c={won && leak ? "red" : undefined} plain={!won} />
+              <Box x={748} y={y} w={196} h={52} c={dead ? "red" : undefined} className={won && !leak ? "cur" : undefined} />
+              <T x={760} y={y + 22} k={dead ? "t c-red" : "t"}>
+                {h2.t}
+              </T>
+              <T x={760} y={y + 42} k={dead ? "s c-red" : "s"}>
+                {dead ? "stopped" : h2.s}
+              </T>
+            </g>
+          );
+        })}
+
+        {/* The picked VM's packet: one elbow per winning row, or a cross when nothing applies. */}
+        {wins.map((i) => (
+          <path
+            key={i}
+            className={cn("w", leak ? "fault" : "cur")}
+            d={`M266 ${vy} H280 V${rowY(i) + 26} H293`}
+            markerEnd={arrowHead(leak ? "fault" : "accent")}
+          />
+        ))}
+        {!wins.length && (
+          <>
+            <path className="w fault" d={`M266 ${vy} H270`} />
+            <Mark cx={281} cy={vy} ok={false} r={10} />
+          </>
+        )}
+      </Drawing>
+      <Result tone={!sel.win.length || leak ? "fault" : "ok"}>
+        <b>{verdict}</b>
+        {leak && " The block leaks."}
+      </Result>
+    </div>
+  );
+}
+
+/** Six tag-scoped route patterns: pick a VM and watch which route it gets. */
+export function TagRoutes() {
+  return (
+    <CaseExplorer
+      label="Tag-scoped route patterns"
+      cases={TAG_CASES}
+      render={(c, what) => <TagView key={c.k} c={c} what={what} />}
     />
   );
 }
@@ -835,12 +1386,23 @@ const SPECIAL_PATHS = [
   ["35.199.224.0/19", "Serverless VPC Access"],
 ].map(([c, n]) => ({ c, n, ...cidr(c) }));
 const PICK_EXAMPLES = ["10.10.2.5", "8.8.8.8", "192.0.2.10", "172.16.2.11", "172.16.1.20", "35.191.4.7"];
+const PICK_NAMES: Record<string, string> = {
+  "10.10.2.5": "kade-db",
+  "8.8.8.8": "internet",
+  "192.0.2.10": "PayGate",
+  "172.16.2.11": "warehouse",
+  "172.16.1.20": "office",
+  "35.191.4.7": "health check",
+};
 const PICK_DOWN = [
   ["kade-proxy", "kade-proxy stopped"],
   ["kade-inspect", "kade-inspect stopped"],
   ["tunnel-a", "tunnel-a down"],
   ["tunnel-b", "tunnel-b down"],
 ] as const;
+const PICK_STEPS: [number, string][] = [[1, "special path?"], [2, "policy route?"], ...ROUTE_STEPS];
+
+type PickSel = RouteSel & { special?: (typeof SPECIAL_PATHS)[number] };
 
 /** Type a destination, set tags and outages, and watch the route table decide. */
 export function RoutePick() {
@@ -849,88 +1411,75 @@ export function RoutePick() {
   const [down, setDown] = useState<string[]>([]);
   const errorId = useId();
   const error = ipError(value);
+  const ip = value.trim();
   const toggle = (list: string[], set: (v: string[]) => void, key: string, on: boolean) =>
     set(on ? [...list, key] : list.filter((x) => x !== key));
 
-  let verdict: ReactNode = null;
-  let tone: Tone = "ok";
-  const why: Record<string, string> = {};
-  const steps: string[] = [];
-  let winners: Route[] = [];
+  let sel: PickSel | null = null;
   if (!error) {
-    const ip = ipToInt(value)!;
-    const special = SPECIAL_PATHS.find((s) => inRange(ip, s.net, s.p));
+    const n = ipToInt(ip)!;
+    const special = SPECIAL_PATHS.find((p) => inRange(n, p.net, p.p));
     if (special) {
-      PICK_ROUTES.forEach((r) => (why[r.n] = "not used: a special path handles this destination"));
-      verdict = `Special path (step 1): ${special.n} (${special.c}). It is not in the route table and nothing can override it.`;
-      steps.push(`Step 1: ${value} is in ${special.c}, a special path. Evaluation stops.`);
+      const st: RouteSel["st"] = {};
+      PICK_ROUTES.forEach((r) => (st[r.n] = ["out", "a special path handles this destination", 1]));
+      sel = { st, counts: { 1: PICK_ROUTES.length }, dec: 1, win: [], special };
     } else {
-      steps.push("Step 1: not a special path. Step 2: no policy-based routes in this lab.");
-      const subnet = PICK_ROUTES.find((r) => r.kind === "subnet" && inRange(ip, r.net, r.p));
-      if (subnet) {
-        PICK_ROUTES.forEach(
-          (r) => (why[r.n] = r === subnet ? "subnet route: wins outright" : "not considered: a subnet route matched first"),
-        );
-        winners = [subnet];
-        verdict = `Subnet route ${subnet.n} (${subnet.d}) wins at step 3. Nothing can beat a subnet route.`;
-        steps.push(`Step 3: ${value} is inside ${subnet.d}, so the subnet route is used. Evaluation stops.`);
-      } else {
-        steps.push("Step 3: not inside any subnet range, so subnet routes are set aside.");
-        PICK_ROUTES.filter((r) => r.kind === "subnet").forEach((r) => (why[r.n] = "not considered: destination is outside this subnet"));
-        let left = PICK_ROUTES.filter((r) => r.kind !== "subnet").filter((r) => {
-          if (r.tags.length && !r.tags.some((t) => tags.includes(t))) {
-            why[r.n] = `not applicable: VM lacks tag ${r.tags.join(", ")}`;
-            return false;
-          }
-          if (!inRange(ip, r.net, r.p)) {
-            why[r.n] = "does not contain the destination";
-            return false;
-          }
-          return true;
-        });
-        steps.push(`Step 4: ${left.length} applicable route${left.length === 1 ? "" : "s"} contain the destination.`);
-        if (left.length) {
-          const longest = Math.max(...left.map((r) => r.p));
-          left = left.filter((r) => (r.p < longest ? ((why[r.n] = `less specific than /${longest}`), false) : true));
-          steps.push(`Step 5: longest prefix is /${longest}; ${left.length} left.`);
-          left = left.filter((r) => (r.dep && down.includes(r.dep) ? ((why[r.n] = `ignored: next hop ${r.dep} is down`), false) : true));
-          steps.push(`Step 6: after dropping dead next hops, ${left.length} left.`);
-        }
-        if (left.length) {
-          const lowest = Math.min(...left.map((r) => r.pr));
-          left = left.filter((r) => (r.pr > lowest ? ((why[r.n] = `priority ${r.pr} loses to ${lowest}`), false) : true));
-          steps.push(`Step 7: lowest priority number is ${lowest}; ${left.length} left.`);
-          const best = Math.min(...left.map((r) => HOP_RANK[r.ht]));
-          left = left.filter((r) => (HOP_RANK[r.ht] > best ? ((why[r.n] = "less preferred next hop type"), false) : true));
-          steps.push(`Step 8: most preferred next hop type kept; ${left.length} left.`);
-        }
-        winners = left;
-        if (left.length === 1) {
-          why[left[0].n] = "WINS";
-          verdict = `Route ${left[0].n} wins: ${left[0].d} → ${left[0].hop}.`;
-        } else if (left.length > 1) {
-          left.forEach((r) => (why[r.n] = "ECMP: shares traffic"));
-          verdict = `ECMP: ${left.length} routes tie (${left.map((r) => r.hop).join(" and ")}). Connections are spread across them.`;
-        } else {
-          tone = "fault";
-          verdict = 'No route left. The packet is dropped and the VM gets ICMP "network unreachable".';
-        }
-        steps.push(`Step 9: ${left.length === 0 ? "drop" : left.length === 1 ? "send" : "ECMP"}.`);
-        const fellThrough =
-          down.length &&
-          left.some((r) => r.n === "default") &&
-          PICK_ROUTES.some((r) => r.dep && down.includes(r.dep) && r.tags.some((t) => tags.includes(t)) && inRange(ip, r.net, r.p));
-        if (fellThrough)
-          verdict = `${verdict} Note: the route that normally wins was ignored because its next hop is down, so traffic fell through to the default route.`;
-      }
+      sel = selectRoute({ routes: PICK_ROUTES, tags, dst: ip }, down);
+      sel.counts[1] = sel.counts[2] = PICK_ROUTES.length;
     }
   }
 
+  let verdict: ReactNode = null;
+  let tone: Tone = "ok";
+  if (sel?.special) {
+    verdict = (
+      <>
+        <b>A special path, decided at step 1.</b> {sel.special.c} is {sel.special.n}. It is not in the route table, and no route can override it.
+      </>
+    );
+  } else if (sel && sel.win.length === 1) {
+    const w = sel.win[0];
+    const st = sel.st;
+    const fell = PICK_ROUTES.find((r) => st[r.n]?.[2] === 6);
+    verdict =
+      w.kind === "subnet" ? (
+        <>
+          <b>Subnet route {w.n} wins at step 3.</b> {ip} is inside {w.d}, and nothing can beat a subnet route.
+        </>
+      ) : (
+        <>
+          <b>
+            {w.n} wins at step {sel.dec}:
+          </b>{" "}
+          {w.d} → {w.hop}.{fell && ` ${fell.n} dropped out at step 6 because ${fell.dep} is down, so this route took over.`}
+        </>
+      );
+  } else if (sel && sel.win.length > 1) {
+    verdict = (
+      <>
+        <b>ECMP at step 9:</b> {sel.win.length} routes tie ({sel.win.map((r) => r.hop).join(" and ")}). Connections are spread across them.
+      </>
+    );
+  } else if (sel) {
+    tone = "fault";
+    verdict =
+      sel.counts[4] > 0 ? (
+        <>
+          <b>Dropped at step 6.</b> The most specific route&apos;s next hop is down, and GCP never falls back to a less specific route. The VM gets
+          ICMP &quot;network unreachable&quot;.
+        </>
+      ) : (
+        <>
+          <b>Dropped at step 4.</b> No route applies to this VM and contains the destination.
+        </>
+      );
+  }
+
   return (
-    <WidgetFrame label="Pick the route">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+    <WidgetFrame wide label="Pick the route">
+      <div className="space-y-3">
         <Field label="Destination IP" value={value} onChange={setValue} invalid={!!error} describedBy={errorId} />
-        <Examples values={PICK_EXAMPLES} current={value} onPick={setValue} />
+        <Examples values={PICK_EXAMPLES} names={PICK_NAMES} current={value} onPick={setValue} />
       </div>
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <div>
@@ -954,24 +1503,21 @@ export function RoutePick() {
           </div>
         </div>
       </div>
-      <div aria-live="polite" className="mt-5 space-y-5">
+      <div aria-live="polite" className="mt-6 space-y-5">
         {error ? (
           <FieldError id={errorId}>{error}</FieldError>
         ) : (
-          <>
-            <Result tone={tone}>
-              <b>{verdict}</b>
-            </Result>
-            <Table
-              head={["Route", "Destination → next hop", "Prio", "Tags", "Result"]}
-              mono={[0, 1, 2, 3]}
-              minWidth={760}
-              marked={(i) => winners.includes(PICK_ROUTES[i])}
-              faded={(i) => !winners.includes(PICK_ROUTES[i])}
-              rows={PICK_ROUTES.map((r) => [r.n, `${r.d} → ${r.hop}`, r.pr, r.tags.length ? r.tags.join(", ") : "none", why[r.n] ?? ""])}
-            />
-            <Steps>{steps}</Steps>
-          </>
+          sel && (
+            <>
+              <Result tone={tone}>{verdict}</Result>
+              <RouteStrip steps={PICK_STEPS} sel={sel} />
+              {sel.special ? (
+                <p className="text-ink-muted text-[15px]">The route table is never read: none of its {PICK_ROUTES.length} routes is a candidate.</p>
+              ) : (
+                <RouteRows routes={PICK_ROUTES} sel={sel} />
+              )}
+            </>
+          )
         )}
       </div>
     </WidgetFrame>

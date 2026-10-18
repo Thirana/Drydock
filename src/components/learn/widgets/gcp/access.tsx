@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Choices, Select, Steps } from "../ui";
 import { WidgetFrame } from "../widget-frame";
 import { CaseExplorer, Result, type Case, type Tone } from "./case-explorer";
-import { Box, Caps, Drawing, Mark, T, Wire } from "./draw";
+import { Box, Caps, Drawing, Mark, T, Wire, Zone } from "./draw";
 import { Table } from "./kit";
 
 /* Part 2 · Controlling access (chapters 5.1-6.2). */
@@ -147,7 +147,7 @@ function DialDrawing({ reverse }: { reverse: boolean }) {
           {check(200, 200, "A · ingress", true, false, "no rule allows sa-kade-db")}
           {check(584, 50, "B · ingress", false, false, "used when someone dials B")}
           {check(584, 200, "B · egress", true, true, "implied allow egress")}
-          <path className="w teal" d="M792 180 C 780 180, 782 240, 773 240" markerEnd="url(#dd-ah-teal)" />
+          <path className="w teal" d="M868 200 V240 H773" markerEnd="url(#dd-ah-teal)" />
           <Wire x1={584} y1={240} x2={390} y2={240} c="red" />
           <T x={485} y={228} k="s mid" bold>SYN → 10.10.1.10:8080</T>
           <T x={485} y={306} k="s mid c-red">dropped at A · ingress by the implied deny @65535</T>
@@ -158,10 +158,10 @@ function DialDrawing({ reverse }: { reverse: boolean }) {
           {check(200, 200, "A · ingress", false, false, "used when someone dials A")}
           {check(584, 50, "B · ingress", true, true, "kade-api-to-db · tcp:5432")}
           {check(584, 200, "B · egress", false, false, "used when B dials out")}
-          <path className="w teal" d="M176 145 C 190 145, 186 90, 197 90" markerEnd="url(#dd-ah-teal)" />
+          <path className="w teal" d="M96 120 V90 H197" markerEnd="url(#dd-ah-teal)" />
           <Wire x1={386} y1={90} x2={581} y2={90} c="blue" />
           <T x={485} y={78} k="s mid" bold>SYN → 10.10.2.5:5432</T>
-          <path className="w teal" d="M770 90 C 784 90, 776 145, 789 145" markerEnd="url(#dd-ah-teal)" />
+          <path className="w teal" d="M770 90 H868 V117" markerEnd="url(#dd-ah-teal)" />
           <T x={485} y={160} k="f mid" size={11.5}>replies use the connection record:</T>
           <T x={485} y={178} k="f mid" size={11.5}>no rule is checked in either direction</T>
         </>
@@ -271,30 +271,29 @@ function statefulDrawing(c: Case, what: string) {
         label="An inbound request is answered while a new outgoing connection is dropped"
         actors={[
           { x: 116, t: "Google Front End", s: "35.191.8.20", c: "purple" },
-          { x: 340, t: "apt mirror", s: "deb.debian.org:443", c: "cyan" },
-          { x: 560, t: "data plane", s: "kade-api-1's host", c: "orange" },
-          { x: 810, t: "kade-api-1", s: "10.10.1.10", c: "blue" },
+          { x: 470, t: "data plane", s: "kade-api-1's host", c: "orange" },
+          { x: 828, t: "kade-api-1", s: "10.10.1.10", c: "blue" },
         ]}
         msgs={[
           {
             from: 0,
-            to: 3,
+            to: 2,
             label: "shopper request: SYN to :8080",
-            checks: [{ lane: 2, ok: true, left: true, text: ["INGRESS allow tcp:8080", "from Google ranges → recorded"] }],
+            checks: [{ lane: 1, ok: true, left: true, text: ["INGRESS allow tcp:8080", "from Google ranges → recorded"] }],
           },
           {
-            from: 3,
+            from: 2,
             to: 0,
             label: "SYN-ACK, response",
             c: "green",
-            checks: [{ lane: 2, ok: true, table: true, left: true, text: ["reply on a recorded connection", "→ egress deny not consulted"] }],
+            checks: [{ lane: 1, ok: true, table: true, left: true, text: ["reply on a recorded connection", "→ egress deny not consulted"] }],
           },
           {
-            from: 3,
-            to: 1,
-            label: "apt update: SYN to :443 (new connection)",
-            block: 2,
-            checks: [{ lane: 2, ok: false, left: true, text: ["new outgoing connection", "→ EGRESS deny all @1000 → dropped"] }],
+            from: 2,
+            to: 0,
+            label: "apt update to deb.debian.org:443",
+            block: 1,
+            checks: [{ lane: 1, ok: false, left: true, text: ["new outgoing connection", "→ EGRESS deny all @1000 → dropped"] }],
           },
         ]}
         rules={[
@@ -319,18 +318,20 @@ type RuleCase = Case & {
   dir: "in" | "out";
   pr: number;
   act: "allow" | "deny";
-  tgt: { all?: boolean; sa?: string };
+  tgt: { all?: boolean; sa?: string; tag?: string };
   src?: Endpoint[];
   dst?: Endpoint[];
   ports: string;
 };
 
-const RULE_VMS = [
+/** Kadé's four VMs: name, service account, network tag. */
+type RuleVm = readonly [string, string, string];
+const RULE_VMS: RuleVm[] = [
   ["kade-api-1", "sa-kade-api", "api"],
   ["kade-api-2", "sa-kade-api", "api"],
   ["kade-db", "sa-kade-db", ""],
   ["kade-worker", "sa-kade-worker", ""],
-] as const;
+];
 
 const RULE_CASES: RuleCase[] = [
   {
@@ -398,30 +399,36 @@ const RULE_CASES: RuleCase[] = [
   },
 ];
 
-function RuleDrawing({ c }: { c: RuleCase }) {
+/**
+ * One rule as a picture: its sources, the rule, and the VMs it covers. `rows`
+ * swaps in other VMs (a tag added); `intruder` is a VM covered by mistake.
+ */
+function RuleDrawing({ c, rows = RULE_VMS, intruder }: { c: RuleCase; rows?: RuleVm[]; intruder?: string }) {
   const allow = c.act === "allow";
   const hue = allow ? "green" : "red";
   const ends = (c.src ?? c.dst)!;
-  const covered = (vm: (typeof RULE_VMS)[number]) => !!c.tgt.all || c.tgt.sa === vm[1];
+  const covered = (vm: RuleVm) => !!c.tgt.all || c.tgt.sa === vm[1] || (!!c.tgt.tag && vm[2] === c.tgt.tag);
   const vms = (x: number) =>
-    RULE_VMS.map((vm, i) => {
+    rows.map((vm, i) => {
       const y = 60 + 80 * i;
       const on = covered(vm);
+      const bad = vm[0] === intruder;
+      const wire = bad || !allow ? "fault" : hue;
       return (
         <g key={vm[0]}>
           <g className={on ? undefined : "off"}>
-            <Box x={x} y={y} w={270} h={54} c={on ? hue : undefined} />
+            <Box x={x} y={y} w={270} h={54} c={on ? (bad ? "red" : hue) : undefined} />
             <T x={x + 14} y={y + 23} k="t">{vm[0]}</T>
             <T x={x + 14} y={y + 42}>{`SA ${vm[1]}${vm[2] ? ` · tag ${vm[2]}` : ""}`}</T>
-            <T x={x + 256} y={y + 23} k={on ? "s" : "f"} end bold={on}>
-              {on ? "covered" : "not covered"}
+            <T x={x + 256} y={y + 23} k={on ? (bad ? "s c-red" : "s") : "f"} end bold={on}>
+              {on ? (bad ? "joined by a tag" : "covered") : "not covered"}
             </T>
           </g>
           {on &&
             (x > 330 ? (
-              <path className={`w ${hue === "red" ? "fault" : hue}`} d={`M630 204 C 660 204, ${x - 30} ${y + 27}, ${x - 3} ${y + 27}`} markerEnd={`url(#dd-ah-${hue === "red" ? "fault" : hue})`} />
+              <path className={`w ${wire}`} d={`M630 204 H652 V${y + 27} H${x - 3}`} markerEnd={`url(#dd-ah-${wire})`} />
             ) : (
-              <path className={`w ${hue === "red" ? "fault" : hue}`} d={`M${x + 270} ${y + 27} C ${x + 300} ${y + 27}, 300 204, 327 204`} markerEnd={`url(#dd-ah-${hue === "red" ? "fault" : hue})`} />
+              <path className={`w ${wire}`} d={`M${x + 270} ${y + 27} H308 V204 H327`} markerEnd={`url(#dd-ah-${wire})`} />
             ))}
         </g>
       );
@@ -440,14 +447,14 @@ function RuleDrawing({ c }: { c: RuleCase }) {
           <T x={x + 14} y={y + 40} k="t">{(sa ? "SA " : "") + e[1]}</T>
           <T x={x + 14} y={y + 59}>{e[2]}</T>
           {into ? (
-            <path className={`w ${arrow}`} d={`M${x + 270} ${y + 35} C ${x + 300} ${y + 35}, 300 204, 327 204`} markerEnd={`url(#dd-ah-${arrow})`} />
+            <path className={`w ${arrow}`} d={`M${x + 270} ${y + 35} H308 V204 H327`} markerEnd={`url(#dd-ah-${arrow})`} />
           ) : (
-            <path className={`w ${arrow}`} d={`M630 204 C 660 204, ${x - 30} ${y + 35}, ${x - 3} ${y + 35}`} markerEnd={`url(#dd-ah-${arrow})`} />
+            <path className={`w ${arrow}`} d={`M630 204 H652 V${y + 35} H${x - 3}`} markerEnd={`url(#dd-ah-${arrow})`} />
           )}
         </g>
       );
     });
-  const count = RULE_VMS.filter(covered).length;
+  const count = rows.filter(covered).length;
   const kind = ends[0][0] === "sa" ? "identity" : `range${ends.length > 1 ? "s" : ""}`;
   return (
     <div className="space-y-3">
@@ -458,7 +465,7 @@ function RuleDrawing({ c }: { c: RuleCase }) {
         <T x={614} y={112} end>{`priority ${c.pr}`}</T>
         {(
           [
-            ["target", c.tgt.all ? "all instances" : `service account ${c.tgt.sa}`],
+            ["target", c.tgt.all ? "all instances" : c.tgt.tag ? `network tag ${c.tgt.tag}` : `service account ${c.tgt.sa}`],
             [c.dir === "in" ? "source" : "destination", ends.map((e) => (e[0] === "sa" ? "service account " : "") + e[1]).join(", ")],
             ["protocol", c.ports],
           ] as const
@@ -483,7 +490,7 @@ function RuleDrawing({ c }: { c: RuleCase }) {
         )}
       </Drawing>
       <p className="text-ink-body border-rule border-t pt-3 font-mono text-[13.5px] leading-[1.6]">
-        {`${allow ? "Opens" : "Blocks"} ${c.ports === "all" ? "every port" : c.ports} · ${c.dir === "in" ? "from" : "to"} ${ends.length} ${kind} · applies to ${count} of ${RULE_VMS.length} VMs${c.tgt.all ? " (and every VM created later)" : ""} · checked at priority ${c.pr}`}
+        {`${allow ? "Opens" : "Blocks"} ${c.ports === "all" ? "every port" : c.ports} · ${c.dir === "in" ? "from" : "to"} ${ends.length} ${kind} · applies to ${count} of ${rows.length} VMs${c.tgt.all ? " (and every VM created later)" : ""} · checked at priority ${c.pr}`}
       </p>
     </div>
   );
@@ -492,6 +499,360 @@ function RuleDrawing({ c }: { c: RuleCase }) {
 /** Five rules, read part by part: direction, target, source, ports, priority. */
 export function RuleEx() {
   return <CaseExplorer label="Firewall rule examples" cases={RULE_CASES} render={(c) => <RuleDrawing c={c} />} />;
+}
+
+// ── Chapter 5.1: the scoping trap ──────────────────────────────────────────
+
+type Width = "narrow" | "wide";
+type ScopeCase = RuleCase & { cell: [target: Width, source: Width] };
+const SCOPE_CASES: ScopeCase[] = [
+  {
+    k: "The trap",
+    t: "narrow target, wide source",
+    cell: ["narrow", "wide"],
+    dir: "in",
+    pr: 1000,
+    act: "allow",
+    tgt: { tag: "api" },
+    src: [["range", "0.0.0.0/0", "the whole internet"]],
+    ports: "tcp:9100",
+    take: "A metrics port opened \"for monitoring\". The tag makes it look scoped, but it only decides <b>which VMs have the door</b>. The source decides who may walk through it, and here that is <b>the whole internet</b>. Compare kade-allow-lb: the same tag as its target, but its source is only Google's load balancer ranges.",
+    cfg: "kade-allow-metrics:\n  targetTags:   [api]          ← TARGET scoped: only VMs tagged api\n  sourceRanges: 0.0.0.0/0      ← SOURCE wide open: the whole internet\n  allow:        tcp:9100\n\nReads as: \"the whole internet may reach port 9100 on any VM tagged api.\"",
+  },
+  {
+    k: "A",
+    t: "narrow target, narrow source",
+    cell: ["narrow", "narrow"],
+    dir: "in",
+    pr: 1000,
+    act: "allow",
+    tgt: { sa: "sa-kade-db" },
+    src: [["sa", "sa-kade-api", "kade-api-1, kade-api-2"]],
+    ports: "tcp:5432",
+    what: [
+      ["sa", "Target by service account"],
+      ["tag", "What if it targets a tag, and someone tags kade-worker?"],
+    ],
+    take: {
+      sa: "Only the API VMs reach the database, and only on PostgreSQL. Both widths are narrow, so this rule is <b>actually scoped</b>.",
+      tag: "The same rule with <code>targetTags: [db]</code>. Anyone who can edit a VM can add a tag: someone tags kade-worker <code>db</code>, and kade-worker now accepts PostgreSQL connections from the API VMs. <b>The rule's reach changed without anyone touching the rule.</b> Moving kade-worker to sa-kade-db is harder: it needs permission to use that service account, and the VM must be stopped first.",
+    },
+    cfg: "target:  service account sa-kade-db\nsource:  service account sa-kade-api\nallow:   tcp:5432\n\nTag version:  targetTags: [db]                    ← anyone who can edit a VM\n                                                     can join the \"db\" group\nSA version:   targetServiceAccounts: [sa-kade-db]  ← must be granted the SA,\n                                                     and the VM must be stopped",
+  },
+  {
+    k: "B",
+    t: "wide target, narrow source",
+    cell: ["wide", "narrow"],
+    dir: "in",
+    pr: 1000,
+    act: "allow",
+    tgt: { all: true },
+    src: [["range", "198.51.100.20/32", "Kadé office, public IP"]],
+    ports: "tcp:22",
+    take: "One office IP may SSH to every VM, including VMs created later. The source is a single address, so the wide target is <b>survivable, if intended</b>.",
+    cfg: "target:        all instances\nsourceRanges:  198.51.100.20/32\nallow:         tcp:22",
+  },
+  {
+    k: "C",
+    t: "wide target, wide source",
+    cell: ["wide", "wide"],
+    dir: "in",
+    pr: 1000,
+    act: "allow",
+    tgt: { all: true },
+    src: [["range", "0.0.0.0/0", "the whole internet"]],
+    ports: "tcp:22",
+    take: "<b>The dangerous one.</b> The entire internet may SSH to every VM, now and in the future. This is kade-allow-ssh today (finding 2).",
+    cfg: "target:        all instances\nsourceRanges:  0.0.0.0/0\nallow:         tcp:22",
+  },
+];
+const SCOPE_NAMES: Record<string, string> = {
+  "narrow narrow": "A · scoped",
+  "narrow wide": "the trap",
+  "wide narrow": "B · survivable",
+  "wide wide": "C · dangerous",
+};
+
+/** The four shapes as a 2×2: target width down the side, source width across. */
+function ScopeGrid({ cell }: { cell: [Width, Width] }) {
+  const widths: Width[] = ["narrow", "wide"];
+  return (
+    <div className="grid w-fit grid-cols-[auto_150px_150px] items-center gap-1.5 text-[14px]">
+      <span />
+      {widths.map((s) => (
+        <span key={s} className="text-ink-muted px-1 text-[13px]">
+          source {s}
+        </span>
+      ))}
+      {widths.map((t) => (
+        <div key={t} className="contents">
+          <span className="text-ink-muted pr-2 text-[13px]">target {t}</span>
+          {widths.map((s) => {
+            const on = cell[0] === t && cell[1] === s;
+            return (
+              <span
+                key={s}
+                className={cn(
+                  "rounded-[2px] border px-2.5 py-2",
+                  on ? "border-ink border-2 font-bold" : "border-rule",
+                  t === "wide" && s === "wide" ? "text-fault" : on ? "text-ink" : "text-ink-muted",
+                )}
+              >
+                {SCOPE_NAMES[`${t} ${s}`]}
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Four rule shapes: how wide the target is, and how wide the source is. */
+export function ScopeEx() {
+  return (
+    <CaseExplorer
+      label="Rule shapes: target width and source width"
+      cases={SCOPE_CASES}
+      render={(c, what) => {
+        const tag = what === "tag";
+        return (
+          <div className="space-y-4">
+            <ScopeGrid cell={c.cell} />
+            {tag ? (
+              <RuleDrawing
+                c={{ ...c, tgt: { tag: "db" } }}
+                rows={RULE_VMS.map((vm) => (vm[0] === "kade-db" || vm[0] === "kade-worker" ? [vm[0], vm[1], "db"] : vm))}
+                intruder="kade-worker"
+              />
+            ) : (
+              <RuleDrawing c={c} />
+            )}
+          </div>
+        );
+      }}
+    />
+  );
+}
+
+// ── Chapter 5.1: priority ──────────────────────────────────────────────────
+
+type PRule = { n: string; pr: number; act: "allow" | "deny"; peer: string[]; port: string; implied?: boolean };
+type Pkt = { peer: string; who: string; vm: string; port: string };
+type PrioCase = Case & { dir: "in" | "out"; rules: (what: string) => PRule[]; pkt: (what: string) => Pkt };
+
+const IMPLIED_IN: PRule = { n: "implied deny ingress", pr: 65535, act: "deny", peer: ["0.0.0.0/0"], port: "all", implied: true };
+const IMPLIED_OUT: PRule = { n: "implied allow egress", pr: 65535, act: "allow", peer: ["0.0.0.0/0"], port: "all", implied: true };
+const LB_RULE: PRule = { n: "kade-lb-to-api", pr: 1000, act: "allow", peer: ["35.191.0.0/16", "130.211.0.0/22"], port: "tcp:8080" };
+
+const PRIO_CASES: PrioCase[] = [
+  {
+    k: "A",
+    t: "Nothing matches: the implied rule decides",
+    dir: "in",
+    rules: () => [LB_RULE, { n: "kade-office-ssh", pr: 900, act: "allow", peer: ["198.51.100.20/32"], port: "tcp:22" }, IMPLIED_IN],
+    pkt: () => ({ peer: "203.0.113.99", who: "a scanner", vm: "kade-api-1", port: "tcp:9000" }),
+    take: "No rule mentions port 9000, so the walk reaches the bottom and the <b>implied deny ingress</b> at 65535 drops the packet. That is why a new VM is unreachable until an allow opens a hole.",
+    cfg: "Inbound tcp:9000 to kade-api-1. No rule mentions 9000.\n→ walk finishes → implied deny ingress @65535 → DROPPED",
+  },
+  {
+    k: "B",
+    t: "An allow opens a hole in the implied deny",
+    dir: "in",
+    what: [
+      ["gfe", "From Google's load balancer"],
+      ["other", "What if it comes from 8.8.8.8?"],
+    ],
+    rules: () => [LB_RULE, IMPLIED_IN],
+    pkt: (w) =>
+      w === "other"
+        ? { peer: "8.8.8.8", who: "somewhere else", vm: "kade-api-1", port: "tcp:8080" }
+        : { peer: "35.191.8.20", who: "a Google front end", vm: "kade-api-1", port: "tcp:8080" },
+    take: {
+      gfe: "The allow at 1000 matches, so the packet is <b>allowed</b> and the walk stops. The implied deny below it is never reached.",
+      other: "Same port, wrong source: the allow does not match, the walk falls through, and the <b>implied deny</b> drops it. An allow opens a hole only for the sources it names.",
+    },
+    cfg: "allow tcp:8080 from Google's ranges @1000  → matches → ALLOWED\nimplied deny @65535                         → never reached",
+  },
+  {
+    k: "C",
+    t: "Deny beats allow at the same priority",
+    dir: "in",
+    what: [
+      ["scan", "From 203.0.113.99"],
+      ["else", "From anywhere else"],
+    ],
+    rules: () => [
+      { n: "block-scanners", pr: 1000, act: "deny", peer: ["203.0.113.0/24"], port: "tcp:443" },
+      { n: "allow-https", pr: 1000, act: "allow", peer: ["0.0.0.0/0"], port: "tcp:443" },
+      IMPLIED_IN,
+    ],
+    pkt: (w) =>
+      w === "else"
+        ? { peer: "198.51.100.7", who: "a shopper", vm: "kade-api-1", port: "tcp:443" }
+        : { peer: "203.0.113.99", who: "a scanner", vm: "kade-api-1", port: "tcp:443" },
+    take: {
+      scan: "Both rules match at priority 1000. At a tie, <b>deny wins</b>, so the packet is dropped. That lets you add a deny beside an allow without renumbering anything.",
+      else: "Only the allow matches, so the packet is <b>allowed</b>. The deny shares the priority but does not apply to this source.",
+    },
+    cfg: "deny   from 203.0.113.0/24   tcp:443  @1000\nallow  from 0.0.0.0/0        tcp:443  @1000\n\nPacket from 203.0.113.99 → both match, same priority → DENY wins\nPacket from anywhere else → only the allow matches   → ALLOWED",
+  },
+  {
+    k: "D",
+    t: "A lower number wins outright",
+    dir: "in",
+    what: [
+      ["low", "Deny at 100"],
+      ["tie", "What if the deny moves to 1000?"],
+    ],
+    rules: (w) => [
+      { n: "deny-all", pr: w === "tie" ? 1000 : 100, act: "deny", peer: ["0.0.0.0/0"], port: "all" },
+      { n: "allow-https", pr: 1000, act: "allow", peer: ["0.0.0.0/0"], port: "tcp:443" },
+      IMPLIED_IN,
+    ],
+    pkt: () => ({ peer: "198.51.100.7", who: "a shopper", vm: "kade-api-1", port: "tcp:443" }),
+    take: {
+      low: "The deny at 100 is checked first and matches, so the packet is <b>dropped</b>. The allow at 1000 is never looked at, however specific it is.",
+      tie: "Now both rules sit at 1000 and both match: a tie, and <b>deny still wins</b>. To let HTTPS through, the allow needs a lower number than the deny.",
+    },
+    cfg: "deny   all       @100\nallow  tcp:443   @1000\n\nPacket to :443 → deny @100 is checked first and matches → DROPPED\n                 (the allow is never looked at)",
+  },
+  {
+    k: "E",
+    t: "Egress hardening needs an explicit deny",
+    dir: "out",
+    what: [
+      ["before", "No egress rules yet"],
+      ["out", "Hardened: to 8.8.8.8"],
+      ["in", "Hardened: to 10.10.1.10"],
+    ],
+    rules: (w) =>
+      w === "before"
+        ? [IMPLIED_OUT]
+        : [
+            { n: "db-deny-egress", pr: 1000, act: "deny", peer: ["0.0.0.0/0"], port: "all" },
+            { n: "db-allow-internal", pr: 900, act: "allow", peer: ["10.10.0.0/16"], port: "all" },
+            IMPLIED_OUT,
+          ],
+    pkt: (w) =>
+      w === "in"
+        ? { peer: "10.10.1.10", who: "kade-api-1", vm: "kade-db", port: "tcp:8080" }
+        : { peer: "8.8.8.8", who: "the internet", vm: "kade-db", port: "tcp:443" },
+    take: {
+      before: "With no egress rules, the walk goes straight to the <b>implied allow egress</b>: kade-db can reach anything. Egress stays open until you close it.",
+      out: "The allow at 900 does not match 8.8.8.8, and the deny at 1000 does, so the packet is <b>dropped</b>. The implied allow is never reached.",
+      in: "The allow at 900 matches Kadé's own range first, so the packet is <b>allowed</b>. The deny at 1000 is never looked at.",
+    },
+    cfg: "No egress rules → implied allow egress @65535 → kade-db can reach anything\n\nAdd: deny  EGRESS to 0.0.0.0/0     @1000\nAdd: allow EGRESS to 10.10.0.0/16  @900\n→ kade-db reaches Kadé's own ranges only; the implied allow is never reached",
+  },
+];
+
+/** Walk the rules from low number to high; the first priority with a match decides, deny winning a tie. */
+function walkRules(rules: PRule[], pkt: Pkt) {
+  const ip = ipToInt(pkt.peer)!;
+  const peerOk = (r: PRule) => r.peer.some((c) => inCidr(ip, c));
+  const portOk = (r: PRule) => r.port === "all" || r.port === pkt.port;
+  const hit = (r: PRule) => peerOk(r) && portOk(r);
+  const tiers = [...new Set(rules.map((r) => r.pr))].sort((a, b) => a - b).map((pr) => rules.filter((r) => r.pr === pr));
+  const decided = tiers.findIndex((t) => t.some(hit));
+  const hits = tiers[decided].filter(hit);
+  const winner = hits.find((r) => r.act === "deny") ?? hits[0];
+  const miss = (r: PRule) => [!portOk(r) && "port", !peerOk(r) && "address"].filter(Boolean).join(" + ");
+  return { tiers, decided, winner, tie: hits.length > 1, hit, miss };
+}
+
+function PrioView({ c, what }: { c: PrioCase; what: string }) {
+  const pkt = c.pkt(what);
+  const { tiers, decided, winner, tie, hit, miss } = walkRules(c.rules(what), pkt);
+  const inbound = c.dir === "in";
+  const allowed = winner.act === "allow";
+  const top = 56;
+  const pitch = 74;
+  const mid = (i: number) => top + pitch * i + 27;
+  return (
+    <div className="space-y-4">
+      <Drawing h={Math.max(top + pitch * tiers.length, 190)} label="Firewall rules walked from the lowest priority number down; the first match decides">
+        <Caps x={16} y={40}>{`PACKET · ${inbound ? "INGRESS" : "EGRESS"}`}</Caps>
+        <Caps x={300} y={40}>RULES, LOWEST NUMBER FIRST</Caps>
+        <Caps x={824} y={40}>RESULT</Caps>
+        <Box x={16} y={top} w={230} h={118} />
+        <T x={30} y={top + 28} k="t">{pkt.port}</T>
+        <T x={30} y={top + 52}>{`${inbound ? "from" : "to"} ${pkt.peer}`}</T>
+        <T x={30} y={top + 72} k="f">{pkt.who}</T>
+        <T x={30} y={top + 98}>{`${inbound ? "to" : "from"} ${pkt.vm}`}</T>
+        {tiers.map((tier, i) => {
+          if (i > decided) return null;
+          const last = i === decided;
+          return (
+            <path
+              key={`w${i}`}
+              className={last ? "w cur" : "w"}
+              d={`M246 ${mid(0)} H272 V${mid(i)} H297`}
+              markerEnd={last ? "url(#dd-ah-accent)" : "url(#dd-ah-muted)"}
+            />
+          );
+        })}
+        {tiers.map((tier, i) => {
+          const y = top + pitch * i;
+          const reached = i <= decided;
+          const bw = (490 - 10 * (tier.length - 1)) / tier.length;
+          return (
+            <g key={tier[0].pr} className={reached ? undefined : "off"}>
+              {tier.map((r, j) => {
+                const x = 300 + j * (bw + 10);
+                const on = reached && hit(r);
+                return (
+                  <g key={r.n}>
+                    <Box x={x} y={y} w={bw} h={54} c={on ? (r.act === "allow" ? "green" : "red") : undefined} className={r.implied && !on ? "dash" : undefined} />
+                    <T x={x + 14} y={y + 22} bold>{String(r.pr)}</T>
+                    <T x={x + 72} y={y + 22} k="t">{`${r.act.toUpperCase()} ${r.port}`}</T>
+                    <T x={x + 14} y={y + 43}>{r.implied ? `${r.n} · always last` : `${inbound ? "from" : "to"} ${r.peer.join(", ")}`}</T>
+                    {tier.length === 1 && !r.implied && (
+                      <T x={x + bw - 14} y={y + 22} k="f" end>
+                        {r.n}
+                      </T>
+                    )}
+                  </g>
+                );
+              })}
+              {i === decided ? (
+                <>
+                  <Mark cx={812} cy={mid(i)} ok={allowed} />
+                  <T x={832} y={mid(i) - 3} k={allowed ? "t" : "t c-red"}>{allowed ? "ALLOWED" : "DROPPED"}</T>
+                  <T x={832} y={mid(i) + 17} k="f">
+                    {winner.implied ? "nothing above matched" : tie && !allowed ? "deny wins a tie" : "first match"}
+                  </T>
+                </>
+              ) : (
+                <>
+                  <T x={832} y={mid(i) - 3} k="f">{reached ? "no match" : "never reached"}</T>
+                  {reached && tier.length === 1 && (
+                    <T x={832} y={mid(i) + 17} k="f">{`wrong ${miss(tier[0])}`}</T>
+                  )}
+                </>
+              )}
+            </g>
+          );
+        })}
+      </Drawing>
+      <Result tone={allowed ? "ok" : "fault"}>
+        <b>
+          {allowed ? "Allowed" : "Dropped"}
+          {winner.implied ? ` by the ${winner.n} at 65535.` : ` at priority ${winner.pr} by ${winner.n}.`}
+        </b>{" "}
+        {winner.implied
+          ? "None of the rules above it matched."
+          : tie && !allowed
+            ? "An allow matched at the same priority, and deny wins a tie."
+            : `Every rule below it is never reached.`}
+      </Result>
+    </div>
+  );
+}
+
+/** Five packets walked down a priority ladder. */
+export function PriorityEx() {
+  return <CaseExplorer label="How priority decides" cases={PRIO_CASES} render={(c, what) => <PrioView key={c.k} c={c} what={what} />} />;
 }
 
 // ── Chapter 5.1: walk a packet through the rules ───────────────────────────
@@ -1265,4 +1626,581 @@ export function SshCheck({ full }: { full?: string }) {
       </div>
     </WidgetFrame>
   );
+}
+
+// ── Chapter 6.1: who may open a tunnel to what ─────────────────────────────
+
+type Grant = { who: string; member: string; role: string; on: string; port?: number; until?: string; expired?: boolean };
+type GrantCase = Case & { grant: (what: string) => Grant };
+/** What a tunnel could reach: a VM and a port. Only port 22 has a firewall rule from IAP's range. */
+const IAP_TARGETS: [string, number][] = [
+  ["kade-api-1", 22],
+  ["kade-api-2", 22],
+  ["kade-db", 22],
+  ["kade-worker", 22],
+  ["kade-db", 5432],
+];
+const TUNNEL_ROLE = "iap.tunnelResourceAccessor";
+
+const GRANT_CASES: GrantCase[] = [
+  {
+    k: "A",
+    t: "You, the only infrastructure person",
+    grant: () => ({ who: "You", member: "user:you@kade.lk", role: TUNNEL_ROLE, on: "project kade-prod" }),
+    take: "One grant on the project opens a tunnel to <b>every VM, on any port</b>. IAM is not the only gate, though: kade-db's PostgreSQL port has no firewall rule from IAP's range, so that tunnel would open and then fail with <code>4003</code>. IAM decides <b>who</b>; the firewall decides <b>which ports can be reached at all</b>.",
+    cfg: "you@kade.lk → roles/iap.tunnelResourceAccessor on project kade-prod\n→ can tunnel to every VM, on 22 and on any other port IAP's range is allowed to reach",
+  },
+  {
+    k: "B",
+    t: "A freelancer fixing one background job",
+    grant: () => ({ who: "Freelancer", member: "user:dev@freelance.example", role: TUNNEL_ROLE, on: "VM kade-worker", port: 22 }),
+    take: "The grant names one person, one VM and one port, so it opens exactly one target. With a bastion, the same job would mean an SSH key on a machine that can reach every VM. Here the access shows up in IAM, where it is easy to review, and you <b>remove the grant when the job is done</b>.",
+    cfg: "dev@freelance.example → roles/iap.tunnelResourceAccessor\n                        on VM kade-worker only\n                        condition: destination.port == 22\n→ can SSH to kade-worker, nothing else. Remove the grant when the job is done.",
+  },
+  {
+    k: "C",
+    t: "The on-call rota, for one week",
+    what: [
+      ["during", "During the on-call week"],
+      ["after", "After the grant expires"],
+    ],
+    grant: (w) => ({ who: "On-call group", member: "group:oncall@kade.lk", role: TUNNEL_ROLE, on: "project kade-prod", port: 22, until: "25 Oct, 18:00", expired: w === "after" }),
+    take: {
+      during:
+        "Grant the role to a <b>group</b>, not to each person, and give it an <b>end date</b> in the condition. Whoever is in the group this week can SSH to every VM, and only on port 22.",
+      after:
+        "The condition now evaluates to false, so the same grant opens nothing. <b>Nobody had to remember to remove it.</b> That is the safest kind of temporary access: it ends by itself.",
+    },
+    cfg: 'group:oncall@kade.lk → roles/iap.tunnelResourceAccessor on project kade-prod\n  condition: destination.port == 22\n             && request.time < timestamp("2026-10-25T18:00:00Z")',
+  },
+  {
+    k: "D",
+    t: "A developer with the Editor role",
+    grant: () => ({ who: "Developer", member: "user:dev2@kade.lk", role: "roles/editor", on: "project kade-prod" }),
+    take: "Editor can change almost everything in the project, but it does <b>not</b> include permission to open IAP tunnels. Every attempt ends at IAP with <code>4033: not authorized</code>. Broad access does not cover this; the tunnel role has to be granted on purpose.",
+    cfg: "dev2@kade.lk → roles/editor on project kade-prod\n→ no iap.tunnelInstances.accessViaIAP permission\n→ every tunnel: 4033 not authorized",
+  },
+];
+
+function GrantView({ c, what }: { c: GrantCase; what: string }) {
+  const g = c.grant(what);
+  const tunnelRole = g.role === TUNNEL_ROLE;
+  const rows = IAP_TARGETS.map(([vm, port]) => {
+    const iam = tunnelRole && !g.expired && (g.on.startsWith("project") || g.on === `VM ${vm}`) && (!g.port || g.port === port);
+    const fw = port === 22;
+    return { vm, port, iam, fw };
+  });
+  const open = rows.filter((r) => r.iam && r.fw).length;
+  const mid = (i: number) => 59 + 76 * i;
+  return (
+    <div className="space-y-4">
+      <Drawing h={420} label={`${g.who}'s IAM grant and the VM ports it opens through IAP`}>
+        <Caps x={16} y={24}>WHO</Caps>
+        <Caps x={270} y={24}>IAM GRANT</Caps>
+        <Caps x={640} y={24}>VM AND PORT</Caps>
+        <Box x={16} y={175} w={220} h={72} />
+        <T x={30} y={203} k="t">{g.who}</T>
+        <T x={30} y={225}>{g.member}</T>
+        <Wire x1={236} y1={211} x2={267} y2={211} />
+        <Box x={270} y={146} w={300} h={130} c="orange" />
+        <T x={286} y={176} k="t">{g.role}</T>
+        <T x={286} y={200}>{`on ${g.on}`}</T>
+        {tunnelRole ? (
+          <>
+            <T x={286} y={224}>{g.port ? `if port == ${g.port}` : "any port"}</T>
+            {g.until && <T x={286} y={248} k={g.expired ? "s c-red" : "s"}>{`and before ${g.until}${g.expired ? ": expired" : ""}`}</T>}
+          </>
+        ) : (
+          <T x={286} y={224} k="s c-red">no IAP tunnel permission</T>
+        )}
+        {rows.map((r, i) => {
+          const y = mid(i) - 29;
+          const ok = r.iam && r.fw;
+          return (
+            <g key={`${r.vm}${r.port}`}>
+              {ok && <path className="w green" d={`M570 211 H604 V${mid(i)} H637`} markerEnd="url(#dd-ah-green)" />}
+              {r.iam && !r.fw && <path className="w dash" d={`M570 211 H604 V${mid(i)} H626`} />}
+              <g className={r.iam ? undefined : "off"}>
+                <Box x={640} y={y} w={304} h={58} c={ok ? "green" : undefined} />
+                <T x={654} y={y + 24} k="t">{`${r.vm} :${r.port}`}</T>
+                <T x={930} y={y + 24} end bold={ok} k={ok ? "s" : r.iam ? "s c-red" : "f"}>
+                  {ok ? "can tunnel" : r.iam ? "firewall blocks" : "not granted"}
+                </T>
+                <T x={654} y={y + 45} k="f">
+                  {ok ? "IAM yes · firewall yes" : r.iam ? "IAM yes · no rule from IAP for this port" : tunnelRole && !g.expired ? "outside the grant" : "IAM says no: 4033"}
+                </T>
+              </g>
+              {r.iam && !r.fw && <Mark cx={640} cy={mid(i)} ok={false} />}
+            </g>
+          );
+        })}
+      </Drawing>
+      <p className="text-ink-body border-rule border-t pt-3 font-mono text-[13.5px] leading-[1.6]">
+        {`${g.member} · opens ${open} of ${rows.length} targets`}
+      </p>
+    </div>
+  );
+}
+
+/** Four IAM grants, and the VM ports each one opens. */
+export function IapGrantEx() {
+  return <CaseExplorer label="IAP grants: who may tunnel to what" cases={GRANT_CASES} render={(c, what) => <GrantView c={c} what={what} />} />;
+}
+
+// ── Chapter 6.1: what a tunnel can carry ───────────────────────────────────
+
+type TunCase = Case & {
+  app: [string, string];
+  local: [string, string];
+  vm: string;
+  ports: [string, string][];
+  /** The VM port the tunnel lands on, and, with SSH forwarding, the port sshd hands it to. */
+  hit: number;
+  inner?: number;
+  rule: (what: string) => [string, string, boolean];
+};
+
+const TUN_CASES: TunCase[] = [
+  {
+    k: "SSH",
+    t: "a shell on a VM",
+    app: ["ssh", "your terminal"],
+    local: ["gcloud compute ssh", "carries ssh to IAP"],
+    vm: "kade-api-1",
+    ports: [[":22", "sshd"]],
+    hit: 0,
+    rule: () => ["tcp:22 from IAP", "kade-ssh-from-iap", true],
+    take: "The everyday case. gcloud starts your SSH client and carries its bytes through IAP to port 22. Nothing listens on your laptop, and SSH encrypts everything end to end.",
+    cfg: "gcloud compute ssh kade-api-1 --zone=asia-southeast1-a --tunnel-through-iap",
+  },
+  {
+    k: "Database, direct",
+    t: "a tunnel to port 5432",
+    what: [
+      ["ok", "With a 5432 rule"],
+      ["norule", "What if only the SSH rule exists?"],
+    ],
+    app: ["psql", "-h localhost -p 5433"],
+    local: ["start-iap-tunnel", "listens on localhost:5433"],
+    vm: "kade-db",
+    ports: [
+      [":22", "sshd"],
+      [":5432", "PostgreSQL"],
+    ],
+    hit: 1,
+    rule: (w) => (w === "norule" ? ["tcp:22 from IAP", "nothing for 5432", false] : ["tcp:5432 from IAP", "a new rule, kade-db only", true]),
+    take: {
+      ok: "gcloud listens on <code>localhost:5433</code> and sends whatever arrives there through IAP to kade-db's port 5432. psql thinks the database is on your laptop. The cost is <b>a new firewall rule</b>: 5432 from IAP's range, to kade-db only.",
+      norule: "IAP accepts you, then cannot reach port 5432: the firewall drops it, and you see <code>4003</code> after a pause, exactly as in section 04. Add the rule, or use the next tab, which needs none.",
+    },
+    cfg: "firewall:  allow tcp:5432 from 35.235.240.0/20 to SA sa-kade-db\nlaptop:    gcloud compute start-iap-tunnel kade-db 5432 \\\n             --local-host-port=localhost:5433 --zone=asia-southeast1-b\n           psql -h localhost -p 5433 -U kade",
+  },
+  {
+    k: "Database, through SSH",
+    t: "no new rule",
+    app: ["psql", "-h localhost -p 5433"],
+    local: ["gcloud compute ssh -L", "5433 → VM's localhost:5432"],
+    vm: "kade-db",
+    ports: [
+      [":22", "sshd"],
+      [":5432", "PostgreSQL"],
+    ],
+    hit: 0,
+    inner: 1,
+    rule: () => ["tcp:22 from IAP", "the rule you already have", true],
+    take: "The tunnel goes to port 22, like any SSH session, and <b>SSH itself</b> forwards your laptop's port 5433 to port 5432 on the VM's own localhost. It reuses the SSH rule and needs nothing new, so it is the better default for occasional work.",
+    cfg: "laptop:    gcloud compute ssh kade-db --tunnel-through-iap \\\n             -- -L 5433:localhost:5432\n           psql -h localhost -p 5433 -U kade",
+  },
+  {
+    k: "Admin web page",
+    t: "a private dashboard",
+    app: ["browser", "http://localhost:8080"],
+    local: ["start-iap-tunnel", "listens on localhost:8080"],
+    vm: "kade-worker",
+    ports: [
+      [":22", "sshd"],
+      [":8080", "job-queue dashboard"],
+    ],
+    hit: 1,
+    rule: () => ["tcp:8080 from IAP", "a new rule, kade-worker only", true],
+    take: "Say kade-worker serves a job-queue dashboard on port 8080. Tunnel it to your laptop and open it in a browser; nothing about it is public. For a page that many people use, <b>IAP for HTTPS</b> (section 07) fits better: they sign in with their browser and need no gcloud.",
+    cfg: "firewall:  allow tcp:8080 from 35.235.240.0/20 to SA sa-kade-worker\nlaptop:    gcloud compute start-iap-tunnel kade-worker 8080 \\\n             --local-host-port=localhost:8080 --zone=asia-southeast1-a\n           then open http://localhost:8080",
+  },
+];
+
+function TunView({ c, what }: { c: TunCase; what: string }) {
+  const [rule, note, allowed] = c.rule(what);
+  const portMid = (i: number) => 157 + 58 * i;
+  return (
+    <Drawing h={306} label={`An IAP tunnel from ${c.app[0]} on your laptop to ${c.vm} ${c.ports[c.hit][0]}`}>
+      <Zone x={16} y={16} w={250} h={274} />
+      <T x={32} y={40}>your laptop</T>
+      <Box x={32} y={56} w={218} h={60} />
+      <T x={46} y={82} k="t">{c.app[0]}</T>
+      <T x={46} y={102}>{c.app[1]}</T>
+      <Wire x1={141} y1={116} x2={141} y2={169} />
+      <Box x={32} y={172} w={218} h={68} />
+      <T x={46} y={198} k="t">{c.local[0]}</T>
+      <T x={46} y={220}>{c.local[1]}</T>
+
+      <Zone x={286} y={16} w={658} h={274} c="purple" />
+      <T x={302} y={40}>Google&apos;s network</T>
+      <Box x={306} y={174} w={140} h={64} c="purple" />
+      <T x={320} y={200} k="t">IAP</T>
+      <T x={320} y={222}>checks you</T>
+      <Wire x1={250} y1={206} x2={303} y2={206} c="green" />
+
+      <Zone x={470} y={52} w={458} h={226} c="blue" />
+      <T x={486} y={76}>kade-vpc</T>
+      <Box x={490} y={174} w={150} h={64} c="orange" />
+      <T x={504} y={200} k="t">firewall</T>
+      <T x={504} y={220}>{rule}</T>
+      <T x={490} y={258} k={allowed ? "f" : "f c-red"}>{note}</T>
+      {allowed ? (
+        <>
+          <Wire x1={446} y1={206} x2={487} y2={206} c="green" />
+          <path className="w green" d={`M640 206 H658 V${portMid(c.hit)} H687`} markerEnd="url(#dd-ah-green)" />
+        </>
+      ) : (
+        <>
+          <path className="w fault dash" d="M446 206 H477" />
+          <Mark cx={490} cy={206} ok={false} />
+        </>
+      )}
+
+      <Box x={670} y={92} w={246} h={176} c="blue" />
+      <T x={684} y={118} k="t">{c.vm}</T>
+      {c.ports.map(([p, label], i) => {
+        const used = allowed && (i === c.hit || i === c.inner);
+        return (
+          <g key={p} className={used ? undefined : "off"}>
+            <Box x={690} y={portMid(i) - 23} w={206} h={46} c={used ? "green" : undefined} />
+            <T x={704} y={portMid(i) + 5} k="t">{p}</T>
+            <T x={764} y={portMid(i) + 5}>{label}</T>
+          </g>
+        );
+      })}
+      {c.inner !== undefined && (
+        <path className="w green" d={`M896 ${portMid(c.hit)} H908 V${portMid(c.inner)} H899`} markerEnd="url(#dd-ah-green)" />
+      )}
+      {c.inner !== undefined && (
+        <T x={684} y={262} k="f" size={11}>
+          sshd hands it to localhost:5432
+        </T>
+      )}
+    </Drawing>
+  );
+}
+
+/** Four ways to use an IAP tunnel, from an app on your laptop to a port on a VM. */
+export function IapTunnelEx() {
+  return <CaseExplorer label="What an IAP tunnel can carry" cases={TUN_CASES} render={(c, what) => <TunView c={c} what={what} />} />;
+}
+
+// ── Chapter 6.1: IAP for HTTPS, on a load balancer ─────────────────────────
+
+type WebFlow = {
+  /** Where the request starts: a browser through the load balancer, or a VM that skips it. */
+  from: "browser" | "vm";
+  who: [string, string];
+  signedIn?: boolean;
+  role?: boolean;
+  /** Does the dashboard check the signed header? */
+  verify?: boolean;
+  sees: string;
+};
+type WebCase = Case & { flow: (what: string) => WebFlow };
+
+const WEB_CASES: WebCase[] = [
+  {
+    k: "A",
+    t: "First visit, not signed in",
+    flow: () => ({ from: "browser", who: ["Staff member", "no session yet"], signedIn: false, sees: "Google sign-in page" }),
+    take: "IAP finds no session, so it does not send the request on. It redirects the browser to <b>Google sign-in</b>. After signing in, the browser comes back to <code>admin.kade.lk</code> with a session cookie, and the next request carries it. Nothing reached kade-worker.",
+    cfg: "GET https://admin.kade.lk/\n→ 302 redirect to accounts.google.com (sign in)\n→ back to admin.kade.lk with an IAP session cookie",
+  },
+  {
+    k: "B",
+    t: "A staff member who is allowed",
+    flow: () => ({ from: "browser", who: ["you@kade.lk", "signed in"], signedIn: true, role: true, verify: true, sees: "the dashboard" }),
+    take: "Signed in, and IAM grants <code>roles/iap.httpsResourceAccessor</code> on this backend service, so IAP forwards the request. It adds a <b>signed header</b>, <code>x-goog-iap-jwt-assertion</code>, that says who you are. The dashboard checks the signature and knows the request came through IAP, as you@kade.lk.",
+    cfg: "staff@kade.lk (group) → roles/iap.httpsResourceAccessor on backend service kade-admin\n\nrequest to kade-worker:8080 carries:\n  x-goog-iap-jwt-assertion: <a token signed by Google, naming you@kade.lk>",
+  },
+  {
+    k: "C",
+    t: "Signed in, but not granted",
+    flow: () => ({ from: "browser", who: ["guest@gmail.com", "signed in"], signedIn: true, role: false, sees: "403: no access" }),
+    take: "Signing in only proves <b>who</b> you are. This identity has no grant on the backend service, so IAP answers <b>403</b> itself. The request never reaches the VPC, so kade-worker never sees it.",
+    cfg: "guest@gmail.com: signed in, no roles/iap.httpsResourceAccessor\n→ 403 from IAP; nothing is sent to kade-worker",
+  },
+  {
+    k: "D",
+    t: "A request that skips the load balancer",
+    what: [
+      ["verify", "The app checks the signed header"],
+      ["trust", "What if the app trusts the header?"],
+    ],
+    flow: (w) => ({ from: "vm", who: ["Another VM", "in kade-vpc"], verify: w === "verify", sees: w === "verify" ? "rejected" : "the dashboard, as an admin" }),
+    take: {
+      verify:
+        "IAP only guards the path <b>through the load balancer</b>. Here a VM inside kade-vpc calls kade-worker:8080 directly, which works if a firewall rule is too wide (like the old <code>kade-allow-internal</code>). It sends a forged identity header. The dashboard checks the signature, finds none it can trust, and <b>rejects</b> it.",
+      trust:
+        "The same request, but the dashboard reads the header without checking the signature. The forged header says <code>admin@kade.lk</code>, and the dashboard <b>believes it</b>. This is why the app must verify the signed header, and why the firewall should let 8080 in from the load balancer's ranges only.",
+    },
+    cfg: "curl http://10.10.1.20:8080/ -H 'x-goog-iap-jwt-assertion: <forged>'\n\nverifies the signature → no valid Google signature → rejected\ntrusts the header      → \"admin@kade.lk\" → let in",
+  },
+];
+
+function WebView({ c, what }: { c: WebCase; what: string }) {
+  const f = c.flow(what);
+  const viaLb = f.from === "browser";
+  const passIap = viaLb && !!f.signedIn && !!f.role;
+  const reaches = passIap || !viaLb;
+  const fooled = !viaLb && !f.verify;
+  const tone: Tone = passIap ? "ok" : fooled ? "fault" : viaLb ? "warn" : "ok";
+  return (
+    <div className="space-y-4">
+      <Drawing h={392} label={`A request to admin.kade.lk from ${f.who[0]}, and how far it gets`}>
+        <g className={viaLb ? undefined : "off"}>
+          <Box x={16} y={70} w={190} h={92} />
+          <T x={30} y={94} k="t">{viaLb ? f.who[0] : "Browser"}</T>
+          <T x={30} y={114}>{viaLb ? f.who[1] : "not used"}</T>
+          {viaLb && <T x={30} y={140} k="f">sees:</T>}
+          {viaLb && <T x={30} y={156} k={passIap ? "s" : "s c-red"} bold>{f.sees}</T>}
+        </g>
+
+        <Zone x={226} y={16} w={718} h={362} c="purple" />
+        <T x={242} y={40}>Google&apos;s network</T>
+        <g className={viaLb ? undefined : "off"}>
+          <Box x={246} y={76} w={200} h={80} c="orange" />
+          <T x={260} y={102} k="t">load balancer</T>
+          <T x={260} y={124}>34.120.88.10 · TLS</T>
+          <T x={260} y={144}>URL map → kade-admin</T>
+          <Box x={476} y={56} w={240} h={150} c="orange" />
+          <T x={490} y={82} k="t">backend service</T>
+          <T x={490} y={102}>kade-admin · IAP on</T>
+          <T x={516} y={140}>1 signed in?</T>
+          <T x={516} y={176}>2 IAM role?</T>
+          {viaLb && <Mark cx={500} cy={135} ok={!!f.signedIn} />}
+          {viaLb && f.signedIn && <Mark cx={500} cy={171} ok={!!f.role} />}
+          {viaLb && f.signedIn === false && <T x={516} y={196} k="f">not checked yet</T>}
+        </g>
+        {viaLb && (
+          <>
+            <Wire x1={206} y1={116} x2={243} y2={116} c="green" />
+            <Wire x1={446} y1={116} x2={473} y2={116} c="green" />
+          </>
+        )}
+        {viaLb && !f.signedIn && (
+          <>
+            <path className="w dash" d="M476 196 H462 V184 H111 V165" markerEnd="url(#dd-ah-muted)" />
+            <T x={256} y={176} k="f">redirect to Google sign-in</T>
+          </>
+        )}
+
+        <Zone x={246} y={226} w={682} h={140} c="blue" />
+        <T x={262} y={250}>kade-vpc</T>
+        <g className={viaLb ? "off" : undefined}>
+          <Box x={266} y={266} w={190} h={80} c={viaLb ? undefined : "red"} />
+          <T x={280} y={292} k="t">Another VM</T>
+          <T x={280} y={312}>in kade-vpc</T>
+          <T x={280} y={332} k={viaLb ? "f" : "s c-red"}>forged header</T>
+        </g>
+        <g className={reaches ? undefined : "off"}>
+          <Box x={496} y={272} w={160} h={68} c="orange" />
+          <T x={510} y={296} k="t">firewall</T>
+          <T x={510} y={314}>8080 from</T>
+          <T x={510} y={331}>{viaLb ? "LB ranges" : "10.10.0.0/16"}</T>
+          <Box x={690} y={258} w={222} h={96} c="blue" />
+          <T x={704} y={284} k="t">kade-worker :8080</T>
+          <T x={704} y={304}>job-queue dashboard</T>
+          {reaches && <T x={728} y={334} k={fooled ? "s c-red" : "s"} bold>{passIap ? "header verified" : f.verify ? "rejects: bad signature" : "trusts forged header"}</T>}
+          {reaches && <Mark cx={712} cy={329} ok={passIap || !!f.verify} />}
+        </g>
+        {passIap && <path className="w green" d="M596 206 V269" markerEnd="url(#dd-ah-green)" />}
+        {reaches && <Wire x1={656} y1={306} x2={687} y2={306} c={viaLb ? "green" : "red"} />}
+        {!viaLb && <Wire x1={456} y1={306} x2={493} y2={306} c="red" />}
+      </Drawing>
+      <Result tone={tone}>
+        <b>{`${f.who[0]} sees: ${f.sees}.`}</b>{" "}
+        {passIap
+          ? "Both IAP checks passed, and the app confirmed the signed header."
+          : fooled
+            ? "IAP was never asked, and the app took the forged header at its word."
+            : viaLb
+              ? "IAP stopped the request before it reached kade-vpc."
+              : "IAP was never asked, but the app's own check caught it."}
+      </Result>
+    </div>
+  );
+}
+
+/** Four requests to an IAP-protected admin page, and how far each one gets. */
+export function IapWebEx() {
+  return <CaseExplorer label="IAP for HTTPS: who gets the page" cases={WEB_CASES} render={(c, what) => <WebView c={c} what={what} />} />;
+}
+
+// ── Chapter 6.2: who can log in with OS Login ──────────────────────────────
+
+/** One check: passed, failed, or not reached. */
+type LoginCheck = [state: "ok" | "no" | "skip", detail: string];
+type LoginOutcome = { ok: boolean; title: string; sub: string; bad?: boolean };
+type LoginCase = Case & {
+  who: (what: string) => [string, string];
+  vm: string;
+  checks: (what: string) => LoginCheck[];
+  out: (what: string) => LoginOutcome;
+};
+
+const LOGIN_CHECKS = ["OS Login is on for this VM", "A login role", "May use the VM's service account", "Inside kade.lk, or allowed in"];
+
+const LOGIN_CASES: LoginCase[] = [
+  {
+    k: "A",
+    t: "You, with sudo",
+    who: () => ["you@kade.lk", "project admin"],
+    vm: "kade-db",
+    checks: () => [
+      ["ok", "enable-oslogin=TRUE on the project"],
+      ["ok", "compute.osAdminLogin: with sudo"],
+      ["ok", "serviceAccountUser on sa-kade-db"],
+      ["ok", "you@kade.lk is in the organization"],
+    ],
+    out: () => ({ ok: true, title: "logged in as you_kade_lk", sub: "sudo works" }),
+    take: "Every check passes. <code>osAdminLogin</code> is the role <b>with</b> sudo, so you can run admin commands. The Linux user comes from your identity, and that is the name the VM's logs show.",
+    cfg: "you@kade.lk → roles/compute.osAdminLogin on project kade-prod\n             roles/iam.serviceAccountUser on sa-kade-db",
+  },
+  {
+    k: "B",
+    t: "A teammate, without sudo",
+    who: () => ["dev2@kade.lk", "developer"],
+    vm: "kade-db",
+    checks: () => [
+      ["ok", "enable-oslogin=TRUE on the project"],
+      ["ok", "compute.osLogin: no sudo"],
+      ["ok", "serviceAccountUser on sa-kade-db"],
+      ["ok", "dev2@kade.lk is in the organization"],
+    ],
+    out: () => ({ ok: true, title: "logged in as dev2_kade_lk", sub: "sudo refused" }),
+    take: "The same path with <code>compute.osLogin</code>, the role <b>without</b> sudo. The teammate can read logs and run commands as an ordinary user, but cannot change the system. Give this role to anyone who does not need admin rights.",
+    cfg: "dev2@kade.lk → roles/compute.osLogin on project kade-prod\n              roles/iam.serviceAccountUser on sa-kade-db",
+  },
+  {
+    k: "C",
+    t: "The service account trap",
+    what: [
+      ["missing", "No serviceAccountUser"],
+      ["fixed", "What if it is granted?"],
+    ],
+    who: () => ["dev2@kade.lk", "developer"],
+    vm: "kade-db",
+    checks: (w) => [
+      ["ok", "enable-oslogin=TRUE on the project"],
+      ["ok", "compute.osLogin"],
+      w === "fixed" ? ["ok", "serviceAccountUser on sa-kade-db"] : ["no", "nothing on sa-kade-db"],
+      w === "fixed" ? ["ok", "dev2@kade.lk is in the organization"] : ["skip", "not reached"],
+    ],
+    out: (w) => (w === "fixed" ? { ok: true, title: "logged in as dev2_kade_lk", sub: "no sudo" } : { ok: false, title: "login refused", sub: "despite the login role" }),
+    take: {
+      missing:
+        "kade-db runs as <b>sa-kade-db</b>, and anyone logged in to it can use that service account's token from the metadata server. So OS Login also requires permission to <b>act as</b> sa-kade-db, which dev2 does not have. The login role alone is not enough, and the refusal surprises people every time.",
+      fixed: "With <code>serviceAccountUser</code> on sa-kade-db, the same person logs in. Grant it on the service account each VM runs as, not on the whole project, or the person can act as every service account.",
+    },
+    cfg: "gcloud iam service-accounts add-iam-policy-binding \\\n  sa-kade-db@kade-prod.iam.gserviceaccount.com \\\n  --member=user:dev2@kade.lk --role=roles/iam.serviceAccountUser",
+  },
+  {
+    k: "D",
+    t: "The freelancer, from outside kade.lk",
+    what: [
+      ["missing", "Without the external role"],
+      ["fixed", "What if it is granted?"],
+    ],
+    who: () => ["dev@freelance.example", "outside the organization"],
+    vm: "kade-worker",
+    checks: (w) => [
+      ["ok", "enable-oslogin=TRUE on the project"],
+      ["ok", "compute.osLogin on kade-worker only"],
+      ["ok", "serviceAccountUser on sa-kade-worker"],
+      w === "fixed" ? ["ok", "osLoginExternalUser at the organization"] : ["no", "not in kade.lk, no external role"],
+    ],
+    out: (w) => (w === "fixed" ? { ok: true, title: "logged in to kade-worker", sub: "and no other VM" } : { ok: false, title: "login refused", sub: "an outside account" }),
+    take: {
+      missing:
+        "The freelancer's account belongs to another organization. OS Login refuses outside accounts unless they also hold <code>roles/compute.osLoginExternalUser</code>, which is granted at the <b>organization</b> level, not on a project.",
+      fixed: "With the external role added, the freelancer logs in to kade-worker, the one VM the login role names. Together with the IAP grant from chapter 6.1, that is three grants, all removable in one place when the job ends.",
+    },
+    cfg: "dev@freelance.example → roles/compute.osLogin on VM kade-worker\n                        roles/iam.serviceAccountUser on sa-kade-worker\n                        roles/compute.osLoginExternalUser on the organization",
+  },
+  {
+    k: "E",
+    t: "An old key from metadata",
+    what: [
+      ["on", "OS Login is on"],
+      ["off", "What if one VM switches it off?"],
+    ],
+    who: () => ["Freelancer's old key", "in project ssh-keys"],
+    vm: "kade-db",
+    checks: (w) =>
+      w === "off"
+        ? [
+            ["no", "enable-oslogin=FALSE on kade-db itself"],
+            ["skip", "not checked: OS Login is off"],
+            ["skip", "not checked"],
+            ["skip", "not checked"],
+          ]
+        : [
+            ["ok", "enable-oslogin=TRUE on the project"],
+            ["no", "the key has no allowed owner"],
+            ["skip", "not reached"],
+            ["skip", "not reached"],
+          ],
+    out: (w) => (w === "off" ? { ok: true, bad: true, title: "in with the old key", sub: "metadata keys work again" } : { ok: false, title: "login refused", sub: "metadata keys are ignored" }),
+    take: {
+      on: "With OS Login on, the VM ignores keys in metadata completely. The freelancer's key is not on any allowed person's OS Login profile, so it opens nothing. That is how the old key stopped working the moment OS Login was switched on.",
+      off: "A VM's own metadata overrides the project's. One <code>enable-oslogin=FALSE</code> on kade-db switches that VM back to metadata keys, and the old key works again there. That is why step 4 removes the keys too, and why command 2 checks each VM's own metadata.",
+    },
+    cfg: "project metadata:   enable-oslogin=TRUE, ssh-keys=[… freelancer …]\nkade-db's metadata: enable-oslogin=FALSE   ← overrides the project",
+  },
+];
+
+function LoginView({ c, what }: { c: LoginCase; what: string }) {
+  const [who, sub] = c.who(what);
+  const checks = c.checks(what);
+  const out = c.out(what);
+  const rowY = (i: number) => 40 + i * 62;
+  const good = out.ok && !out.bad;
+  return (
+    <div className="space-y-4">
+      <Drawing h={300} label={`${who} logging in to ${c.vm}: the four OS Login checks and the result`}>
+        <Box x={16} y={110} w={210} h={72} c={out.bad || c.k === "E" ? "red" : undefined} />
+        <T x={30} y={138} k="t">{who}</T>
+        <T x={30} y={160}>{sub}</T>
+        <Caps x={270} y={24}>{`OS LOGIN CHECKS ON ${c.vm.toUpperCase()}`}</Caps>
+        {checks.map(([state, detail], i) => {
+          const y = rowY(i);
+          return (
+            <g key={LOGIN_CHECKS[i]} className={state === "skip" ? "off" : undefined}>
+              <Box x={270} y={y} w={430} h={50} c={state === "no" ? "red" : undefined} />
+              {state !== "skip" && <Mark cx={292} cy={y + 25} ok={state === "ok"} />}
+              <T x={314} y={y + 21} k="t">{LOGIN_CHECKS[i]}</T>
+              <T x={314} y={y + 40} k={state === "no" ? "s c-red" : "s"}>{detail}</T>
+            </g>
+          );
+        })}
+        <path className="w" d={`M226 146 H248 V${rowY(0) + 25} H267`} markerEnd="url(#dd-ah-muted)" />
+        <Box x={740} y={110} w={204} h={72} c={good ? "green" : "red"} />
+        <T x={754} y={138} k={good ? "t" : "t c-red"}>{out.title}</T>
+        <T x={754} y={160}>{out.sub}</T>
+        <path className={good ? "w green" : "w fault"} d="M700 146 H737" markerEnd={good ? "url(#dd-ah-green)" : "url(#dd-ah-fault)"} />
+      </Drawing>
+      <Result tone={good ? "ok" : "fault"}>
+        <b>{`${who}: ${out.title}`}</b>, {out.sub}.
+      </Result>
+    </div>
+  );
+}
+
+/** Five people or keys trying to log in, and which OS Login check decides. */
+export function OsLoginEx() {
+  return <CaseExplorer label="OS Login: who can log in" cases={LOGIN_CASES} render={(c, what) => <LoginView c={c} what={what} />} />;
 }

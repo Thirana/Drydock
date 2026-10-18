@@ -71,3 +71,39 @@ export function FigTiers() {
     </svg>
   );
 }
+
+export function FigKeepIp() {
+  return (
+    <svg viewBox="0 0 960 352" role="img" aria-label="A static internal address, kade-db-ip 10.10.2.5, is reserved in sn-data and belongs to region asia-southeast1. kade-db runs in zone b. When zone b fails, kade-db is recreated in zone a and takes the same 10.10.2.5, so the address hardcoded in the app keeps working.">
+      <rect className="zone plum" x="16" y="16" width="928" height="320" rx="2" />
+      <text className="t" x="32" y="42">region asia-southeast1</text>
+      <rect className="n teal" x="340" y="56" width="280" height="56" rx="2" />
+      <text className="t" x="356" y="80">kade-db-ip · 10.10.2.5</text>
+      <text className="s" x="356" y="100">reserved in sn-data · regional</text>
+
+      <rect className="zone panel" x="32" y="152" width="288" height="168" rx="2" />
+      <text className="t" x="48" y="178">zone a</text>
+      <rect className="zone panel fault" x="336" y="152" width="288" height="168" rx="2" />
+      <text className="t" x="352" y="178">zone b</text>
+      <rect className="zone panel" x="640" y="152" width="288" height="168" rx="2" />
+      <text className="t" x="656" y="178">zone c</text>
+
+      {/* Before: the address is on kade-db in zone b, which goes down with the zone. */}
+      <path className="w dash off" d="M520 112 V196" markerEnd="url(#dd-ah-muted)" />
+      <g className="off">
+        <rect className="n green" x="352" y="200" width="256" height="56" rx="2" />
+        <text className="t" x="366" y="224">kade-db</text>
+        <text className="s" x="366" y="244">10.10.2.5 · lost with zone b</text>
+      </g>
+      <text className="x" x="590" y="222">✕</text>
+      <text className="s flt" x="352" y="298">zone b is down</text>
+
+      {/* After: a new kade-db in zone a takes the same address. */}
+      <path className="w green" d="M420 112 V132 H176 V196" markerEnd="url(#dd-ah-green)" />
+      <rect className="n green" x="48" y="200" width="256" height="56" rx="2" />
+      <text className="t" x="62" y="224">kade-db (new)</text>
+      <text className="s" x="62" y="244">10.10.2.5 · same address</text>
+      <text className="f" x="48" y="298">{"the app's hardcoded IP still works"}</text>
+    </svg>
+  );
+}

@@ -1,4 +1,4 @@
-import { FwWalk, RuleEx, StatefulEx } from "@/components/learn/widgets/lazy";
+import { FwWalk, PriorityEx, RuleEx, ScopeEx, StatefulEx } from "@/components/learn/widgets/lazy";
 import { FigWhere } from "@content/learn/gcp/figures/05.1-firewall-vpc-firewall-rules";
 
 <Box kind="problem" title="The problem">
@@ -18,7 +18,7 @@ Fixing them means knowing exactly which rule decides each packet, and changing t
 
 <Recalls><Recall n="16">TCP connections</Recall><Recall n="31">Ports and sockets</Recall></Recalls>
 
-A traditional firewall is a **place**: a box that packets pass through. GCP's firewall is **distributed**. The rules that protect a VM are enforced at that VM's own virtual network card, by the data plane on its host (<Ch n="1">chapter 1</Ch> section 09). So every VM-to-VM connection is checked twice:
+A traditional firewall is a **place**: a box that packets pass through. GCP's firewall is **distributed**. The rules that protect a VM are enforced at that VM's own virtual network card, by the data plane on its host (<Ch n="1.2">chapter 1.2</Ch> section 09). So every VM-to-VM connection is checked twice:
 
 <Figure wide hues={["teal", "green", "amber"]} drawing={<FigWhere />}>
 
@@ -37,7 +37,7 @@ A few kinds of traffic ignore your rules entirely:
     <tr><th>#</th><th>Traffic</th><th>What happens</th><th>Why</th></tr>
   </thead>
   <tbody>
-    <tr><td>1</td><td>To the metadata server `169.254.169.254` (DHCP, DNS, time, metadata)</td><td><St k="ok">always allowed</St></td><td>The VM could not boot or resolve names without it (<Ch n="1">chapter 1</Ch>)</td></tr>
+    <tr><td>1</td><td>To the metadata server `169.254.169.254` (DHCP, DNS, time, metadata)</td><td><St k="ok">always allowed</St></td><td>The VM could not boot or resolve names without it (<Ch n="1.2">chapter 1.2</Ch>)</td></tr>
     <tr><td>2</td><td>Outgoing TCP port 25 (SMTP) to the internet</td><td><St k="bad">always blocked</St></td><td>Google blocks it to stop spam. Use a mail service on 587 or 465</td></tr>
     <tr><td>3</td><td>Health checks and Google Front Ends to backends</td><td>Need a rule</td><td>They arrive on special paths (<Ch n="4">chapter 4</Ch>), but the firewall still judges them. This is why `kade-allow-lb` exists</td></tr>
   </tbody>
@@ -129,69 +129,9 @@ An ingress rule can name sources by IP range, network tag or service account. Tw
 
 ## The scoping trap
 
-**Narrowing the target does nothing to the source.** A rule can be tightly targeted and wide open at the same time:
+**Narrowing the target does nothing to the source.** A rule has two widths that have nothing to do with each other: how many VMs it covers (the target), and who may reach them (the source). A rule can be tightly targeted and wide open at the same time. The four combinations:
 
-<Box kind="console" title={"The trap · A metrics port \"for monitoring\""}>
-
-```text
-kade-allow-metrics:
-  targetTags:   [api]          ← TARGET scoped: only VMs tagged api
-  sourceRanges: 0.0.0.0/0      ← SOURCE wide open: the whole internet
-  allow:        tcp:9100
-
-Reads as: "the whole internet may reach port 9100 on any VM tagged api."
-```
-
-The tag makes it look scoped. It is not. The door is open to everyone; the tag only decides which VMs have that door. Compare `kade-allow-lb`, which targets the same tag but whose source is only Google's load balancer ranges.
-
-</Box>
-
-The four shapes a rule can have:
-
-<Box kind="console" title="Shape A · Narrow target, narrow source: actually scoped">
-
-```text
-target:  service account sa-kade-db
-source:  service account sa-kade-api
-allow:   tcp:5432
-→ only the API VMs reach the database, only on PostgreSQL
-```
-
-</Box>
-
-<Box kind="console" title="Shape B · Wide target, narrow source: survivable, if intended">
-
-```text
-target:        all instances
-sourceRanges:  198.51.100.20/32
-allow:         tcp:22
-→ one office IP may SSH to every VM. The source is tight, so the wide target is survivable.
-```
-
-</Box>
-
-<Box kind="console" title="Shape C · Wide target, wide source: the dangerous one">
-
-```text
-target:        all instances
-sourceRanges:  0.0.0.0/0
-allow:         tcp:22
-→ the entire internet may SSH to every VM, now and in the future.
-  This is kade-allow-ssh today (finding 2).
-```
-
-</Box>
-
-<Box kind="console" title="Shape D · The same rule with tags or with a service account">
-
-```text
-Tag version:  targetTags: [db]                    ← anyone who can edit a VM
-                                                     can join the "db" group
-SA version:   targetServiceAccounts: [sa-kade-db]  ← must be granted the SA,
-                                                     and the VM must be stopped
-```
-
-</Box>
+<ScopeEx />
 
 ## Implied rules and priority
 
@@ -214,72 +154,9 @@ Every VPC has two rules that are always there and always checked last:
 
 ### How priority works
 
-```text
-A packet is judged by walking the rules from low number to high. The first match decides.
+A packet is judged by walking the rules from the lowest number to the highest, and the first match decides. Two rules: **lower number wins**, and **at the same priority, deny beats allow**. The second one lets you add a deny next to an allow without renumbering anything. The implied rule sits at the bottom and is reached only if nothing above it matched.
 
-  priority 100    ─┐
-  priority 900     │  your rules (allow or deny; at a tie, deny wins)
-  priority 1000   ─┘
-  ...
-  priority 65535  ─── implied rule (allow egress / deny ingress)
-                       reached only if nothing above matched
-```
-
-Two rules: **lower number wins**, and **at the same priority, deny beats allow**. The second one lets you add a deny next to an allow without renumbering anything.
-
-<Box kind="console" title="Example A · Nothing matches: the implied rule decides">
-
-```text
-Inbound tcp:9000 to kade-api-1. No rule mentions 9000.
-→ walk finishes → implied deny ingress @65535 → DROPPED
-```
-
-</Box>
-
-<Box kind="console" title="Example B · An allow opens a hole in the implied deny">
-
-```text
-allow tcp:8080 from Google's ranges @1000  → matches → ALLOWED
-implied deny @65535                         → never reached
-```
-
-</Box>
-
-<Box kind="console" title="Example C · Deny beats allow at the same priority">
-
-```text
-deny   from 203.0.113.0/24   tcp:443  @1000
-allow  from 0.0.0.0/0        tcp:443  @1000
-
-Packet from 203.0.113.99 → both match, same priority → DENY wins
-Packet from anywhere else → only the allow matches   → ALLOWED
-```
-
-</Box>
-
-<Box kind="console" title="Example D · A lower number wins outright">
-
-```text
-deny   all       @100
-allow  tcp:443   @1000
-
-Packet to :443 → deny @100 is checked first and matches → DROPPED
-                 (the allow is never looked at)
-```
-
-</Box>
-
-<Box kind="console" title="Example E · Egress hardening needs an explicit deny">
-
-```text
-No egress rules → implied allow egress @65535 → kade-db can reach anything
-
-Add: deny  EGRESS to 0.0.0.0/0     @1000
-Add: allow EGRESS to 10.10.0.0/16  @900
-→ kade-db reaches Kadé's own ranges only; the implied allow is never reached
-```
-
-</Box>
+<PriorityEx />
 
 ## Try it: is this packet allowed in?
 

@@ -132,51 +132,70 @@ export function LbGlobal() {
 
 /** What an L7 load balancer can read that an L4 one cannot. */
 export function LbL7L4() {
-  const routes: [string, string, number][] = [
-    ["/api/*", "kade-api-backend", 60],
-    ["/images/*", "kade-static bucket", 110],
-    ["everything else", "web backend", 160],
-  ];
-  return (
-    <WidgetFrame wide label="Layer 7 and layer 4 load balancers">
-      <Drawing h={230} label="An L7 load balancer picks a backend by host and path; an L4 one only by connection">
-        <Caps x={16} y={24}>L7 · reads the request</Caps>
-        <Caps x={500} y={24}>L4 · sees only addresses and ports</Caps>
-        <Box x={16} y={44} w={200} h={120} />
-        <T x={30} y={70} k="t" size={12.5}>HTTPS request</T>
-        <T x={30} y={92} size={11}>Host: www.kade.lk</T>
-        <T x={30} y={110} size={11}>GET /images/rice.jpg</T>
-        <T x={30} y={128} size={11}>Cookie: session=…</T>
-        <Box x={244} y={64} w={90} h={80} c="purple" />
-        <T x={256} y={100} k="t" size={12.5}>L7 LB</T>
-        <T x={256} y={120} size={11}>decrypts</T>
-        <Wire x1={216} y1={104} x2={241} y2={104} />
-        {routes.map(([path, , y], i) => (
-          <g key={path}>
-            <path
-              className={cn("w", i === 1 && "green")}
-              d={`M334 104 C 350 104, 350 ${y + 14}, 362 ${y + 14}`}
-              markerEnd={`url(#dd-ah-${i === 1 ? "green" : "muted"})`}
-            />
-            <Box x={364} y={y} w={120} h={30} c={i === 1 ? "green" : undefined} />
-            <T x={372} y={y + 19} size={10.5}>{path}</T>
+  // One row per kind, sharing columns: what arrives, the load balancer, the three ways out.
+  const fan = (y: number, pick: number, out: [string, string?][], dy: number) => {
+    const mid = y + 60;
+    const ys = [mid - 44, mid, mid + 44];
+    return (
+      <>
+        {ys.map((cy, i) =>
+          i === pick ? null : <path key={cy} className="w" d={`M466 ${mid} H500 V${cy} H537`} markerEnd="url(#dd-ah-muted)" />,
+        )}
+        <path className="w green" d={`M466 ${mid} H500 V${ys[pick]} H537`} markerEnd="url(#dd-ah-green)" />
+        {out.map(([first, second], i) => (
+          <g key={first}>
+            <Box x={540} y={ys[i] - 18} w={180} h={36} c={i === pick ? "green" : undefined} />
+            <T x={554} y={ys[i] + 5 + dy} size={12}>{first}</T>
+            {second && (
+              <>
+                <Wire x1={720} y1={ys[i]} x2={757} y2={ys[i]} c={i === pick ? "green" : undefined} />
+                <Box x={760} y={ys[i] - 18} w={184} h={36} c={i === pick ? "green" : undefined} />
+                <T x={774} y={ys[i] + 5} size={12}>{second}</T>
+              </>
+            )}
           </g>
         ))}
-        <T x={364} y={214} k="f" size={11}>picks by host and path</T>
-        <Box x={500} y={44} w={200} h={120} />
-        <T x={514} y={70} k="t" size={12.5}>TCP connection</T>
-        <T x={514} y={92} size={11}>203.0.113.99:51022</T>
-        <T x={514} y={110} size={11}>→ 34.87.x.x:443</T>
-        <T x={514} y={128} k="f" size={11}>contents: unreadable</T>
-        <Box x={728} y={64} w={90} h={80} c="purple" />
-        <T x={740} y={100} k="t" size={12.5}>L4 LB</T>
-        <T x={740} y={120} size={11}>forwards</T>
-        <Wire x1={700} y1={104} x2={725} y2={104} />
-        <Wire x1={818} y1={104} x2={843} y2={104} c="green" />
-        <Box x={846} y={74} w={98} h={60} c="blue" />
-        <T x={856} y={100} size={11}>any healthy</T>
-        <T x={856} y={118} size={11}>backend</T>
-        <T x={728} y={180} k="f" size={11}>picks by connection only</T>
+      </>
+    );
+  };
+  return (
+    <WidgetFrame wide label="Layer 7 and layer 4 load balancers">
+      <Drawing h={416} label="An L7 load balancer reads the request and picks a backend by host and path; an L4 one sees only addresses and ports and picks by connection">
+        <Caps x={16} y={24}>L7 · reads the request</Caps>
+        <Caps x={540} y={24}>URL map rule</Caps>
+        <Caps x={760} y={24}>backend</Caps>
+        <Box x={16} y={44} w={260} h={120} />
+        <T x={30} y={72} k="t">HTTPS request</T>
+        <T x={30} y={98} size={12}>Host: www.kade.lk</T>
+        <T x={30} y={120} size={12} bold>GET /images/rice.jpg</T>
+        <T x={30} y={142} size={12}>Cookie: session=…</T>
+        <Wire x1={276} y1={104} x2={313} y2={104} />
+        <Box x={316} y={64} w={150} h={80} c="purple" />
+        <T x={330} y={96} k="t">L7 LB</T>
+        <T x={330} y={122} k="">ends TLS</T>
+        <T x={316} y={176} k="f">picks by host and path</T>
+        {fan(44, 1, [["/api/*", "kade-api-backend"], ["/images/*", "kade-static bucket"], ["everything else", "web backend"]], 0)}
+
+        <line className="w dash" x1={16} y1={214} x2={944} y2={214} />
+
+        <Caps x={16} y={250}>L4 · sees only addresses and ports</Caps>
+        <Caps x={540} y={250}>backend</Caps>
+        <Box x={16} y={270} w={260} h={120} />
+        <T x={30} y={298} k="t">TCP connection</T>
+        <T x={30} y={324} size={12}>203.0.113.99:51022</T>
+        <T x={30} y={346} size={12}>→ 34.87.x.x:443</T>
+        <T x={30} y={370} k="f">contents: unreadable</T>
+        <Wire x1={276} y1={330} x2={313} y2={330} />
+        <Box x={316} y={290} w={150} h={80} c="purple" />
+        <T x={330} y={322} k="t">L4 LB</T>
+        <T x={330} y={348} k="">forwards</T>
+        <T x={316} y={402} k="f">picks by connection only</T>
+        {fan(270, 1, [["backend a"], ["backend b"], ["backend c"]], 0)}
+        <rect className="ghost" x={760} y={268} width={184} height={124} rx="2" />
+        <T x={774} y={300} k="f">no rules here:</T>
+        <T x={774} y={322} k="f">the path is inside</T>
+        <T x={774} y={344} k="f">bytes it cannot read.</T>
+        <T x={774} y={372} k="f">Any healthy one will do.</T>
       </Drawing>
     </WidgetFrame>
   );

@@ -26,7 +26,7 @@ DNS turns names into addresses. Everything else in GCP DNS is detail about **who
   </tbody>
 </Table>
 
-Every question a VM asks goes to the same place: the metadata server at `169.254.169.254`, which DHCP set as its DNS server (<Ch n="1">chapter 1</Ch> section 06). What the metadata server checks, and in what order, is section 04.
+Every question a VM asks goes to the same place: the metadata server at `169.254.169.254`, which DHCP set as its DNS server (<Ch n="1.2">chapter 1.2</Ch> section 06). What the metadata server checks, and in what order, is section 04.
 
 <Key title="Do not change a VM's DNS server">
 
@@ -65,7 +65,7 @@ getent hosts kade-db
 
 <Label>What it tells you</Label>
 
-Both forms resolve, and the short name was expanded through the search domains in `/etc/resolv.conf` (<Ch n="1">chapter 1</Ch> section 07). `getent` uses the same lookup path as the app, which makes it a better test than `dig` for "can my app resolve this?".
+Both forms resolve, and the short name was expanded through the search domains in `/etc/resolv.conf` (<Ch n="1.2">chapter 1.2</Ch> section 07). `getent` uses the same lookup path as the app, which makes it a better test than `dig` for "can my app resolve this?".
 
 </Box>
 

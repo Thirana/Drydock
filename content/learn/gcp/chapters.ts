@@ -4,7 +4,8 @@ import type { ChapterLoaders } from "@/lib/content/types";
 
 export const chapters: ChapterLoaders = {
   "kade-on-gcp": () => import("./chapters/00-kade-on-gcp.mdx"),
-  "the-mental-model-andromeda-no-layer-2": () => import("./chapters/01-the-mental-model-andromeda-no-layer-2.mdx"),
+  "regions-zones-and-googles-network": () => import("./chapters/01.1-regions-zones-and-googles-network.mdx"),
+  "the-mental-model-andromeda-no-layer-2": () => import("./chapters/01.2-the-mental-model-andromeda-no-layer-2.mdx"),
   "vpc-networks-and-subnets": () => import("./chapters/02-vpc-networks-and-subnets.mdx"),
   "ip-addressing": () => import("./chapters/03-ip-addressing.mdx"),
   "routing": () => import("./chapters/04-routing.mdx"),

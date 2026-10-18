@@ -600,6 +600,11 @@
   .dd-fig .zone.fault {
     stroke: var(--dd-fault);
   }
+  /* A zone inside a region: one of several equal compartments. */
+  .dd-fig .zone.panel {
+    fill: var(--dd-sunk);
+    stroke-dasharray: none;
+  }
   /* A box that joins the drawing later. */
   .dd-fig .ghost {
     fill: none;

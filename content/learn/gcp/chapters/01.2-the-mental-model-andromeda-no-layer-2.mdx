@@ -1,11 +1,11 @@
-import { PktWalk, ScopeQuiz } from "@/components/learn/widgets/lazy";
-import { FigAndromeda, FigScope, FigWhy } from "@content/learn/gcp/figures/01-the-mental-model-andromeda-no-layer-2";
+import { PktWalk } from "@/components/learn/widgets/lazy";
+import { FigAndromeda, FigWhy } from "@content/learn/gcp/figures/01.2-the-mental-model-andromeda-no-layer-2";
 
 <Box kind="problem" title="The problem">
 
-kade-api-1 and kade-api-2 are both in `sn-app 10.10.1.0/24`. In the fundamentals course (<Ch n="4">ch 4</Ch>), two machines in the same subnet sit on the same switch and talk directly: ARP for the other machine's MAC, then send a frame to it.
+kade-api-1 and kade-api-2 are both in `sn-app 10.10.1.0/24`. In the fundamentals course (<Ch course="fundamentals" n="4">ch 4</Ch>), two machines in the same subnet sit on the same switch and talk directly: ARP for the other machine's MAC, then send a frame to it.
 
-But kade-api-1 is in zone `a` and kade-api-2 is in zone `b`, which can be separate buildings. No cable or switch joins them. And when you log in to kade-api-1, `ip addr` shows `10.10.1.10/32`, not `/24`.
+But kade-api-1 is in zone `a` and kade-api-2 is in zone `b`, which are separate failure domains (<Ch n="1.1">chapter 1.1</Ch>). Only Google's routed links join them, not a switch. And when you log in to kade-api-1, `ip addr` shows `10.10.1.10/32`, not `/24`.
 
 So what is a "subnet" here, and who is doing the work that the switch and the router used to do?
 
@@ -303,56 +303,6 @@ A question that mentions keepalived, VRRP or a floating IP between two VMs is te
 
 </Box>
 
-## Three scopes: global, regional, zonal
-
-Once the network is software, where a thing "lives" becomes a choice Google made per resource. Every GCP resource has one of three scopes, and the scope tells you two things: where it can be used, and what an outage can take down.
-
-<Table>
-  <thead>
-    <tr><th>#</th><th>Scope</th><th>Meaning</th><th>Kadé's examples</th><th>If a zone fails</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1</td><td>Global</td><td>One object for the whole planet, not a copy per region</td><td>kade-vpc, firewall rules, routes, the load balancer IP `34.120.88.10`</td><td>Not affected</td></tr>
-    <tr><td>2</td><td>Regional</td><td>Lives in one region; Google spreads it over the zones inside</td><td>sn-app, sn-data, Cloud NAT and Cloud Router (<Ch n="7">ch 7</Ch>), the NAT IP, Cloud Run `kade-api` (<Ch n="10">ch 10</Ch>), HA VPN (<Ch n="15">ch 15</Ch>)</td><td>Keeps working from the other zones</td></tr>
-    <tr><td>3</td><td>Zonal</td><td>Pinned to one zone</td><td>kade-api-1 (zone a), kade-api-2 and kade-db (zone b), their disks</td><td>Unavailable until the zone is back, unless you built a copy elsewhere</td></tr>
-  </tbody>
-</Table>
-
-<Figure wide hues={["teal", "green"]} drawing={<FigScope />}>
-
-A subnet is regional, so it can stretch across zones. That only makes sense because there is no physical segment tying it down (section 01).
-
-</Figure>
-
-You can see a resource's scope in its full name (its <Term>self link</Term>). The path contains `global`, `regions/…` or `zones/…`, and gcloud asks for the matching flag:
-
-<Table>
-  <thead>
-    <tr><th>#</th><th>Resource</th><th>Path in its full name</th><th>gcloud flag</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1</td><td>kade-vpc</td><td>`projects/kade-prod/global/networks/kade-vpc`</td><td>none</td></tr>
-    <tr><td>2</td><td>sn-app</td><td>`projects/kade-prod/regions/asia-southeast1/subnetworks/sn-app`</td><td>`--region`</td></tr>
-    <tr><td>3</td><td>kade-api-1</td><td>`projects/kade-prod/zones/asia-southeast1-a/instances/kade-api-1`</td><td>`--zone`</td></tr>
-  </tbody>
-</Table>
-
-<Note>
-
-**Some resources come in both kinds.** External IPs, health checks and load balancers exist as global or regional versions. Which one you need depends on what uses it: a global load balancer needs a global IP, while Cloud NAT and VMs use regional IPs. <Ch n="3">Chapters 3</Ch> and <Ch n="11">11</Ch> cover this.
-
-</Note>
-
-### Try it: which scope?
-
-<ScopeQuiz />
-
-<Box kind="exam" title="Exam angle">
-
-"VPCs are global, subnets are regional, VMs are zonal" is tested often, usually as "can one subnet span two zones?" (yes) or "do I need a VPN between two regions of the same VPC?" (no).
-
-</Box>
-
 ## Back to Kadé
 
 <Box kind="fixed" title="Answered">
@@ -444,18 +394,6 @@ ping -c 3 -M do -s 1433 10.10.2.5
 
 ```sh
 gcloud compute networks describe kade-vpc --format="value(mtu)"
-```
-
-</TryIt>
-
-<TryIt n={8} title="See a resource's scope in its full name">
-
-- **What it shows:** The self link of the VM and of its subnet.
-- **What to look for:** `zones/asia-southeast1-a` in the VM's path, `regions/asia-southeast1` in the subnet's.
-
-```sh
-gcloud compute instances describe kade-api-1 --zone=asia-southeast1-a \
-  --format="value(selfLink,networkInterfaces[0].subnetwork)"
 ```
 
 </TryIt>

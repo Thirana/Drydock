@@ -1,4 +1,5 @@
 import { ArmorEx, DeployEx, HcEx, LbChain, UrlMapTool, XffEx } from "@/components/learn/widgets/lazy";
+import { FigProxyKinds, FigTargetProxy } from "@content/learn/gcp/figures/12.1-load-balancing-inside-the-https-load-balancer";
 
 <Box kind="problem" title="The problem">
 
@@ -14,6 +15,49 @@ import { ArmorEx, DeployEx, HcEx, LbChain, UrlMapTool, XffEx } from "@/component
 A proxy load balancer is a chain, and each link does one job. Click a link to see what it holds, Kadé's value, and the question to ask it when something breaks. Knowing which link to look at is half of any load balancer problem.
 
 <LbChain />
+
+### The target proxy: where the connection ends
+
+The forwarding rule is only an address, `34.120.88.10:443`. It decides where a connection arrives, but something has to answer it, and the target proxy says how. It is not a machine you run, size or patch. It is a set of instructions that Google's front ends follow, at every edge location where a shopper can arrive (<Ch n="1.1">chapter 1.1</Ch>). For a regional load balancer, the Envoy proxies in your proxy-only subnet follow them instead (<Ch n="2">chapter 2</Ch> section 06).
+
+The instructions come down to three steps. Answer the TCP handshake. Prove to the browser that this really is `kade.lk` by showing its certificate, then agree on encryption. Decrypt, and read the HTTP request. Only after the third step is there a host and a path for the URL map to read.
+
+<Figure wide hues={["plum", "amber", "teal"]} labels={{ plum: "Google's front end, which runs the load balancer", amber: "The settings Kadé writes: target proxy, URL map, backend service", teal: "Kadé's service" }} drawing={<FigTargetProxy />}>
+Two connections, not one. The shopper's connection ends at the target proxy. The backend only ever sees connection 2, which the front end opens once the URL map and backend service have chosen where the request goes (<Ch n="11">chapter 11</Ch> section 05).
+</Figure>
+
+Because the connection ends here, everything about the shopper's side of it is set here:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting on the target HTTPS proxy</th><th>What it decides</th><th>Kadé's value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Certificates, or a certificate map</td><td>Which certificate it shows. The browser names the site it wants at the start of TLS (SNI), and the proxy picks the certificate for that name</td><td>`kade-cert-map`</td></tr>
+    <tr><td>2</td><td>SSL policy</td><td>Which TLS versions and ciphers it accepts</td><td>`kade-tls`</td></tr>
+    <tr><td>3</td><td>Server TLS policy</td><td>Whether the client must show a certificate too (mTLS)</td><td>Not used</td></tr>
+    <tr><td>4</td><td>URL map</td><td>Who gets the decrypted request</td><td>`kade-url-map`</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Section 07 covers the certificate choices and these policies in detail.</Caption>
+
+A load balancer has a target proxy exactly when it is a proxy. The kind of proxy decides how much it can read:
+
+<Figure wide hues={["amber"]} labels={{ amber: "The target proxy: only proxy load balancers have one" }} drawing={<FigProxyKinds />}>
+The same chain, three ways. Take away the URL map and the load balancer can no longer route by path. Take away the target proxy too and nothing ends the connection: the backends see the client's own address.
+</Figure>
+
+- **Target HTTPS proxy:** ends TCP and TLS, reads HTTP. Kadé's `kade-https-proxy`.
+- **Target HTTP proxy:** ends TCP and reads HTTP, with no TLS. Kadé's `kade-http-proxy` exists only to answer port 80 with a redirect to HTTPS.
+- **Target TCP proxy** and **target SSL proxy:** the proxy Network Load Balancer. The SSL one ends TLS too, but neither reads HTTP, so they point straight at one backend service, with no URL map.
+- **No target proxy:** a passthrough Network Load Balancer. Its forwarding rule points straight at a backend service.
+
+<Key title="When the problem is at the target proxy">
+
+A certificate error in the browser, or a TLS handshake that fails, happens at the target proxy. The connection never got as far as the URL map, so no backend saw it and its logs show nothing. Check the proxy's certificates and SSL policy first (Try it 1 and 6 below).
+
+</Key>
 
 ## The URL map: where each request goes
 
@@ -142,7 +186,7 @@ Behind a proxy, the backend's network connection comes from Google's front end, 
 
 <Recalls><Recall n="25">TLS and HTTPS</Recall></Recalls>
 
-TLS ends at the target proxy, which is where certificates are attached. The choice that matters most is who issues and renews the certificate:
+TLS ends at the target proxy, which is where certificates are attached (section 01). The choice that matters most is who issues and renews the certificate:
 
 <Table>
   <thead>

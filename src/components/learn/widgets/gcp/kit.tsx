@@ -17,11 +17,14 @@ export function Examples({
   current,
   onPick,
   label = "Examples",
+  names,
 }: {
   values: string[];
   current: string;
   onPick: (value: string) => void;
   label?: string;
+  /** A word for each value, shown after it: what the example is. */
+  names?: Record<string, string>;
 }) {
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
@@ -36,6 +39,7 @@ export function Examples({
           )}
         >
           {ex}
+          {names?.[ex] && <span className="ml-2 font-sans text-[13px] opacity-70">{names[ex]}</span>}
         </button>
       ))}
     </div>

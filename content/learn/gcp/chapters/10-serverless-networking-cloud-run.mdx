@@ -14,7 +14,7 @@ Background jobs move to a small VM, `kade-worker`, which keeps using what <Ch n=
 
 ## Cloud Run lives outside your VPC
 
-A VM has a network card in your subnet. It has an internal IP, it is part of the VPC, and <Ch n="1">chapters 1</Ch> to 7 apply to it directly. Cloud Run has none of that. It runs containers that Google starts and stops on demand, on Google's own infrastructure, **outside your VPC**.
+A VM has a network card in your subnet. It has an internal IP, it is part of the VPC, and <Ch n="1.1">chapters 1.1</Ch> to 7 apply to it directly. Cloud Run has none of that. It runs containers that Google starts and stops on demand, on Google's own infrastructure, **outside your VPC**.
 
 By default, an outgoing call from Cloud Run goes straight to the internet from Google's serverless infrastructure. It never touches your VPC, routes, firewall or Cloud NAT. Two problems follow:
 

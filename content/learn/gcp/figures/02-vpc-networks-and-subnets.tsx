@@ -49,9 +49,83 @@ export function FigAlias() {
       <text className="s" x="460" y="153">alias IP          10.10.1.100/32 from the primary range</text>
       <rect className="n" x="446" y="174" width="466" height="36" rx="2" />
       <text className="s" x="460" y="197">{"alias IP range    10.10.8.0/28   from \"apps-containers\""}</text>
-      <line className="w teal" x1="332" y1="76" x2="443" y2="104" markerEnd="url(#dd-ah-teal)" />
-      <line className="w teal" x1="332" y1="84" x2="443" y2="148" markerEnd="url(#dd-ah-teal)" />
-      <line className="w" x1="332" y1="148" x2="443" y2="192" markerEnd="url(#dd-ah-muted)" />
+      {/* The primary range feeds two rows from one trunk; the secondary range feeds the third. */}
+      <path className="w teal" d="M332 76 H380 V148 H443" markerEnd="url(#dd-ah-teal)" />
+      <path className="w teal" d="M380 104 H443" markerEnd="url(#dd-ah-teal)" />
+      <path className="w" d="M332 164 H404 V192 H443" markerEnd="url(#dd-ah-muted)" />
+    </svg>
+  );
+}
+
+/** Zone columns inside one region, shared by both rows of FigMap. */
+const MAP_ZONES = [
+  ["a", 0],
+  ["b", 208],
+  ["c", 416],
+] as const;
+
+export function FigMap() {
+  return (
+    <svg viewBox="0 0 960 548" role="img" aria-label="The same two web servers in AWS and in GCP. AWS: a VPC lives in one region, and each subnet lives in one zone, so kade-api-1 in zone a and kade-api-2 in zone b need two subnets, a third zone needs a third subnet, and a second region needs a second VPC joined by peering. GCP: kade-vpc is global. Its subnet sn-app belongs to region asia-southeast1 and stretches across zones a, b and c, so both servers share it. A second region, asia-south1, only needs a new subnet in the same kade-vpc.">
+      {/* AWS: the VPC is the region; a subnet is one zone. */}
+      <text className="t" x="16" y="30">AWS: a VPC is regional, a subnet is zonal</text>
+      <rect className="zone teal" x="16" y="46" width="664" height="214" rx="2" />
+      <text className="s" x="32" y="70">VPC · one region, Singapore</text>
+      {MAP_ZONES.map(([z, dx]) => (
+        <g key={z}>
+          <rect className="zone panel" x={32 + dx} y="84" width="200" height="160" rx="2" />
+          <text className="s" x={46 + dx} y="106">
+            AZ {z}
+          </text>
+        </g>
+      ))}
+      <rect className="zone teal" x="40" y="118" width="184" height="116" rx="2" />
+      <text className="s" x="52" y="140">subnet 10.10.1.0/24</text>
+      <rect className="n teal" x="52" y="154" width="160" height="40" rx="2" />
+      <text className="t" x="64" y="179">kade-api-1</text>
+      <text className="f" x="52" y="220">this zone only</text>
+      <rect className="zone teal" x="248" y="118" width="184" height="116" rx="2" />
+      <text className="s" x="260" y="140">subnet 10.10.3.0/24</text>
+      <rect className="n teal" x="260" y="154" width="160" height="40" rx="2" />
+      <text className="t" x="272" y="179">kade-api-2</text>
+      <text className="f" x="260" y="220">this zone only</text>
+      <rect className="ghost" x="456" y="118" width="184" height="116" rx="2" />
+      <text className="f" x="468" y="168">a VM here needs</text>
+      <text className="f" x="468" y="188">a third subnet</text>
+      <rect className="ghost" x="704" y="46" width="240" height="214" rx="2" />
+      <text className="t" x="720" y="72">Mumbai</text>
+      <text className="s" x="720" y="104">a second region needs</text>
+      <text className="s" x="720" y="124">a second VPC, joined</text>
+      <text className="s" x="720" y="144">by peering or a</text>
+      <text className="s" x="720" y="164">transit gateway</text>
+
+      {/* GCP: the VPC spans regions; a subnet spans the zones of its region. */}
+      <text className="t" x="16" y="314">GCP: kade-vpc is global, a subnet is regional</text>
+      <rect className="zone teal" x="16" y="330" width="928" height="202" rx="2" />
+      <text className="s" x="32" y="354">kade-vpc · global, one network for every region</text>
+      <rect className="zone plum" x="32" y="366" width="640" height="152" rx="2" />
+      <text className="s" x="48" y="388">region asia-southeast1 · Singapore</text>
+      {MAP_ZONES.map(([z, dx]) => (
+        <g key={z}>
+          <rect className="zone panel" x={48 + dx} y="398" width="192" height="108" rx="2" />
+          <text className="s" x={60 + dx} y="418">
+            zone {z}
+          </text>
+        </g>
+      ))}
+      {/* One band across all three zones: the subnet belongs to the region. */}
+      <rect className="zone teal" x="40" y="428" width="624" height="68" rx="2" />
+      <rect className="n teal" x="60" y="442" width="172" height="40" rx="2" />
+      <text className="t" x="72" y="467">kade-api-1</text>
+      <rect className="n teal" x="268" y="442" width="172" height="40" rx="2" />
+      <text className="t" x="280" y="467">kade-api-2</text>
+      <text className="s" x="476" y="454">sn-app 10.10.1.0/24</text>
+      <text className="f" x="476" y="474">every zone in the region</text>
+      <rect className="ghost" x="688" y="366" width="240" height="152" rx="2" />
+      <text className="t" x="704" y="392">asia-south1 · Mumbai</text>
+      <text className="s" x="704" y="424">a second region needs</text>
+      <text className="s" x="704" y="444">only a new subnet in</text>
+      <text className="s" x="704" y="464">the same kade-vpc</text>
     </svg>
   );
 }
