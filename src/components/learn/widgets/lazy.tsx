@@ -282,6 +282,9 @@ export const GcpDnsWalk = dynamic(() =>
 export const NatCalc = dynamic(() =>
   import("./gcp/private").then((m) => m.NatCalc),
 );
+export const NatScenarios = dynamic(() =>
+  import("./gcp/egress").then((m) => m.NatScenarios),
+);
 export const PgaEx = dynamic(() =>
   import("./gcp/private").then((m) => m.PgaEx),
 );
