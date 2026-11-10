@@ -80,9 +80,9 @@ export function LbDecoder() {
 /** Global anycast against a regional IP. */
 export function LbGlobal() {
   const users: [string, number][] = [
-    ["Shopper, Colombo", 60],
-    ["Visitor, London", 150],
-    ["Partner, Sydney", 240],
+    ["Shopper, Colombo", 62],
+    ["Visitor, London", 152],
+    ["Partner, Sydney", 242],
   ];
   return (
     <WidgetFrame wide label="Global and regional load balancers">
@@ -101,7 +101,7 @@ export function LbGlobal() {
         <T x={226} y={92} size={11}>edge, each</T>
         <T x={226} y={108} size={11}>announcing</T>
         <T x={226} y={126} size={11} bold>34.120.88.10</T>
-        <path className="w plum" d="M324 180 C 360 180, 370 180, 397 180" markerEnd="url(#dd-ah-plum)" />
+        <line className="w plum" x1={324} y1={180} x2={397} y2={180} markerEnd="url(#dd-ah-plum)" />
         <T x={330} y={168} size={10.5}>backbone</T>
         <Box x={400} y={130} w={80} h={100} c="blue" />
         <T x={410} y={158} size={11}>backend</T>
@@ -112,7 +112,8 @@ export function LbGlobal() {
           <g key={`r${u}`}>
             <Box x={500} y={y} w={170} h={56} />
             <T x={514} y={y + 33} size={12}>{u}</T>
-            <path className="w dash" d={`M670 ${y + 28} C 720 ${y + 28}, 720 180, 757 180`} markerEnd="url(#dd-ah-muted)" />
+            {/* Everyone joins one trunk into the region: one arrowhead. */}
+            <path className="w dash" d={y + 28 === 180 ? "M670 180 H757" : `M670 ${y + 28} H714 V180`} markerEnd={y + 28 === 180 ? "url(#dd-ah-muted)" : undefined} />
           </g>
         ))}
         <Box x={760} y={110} w={184} h={140} c="blue" />
@@ -218,7 +219,7 @@ export function LbTree() {
   );
   const edge = (x1: number, y1: number, x2: number, y2: number, label?: string) => (
     <g key={`${x1}${y1}${x2}${y2}`}>
-      <path className="w" d={`M${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2 - 3}`} markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d={`M${x1} ${y1} V${(y1 + y2) / 2} H${x2} V${y2 - 3}`} markerEnd="url(#dd-ah-muted)" />
       {label && (
         <T x={(x1 + x2) / 2 + 6} y={(y1 + y2) / 2 - 4} size={11}>
           {label}
@@ -343,9 +344,9 @@ function ProxyView({ c, what }: { c: Case; what: string }) {
             <T x={758} y={68} k="t">backend VM 2</T>
             <T x={758} y={88} k="f" size={11}>not picked this time</T>
           </g>
-          <path className="w" d="M486 160 C 600 160, 640 187, 741 187" markerEnd="url(#dd-ah-muted)" />
-          <path className="w dash off" d="M486 160 C 600 160, 640 72, 741 72" />
-          <path className="w green" d="M760 224 C 740 270, 700 284, 600 284 L 200 284 C 140 284, 116 256, 116 211" markerEnd="url(#dd-ah-green)" />
+          <path className="w" d="M486 160 H660 V187 H741" markerEnd="url(#dd-ah-muted)" />
+          <path className="w dash off" d="M660 160 V72 H741" />
+          <path className="w green" d="M844 224 V284 H116 V211" markerEnd="url(#dd-ah-green)" />
           <T x={470} y={304} k="s mid" bold size={11}>
             reply goes straight back to the shopper: it never passes the load balancer (direct server return)
           </T>
@@ -699,13 +700,14 @@ function HcView({ c, what }: { c: Case; what: string }) {
             const r = y + 28;
             return (
               <g key={name}>
+                {/* One trunk out of the checkers, an elbow to each VM. */}
                 {off ? (
                   <>
-                    <line className="w fault" x1={216} y1={112 + 24 * i} x2={356} y2={r} />
+                    <path className="w fault" d={`M${i ? 300 : 216} 124 H300 V${r} H356`} />
                     <Mark cx={358} cy={r} ok={false} />
                   </>
                 ) : (
-                  <Wire x1={216} y1={112 + 24 * i} x2={597} y2={r} c="green" />
+                  <path className="w green" d={`M${i ? 300 : 216} 124 H300 V${r} H597`} markerEnd="url(#dd-ah-green)" />
                 )}
                 <Box x={600} y={y} w={344} h={56} c={off ? "red" : "green"} />
                 <T x={614} y={y + 22} k="t" size={13}>{name}</T>

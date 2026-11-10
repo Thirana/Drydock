@@ -168,6 +168,18 @@ export const ScopeQuiz = dynamic(() =>
 export const SubnetGrid = dynamic(() =>
   import("./gcp/foundations").then((m) => m.SubnetGrid),
 );
+export const ArmorWalk = dynamic(() =>
+  import("./gcp/armor").then((m) => m.ArmorWalk),
+);
+export const ArmorRate = dynamic(() =>
+  import("./gcp/armor").then((m) => m.ArmorRate),
+);
+export const CdnDecide = dynamic(() =>
+  import("./gcp/cdn").then((m) => m.CdnDecide),
+);
+export const CdnKey = dynamic(() =>
+  import("./gcp/cdn").then((m) => m.CdnKey),
+);
 export const ArmorEx = dynamic(() =>
   import("./gcp/frontdoor").then((m) => m.ArmorEx),
 );
@@ -284,6 +296,9 @@ export const NatCalc = dynamic(() =>
 );
 export const NatScenarios = dynamic(() =>
   import("./gcp/egress").then((m) => m.NatScenarios),
+);
+export const NatPorts = dynamic(() =>
+  import("./gcp/egress").then((m) => m.NatPorts),
 );
 export const PgaEx = dynamic(() =>
   import("./gcp/private").then((m) => m.PgaEx),

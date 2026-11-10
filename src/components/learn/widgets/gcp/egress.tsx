@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { arrowHead } from "../../diagram-defs";
+import { Choices, WidgetNote } from "../ui";
+import { WidgetFrame } from "../widget-frame";
 import { CaseExplorer, Result, type Case, type Tone } from "./case-explorer";
-import { Drawing, Mark, T } from "./draw";
+import { Box, Drawing, Mark, T, Zone } from "./draw";
 
 /* Chapter 7 · Egress and Cloud NAT. */
 
@@ -452,5 +455,166 @@ export function NatScenarios() {
         );
       }}
     />
+  );
+}
+
+// ── NAT ports: who holds which port, and for which destination ─────────────
+
+/*
+ * Drawn with 8 ports per VM instead of 64, so every port is visible. Each VM
+ * owns a block; a row is one destination. A port can sit in every row at once
+ * (the destination tells the replies apart) but only once per row, so a row
+ * is full at 8 and the next connection to that destination is dropped.
+ */
+
+const BLOCK = 8;
+const MOST = 10;
+const PORT_VMS = [
+  { name: "kade-api-1", ip: "10.10.1.10", first: 1024 },
+  { name: "kade-api-2", ip: "10.10.1.11", first: 1032 },
+] as const;
+const PORT_DESTS = ["PayGate :443", "apt mirror :80"] as const;
+const DEST_NAMES = ["PayGate", "the apt mirror"] as const;
+
+/** Connections wanted: per VM, per destination. */
+type Load = [[number, number], [number, number]];
+
+const PORT_CASES: { k: string; load: Load }[] = [
+  { k: "One destination", load: [[3, 0], [0, 0]] },
+  { k: "A second destination", load: [[3, 2], [0, 0]] },
+  { k: "Full", load: [[8, 2], [0, 0]] },
+  { k: "One too many", load: [[9, 2], [0, 0]] },
+  { k: "Both VMs", load: [[9, 0], [3, 2]] },
+];
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function portVerdict(load: Load): [Tone, string] {
+  for (let v = 0; v < 2; v++) {
+    for (let d = 0; d < 2; d++) {
+      const lost = load[v][d] - BLOCK;
+      if (lost > 0) {
+        const other = load[1 - v];
+        const spare = Math.max(...other) < BLOCK;
+        return [
+          "fault",
+          `${PORT_VMS[v].name}: ${plural(lost, "connection")} to ${DEST_NAMES[d]} dropped, OUT_OF_RESOURCES. All 8 of its ports already carry a connection to ${DEST_NAMES[d]}.${spare ? ` ${PORT_VMS[1 - v].name}'s free ports cannot be borrowed.` : ""}`,
+        ];
+      }
+    }
+  }
+  const open = load.flat().reduce((a, b) => a + b, 0);
+  if (!open) return ["plain", "No connections open. Each VM still holds its 8 ports."];
+  const busy = load.reduce((a, row) => a + Math.max(...row), 0);
+  const head = `${plural(open, "connection")} open on ${plural(busy, "port")}.`;
+  if (load.some(([a, b]) => a && b)) return ["ok", `${head} One port carries a connection to each destination at the same time.`];
+  if (load.every((row) => row[0] + row[1] > 0)) return ["ok", `${head} Each VM uses only its own block.`];
+  return ["ok", `${head} Each connection to the same destination needs its own port.`];
+}
+
+function PortBlocks({ load }: { load: Load }) {
+  return (
+    <Drawing
+      h={348}
+      label={PORT_VMS.map(
+        (vm, v) =>
+          `${vm.name} holds ports ${vm.first} to ${vm.first + BLOCK - 1}: ${PORT_DESTS.map((d, i) => `${Math.min(load[v][i], BLOCK)} of ${BLOCK} in use to ${d}${load[v][i] > BLOCK ? `, ${load[v][i] - BLOCK} dropped` : ""}`).join(", ")}`,
+      ).join(". ")}
+    >
+      <Zone x={222} y={12} w={722} h={324} c="purple" />
+      <T x={238} y={34}>Cloud NAT kade-nat · 34.87.200.7 · 8 source ports per VM</T>
+      {PORT_VMS.map((vm, v) => {
+        const py = 56 + v * 144;
+        const busy = Math.min(Math.max(...load[v]), BLOCK);
+        const open = Math.min(load[v][0], BLOCK) + Math.min(load[v][1], BLOCK);
+        return (
+          <g key={vm.name}>
+            <Box x={16} y={py + 18} w={176} h={86} c="blue" />
+            <T x={30} y={py + 44} k="t">{vm.name}</T>
+            <T x={30} y={py + 64}>{vm.ip}</T>
+            <T x={30} y={py + 86} k="s f">{`ports ${vm.first}-${vm.first + BLOCK - 1}`}</T>
+            <line className="w teal" x1={192} y1={py + 61} x2={219} y2={py + 61} markerEnd={arrowHead("teal")} />
+            {Array.from({ length: BLOCK }, (_, j) => (
+              <T key={j} x={422 + j * 50} y={py + 12} k={j < busy ? "s mid" : "s f mid"} bold={j < busy} size={11.5}>
+                {vm.first + j}
+              </T>
+            ))}
+            {PORT_DESTS.map((dest, d) => {
+              const y = py + 22 + d * 42;
+              const want = load[v][d];
+              const lost = want - BLOCK;
+              return (
+                <g key={dest}>
+                  <T x={238} y={y + 22} bold>{`to ${dest}`}</T>
+                  {Array.from({ length: BLOCK }, (_, j) => (
+                    <g key={j}>
+                      <Box x={400 + j * 50} y={y} w={44} h={34} c={j < want ? "green" : undefined} />
+                      {j < want && <circle cx={422 + j * 50} cy={y + 17} r={5} style={{ fill: "var(--dd-green)" }} />}
+                    </g>
+                  ))}
+                  {lost > 0 ? (
+                    <T x={808} y={y + 22} k="s c-red" bold>{`✕ ${lost} dropped`}</T>
+                  ) : (
+                    <T x={808} y={y + 22} k={want ? "s" : "s f"}>{`${want} of ${BLOCK}`}</T>
+                  )}
+                </g>
+              );
+            })}
+            <T x={400} y={py + 124} k="s f">{`${plural(open, "connection")} open · ${busy} of ${BLOCK} ports busy`}</T>
+          </g>
+        );
+      })}
+    </Drawing>
+  );
+}
+
+function Stepper({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
+  const button =
+    "border-rule-strong text-ink hover:border-ink hover:bg-sunk inline-flex size-10 cursor-pointer items-center justify-center rounded-[2px] border font-mono text-[16px] transition-colors disabled:cursor-default disabled:opacity-40 disabled:hover:border-rule-strong disabled:hover:bg-transparent";
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-ink-body w-[9.5ch] text-[14.5px]">{label}</span>
+      <button type="button" className={button} aria-label={`One fewer connection to ${label}`} disabled={value <= 0} onClick={() => onChange(value - 1)}>
+        -
+      </button>
+      <span className="text-ink w-[2ch] text-center font-mono text-[15px] tabular-nums">{value}</span>
+      <button type="button" className={button} aria-label={`One more connection to ${label}`} disabled={value >= MOST} onClick={() => onChange(value + 1)}>
+        +
+      </button>
+    </div>
+  );
+}
+
+/** Two VMs, two destinations: open connections and watch the ports fill. */
+export function NatPorts() {
+  const [load, setLoad] = useState<Load>(PORT_CASES[0].load);
+  const picked = PORT_CASES.findIndex((c) => String(c.load) === String(load));
+  const set = (v: number, d: number, n: number) =>
+    setLoad((was) => was.map((row, i) => (i === v ? row.map((x, j) => (j === d ? n : x)) : row)) as Load);
+  const [tone, words] = portVerdict(load);
+  return (
+    <WidgetFrame wide label="How connections use NAT ports">
+      <Choices label="Scenario" value={picked < 0 ? null : picked} onChange={(i) => setLoad(PORT_CASES[i].load)} options={PORT_CASES.map((c, i) => ({ value: i, label: c.k }))} />
+      <div className="mt-4 flex flex-wrap gap-x-10 gap-y-4">
+        {PORT_VMS.map((vm, v) => (
+          <div key={vm.name} role="group" aria-label={`Connections from ${vm.name}`} className="space-y-2">
+            <p className="text-ink text-[14.5px] font-semibold">{vm.name} opens connections to</p>
+            {PORT_DESTS.map((dest, d) => (
+              <Stepper key={dest} label={dest.replace(/ :\d+$/, "")} value={load[v][d]} onChange={(n) => set(v, d, n)} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 space-y-3" aria-live="polite">
+        <PortBlocks load={load} />
+        <Result tone={tone}>
+          <b>{words}</b>
+        </Result>
+      </div>
+      <WidgetNote>
+        Drawn with 8 ports per VM so every port fits. The default is 64, and the rule is the same: a row is one destination, a column is one port, and a port
+        can be used once per row.
+      </WidgetNote>
+    </WidgetFrame>
   );
 }

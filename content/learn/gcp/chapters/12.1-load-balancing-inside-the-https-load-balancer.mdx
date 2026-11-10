@@ -1,5 +1,15 @@
 import { ArmorEx, DeployEx, HcEx, LbChain, UrlMapTool, XffEx } from "@/components/learn/widgets/lazy";
-import { FigProxyKinds, FigTargetProxy } from "@content/learn/gcp/figures/12.1-load-balancing-inside-the-https-load-balancer";
+import {
+  FigAffinity,
+  FigBackends,
+  FigCertAuth,
+  FigKadeChain,
+  FigProxyKinds,
+  FigSni,
+  FigSpill,
+  FigTargetProxy,
+  FigWhoAnswered,
+} from "@content/learn/gcp/figures/12.1-load-balancing-inside-the-https-load-balancer";
 
 <Box kind="problem" title="The problem">
 
@@ -67,38 +77,32 @@ The URL map can only route by host and path because the target proxy has already
 
 ## Backend types
 
-A backend service points at one or more **backends**, the things that actually answer requests. There are two broad kinds, plus backend buckets for static files.
+A backend service points at one or more **backends**, the things that actually answer requests. What matters first is **where the backend runs**:
 
-### Instance groups: backends that are VMs
+<Figure wide hues={["amber", "teal", "plum"]} labels={{ amber: "A load balancer setting Kadé writes" }} drawing={<FigBackends />}>
 
-<Table>
-  <thead>
-    <tr><th>#</th><th>Kind</th><th>What it is</th><th>Scaling and healing</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1</td><td>**Managed (MIG)**</td><td>VMs created from a template</td><td>Autoscales between a minimum and maximum, and replaces VMs that fail their health check. The normal choice</td></tr>
-    <tr><td>2</td><td>**Unmanaged**</td><td>A hand-made list of specific existing VMs</td><td>Neither. Used when you need particular VMs, as Kadé had with kade-api-1 and kade-api-2 in the fundamentals course</td></tr>
-  </tbody>
-</Table>
+An **instance group** is a set of VMs. A **network endpoint group (NEG)** is a list of endpoints that need not be VMs: a Cloud Run service, an IP and port, or an address outside Google Cloud. A **backend bucket** takes the place of a backend service when the answer is a file in Cloud Storage.
 
-### Network endpoint groups (NEGs): backends that are not just VMs
+</Figure>
 
 <Table>
   <thead>
-    <tr><th>#</th><th>NEG type</th><th>Points at</th><th>Solves</th></tr>
+    <tr><th>#</th><th>Backend</th><th>Use it for</th></tr>
   </thead>
   <tbody>
-    <tr><td>1</td><td>**Serverless**</td><td>A Cloud Run service (or App Engine, Cloud Functions) in one region</td><td>Putting Cloud Run behind a load balancer. Kadé's `kade-api-neg`</td></tr>
-    <tr><td>2</td><td>Zonal</td><td>Specific IP:port endpoints in one zone</td><td>Fine-grained or container setups</td></tr>
-    <tr><td>3</td><td>Internet</td><td>An endpoint outside GCP, by IP or hostname</td><td>Fronting an origin in another cloud with Cloud CDN and Cloud Armor</td></tr>
-    <tr><td>4</td><td>Hybrid</td><td>Endpoints on-premises or in another cloud, over VPN or Interconnect</td><td>Load balancing across a hybrid setup (<Ch n="15">chapter 15</Ch>)</td></tr>
-    <tr><td>5</td><td>Private Service Connect</td><td>A published service (<Ch n="9">chapter 9</Ch>)</td><td>Fronting a published service through a load balancer</td></tr>
+    <tr><td>1</td><td>**Managed instance group**</td><td>VMs that scale and heal by themselves. The normal choice for VMs</td></tr>
+    <tr><td>2</td><td>Unmanaged instance group</td><td>Particular existing VMs, as Kadé had with kade-api-1 and kade-api-2</td></tr>
+    <tr><td>3</td><td>**Serverless NEG**</td><td>Cloud Run behind a load balancer. Kadé's `kade-api-neg`</td></tr>
+    <tr><td>4</td><td>Zonal NEG</td><td>Containers, where each pod is its own endpoint</td></tr>
+    <tr><td>5</td><td>Internet NEG</td><td>An origin in another cloud, with Cloud CDN and Cloud Armor in front</td></tr>
+    <tr><td>6</td><td>Hybrid NEG</td><td>Servers on-premises, reached privately (<Ch n="15">chapter 15</Ch>)</td></tr>
+    <tr><td>7</td><td>Private Service Connect NEG</td><td>A published service (<Ch n="9">chapter 9</Ch>)</td></tr>
   </tbody>
 </Table>
 
 <Caption><Ch n="12.2">Chapter 12.2</Ch> covers managed instance groups in depth: templates, autohealing, autoscaling and rolling updates.</Caption>
 
-A **backend bucket** points the load balancer at a Cloud Storage bucket instead, for static files like product images. Kadé's `kade-static` serves `www.kade.lk` and `/images/`.
+Kadé's backend bucket `kade-static` serves `www.kade.lk` and `/images/`.
 
 <Key title="The serverless NEG is the one to remember, and it is different">
 
@@ -142,21 +146,19 @@ For VM and zonal NEG backends, the load balancer probes each one and only sends 
   </tbody>
 </Table>
 
-<Cols n={2}>
+**Balancing mode** is the one that decides where traffic goes. Each group has a target, and a group at its target counts as full:
 
-<Col title="Session affinity">
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigSpill />} />
 
-Needed when a backend keeps per-user state in memory. It fights even balancing, and it breaks when that backend goes away. The cleaner design is stateless backends with session state in Redis or the database. Affinity is for when you cannot do that.
+**Session affinity** is needed only when a backend keeps a shopper's state in its own memory:
 
-</Col>
+<Figure wide hues={["teal", "green"]} drawing={<FigAffinity />}>
 
-<Col title="Timeout">
+Affinity fights even balancing, and it breaks when that VM goes away. The cleaner design is backends that keep nothing, with the cart in Redis or the database.
 
-Too short cuts off slow but valid responses, such as a large report. Too long lets a stuck backend hold connections. Set it to just above your slowest legitimate request.
+</Figure>
 
-</Col>
-
-</Cols>
+**Timeout:** too short cuts off slow but valid responses, such as a large report. Too long lets a stuck backend hold connections. Set it just above your slowest legitimate request.
 
 A deploy without downtime is mostly these settings and the health check working together. The chart follows a rolling update of a two-VM group, as Kadé did before <Ch n="10">chapter 10</Ch>:
 
@@ -186,7 +188,11 @@ Behind a proxy, the backend's network connection comes from Google's front end, 
 
 <Recalls><Recall n="25">TLS and HTTPS</Recall></Recalls>
 
-TLS ends at the target proxy, which is where certificates are attached (section 01). The choice that matters most is who issues and renews the certificate:
+TLS ends at the target proxy, which is where certificates are attached (section 01). Before Google issues a certificate, it checks that you own the domain. There are two ways, and the difference decides what works behind Cloudflare:
+
+<Figure wide hues={["plum", "green"]} labels={{ plum: "Google, issuing the certificate", green: "Certificate issued" }} drawing={<FigCertAuth />} />
+
+The full choice, including bringing your own certificate:
 
 <Table>
   <thead>
@@ -204,6 +210,10 @@ TLS ends at the target proxy, which is where certificates are attached (section 
 
 <Caption>The self-managed failure is predictable: a certificate uploaded by hand expires a year later, and the site starts showing certificate errors. Google-managed certificates exist to remove that failure.</Caption>
 
+One load balancer address can serve many hostnames, each with its own certificate. The browser names the site it wants at the start of TLS (this is called SNI), and the **certificate map** picks:
+
+<Figure wide hues={["amber", "green"]} labels={{ amber: "A load balancer setting Kadé writes", green: "What the browser gets" }} drawing={<FigSni />} />
+
 <Table>
   <thead>
     <tr><th>#</th><th>Other TLS object</th><th>What it does</th><th>Kadé's value</th></tr>
@@ -217,63 +227,29 @@ TLS ends at the target proxy, which is where certificates are attached (section 
 
 ## Cloud Armor: the WAF
 
-Cloud Armor is attached to a **backend service** (link 4 of the chain). It looks at each request at Google's front end, before it reaches your backends, and allows, denies, or rate-limits it.
+Cloud Armor is attached to a **backend service** (link 4 of the chain). It looks at each request at Google's front end, before it reaches your backends, and allows, denies, or rate-limits it. Unlike the VPC firewall, it sees the real client IP and the request itself (<Ch n="5.2">chapter 5.2</Ch>).
 
-<Table>
-  <thead>
-    <tr><th>#</th><th>Capability</th><th>What it is for</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1</td><td>IP allow and deny rules</td><td>Block known-bad ranges, or allow only office IPs to an admin path. Unlike the VPC firewall, it sees the real client IP (<Ch n="5.2">chapter 5.2</Ch>)</td></tr>
-    <tr><td>2</td><td>Rate limiting</td><td>Cap requests per client in a time window, then block or throttle. Against brute force and simple floods</td></tr>
-    <tr><td>3</td><td>Preconfigured WAF rules</td><td>Google-maintained rules for common attacks: SQL injection, cross-site scripting and other OWASP categories</td></tr>
-    <tr><td>4</td><td>Geography and named IP lists</td><td>Match by country (`origin.region_code`), or by provider lists such as Cloudflare's ranges (<Ch n="13">chapter 13</Ch>)</td></tr>
-    <tr><td>5</td><td>Adaptive Protection</td><td>Learns normal traffic and flags unusual patterns, including DDoS. Part of Cloud Armor Enterprise</td></tr>
-    <tr><td>6</td><td>Edge security policies</td><td>Rules applied earlier, at the edge, for content served from Cloud CDN's cache</td></tr>
-  </tbody>
-</Table>
+What matters at this point is where it attaches and how it can be bypassed:
 
 <ArmorEx />
 
-<Box kind="cost" title="Cost and limits (checked September 2026)">
-
-Cloud Armor Standard is billed per policy, per rule and per million requests inspected. Cloud Armor Enterprise adds Adaptive Protection, named IP lists and threat intelligence, as a subscription or pay-as-you-go. Check the Cloud Armor pricing page before turning on Enterprise features.
-
-</Box>
+<Caption>How rules are written, the ready-made WAF rules, rate limits and a safe rollout are all in <Ch n="12.3">chapter 12.3</Ch>.</Caption>
 
 ## Cloud CDN
 
-Cloud CDN caches responses at Google's edge locations, so repeated requests are answered near the user without reaching the backend. It is turned on per **backend service or backend bucket**, the same place Cloud Armor attaches.
+Cloud CDN caches responses at Google's edge locations, so repeated requests are answered near the user without reaching the backend. It is turned on per **backend service or backend bucket**, the same place Cloud Armor attaches. Kadé turns it on for `kade-static`, with the cache mode `CACHE_ALL_STATIC`: static files such as product images are cached, and nothing from the API is.
 
-<Table>
-  <thead>
-    <tr><th>#</th><th>Cache mode</th><th>What gets cached</th><th>Kadé's use</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1</td><td>`CACHE_ALL_STATIC`</td><td>Static content types (images, CSS, JS) by default, plus anything the origin marks cacheable</td><td>`kade-static`: product images</td></tr>
-    <tr><td>2</td><td>`USE_ORIGIN_HEADERS`</td><td>Only what the origin's `Cache-Control` headers allow</td><td>The API, if ever: nothing cached unless the app says so</td></tr>
-    <tr><td>3</td><td>`FORCE_CACHE_ALL`</td><td>Everything, ignoring the origin's headers</td><td>Never for anything with user data</td></tr>
-  </tbody>
-</Table>
-
-<Caption>Running Cloud CDN together with Cloudflare means deciding which one caches. Caching in both makes stale content hard to clear. <Ch n="13">Chapter 13</Ch> decides.</Caption>
+<Caption>What gets cached and for how long, the cache key, replacing a cached file and reading hits in the logs are all in <Ch n="12.4">chapter 12.4</Ch>. <Ch n="13">Chapter 13</Ch> adds Cloudflare's cache in front.</Caption>
 
 ## Logs: who answered?
 
 Request logging is turned on per backend service, with a sample rate. Each log line has a `statusDetails` field that says who produced the response, which settles most "is it the load balancer or the app?" arguments:
 
-<Table>
-  <thead>
-    <tr><th>#</th><th>`statusDetails`</th><th>Means</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1</td><td>`response_sent_by_backend`</td><td>The app answered. A 500 here is an app bug</td></tr>
-    <tr><td>2</td><td>`failed_to_pick_backend`</td><td>No healthy backend was available. Look at health checks</td></tr>
-    <tr><td>3</td><td>`backend_timeout`</td><td>The backend did not answer within the timeout</td></tr>
-    <tr><td>4</td><td>`denied_by_security_policy`</td><td>Cloud Armor blocked it. `enforcedSecurityPolicy` names the rule</td></tr>
-    <tr><td>5</td><td>`response_from_cache`</td><td>Cloud CDN answered from its cache</td></tr>
-  </tbody>
-</Table>
+<Figure wide hues={["plum", "amber", "teal", "green"]} labels={{ amber: "Cloud Armor", teal: "Your backend" }} drawing={<FigWhoAnswered />}>
+
+A `500` with `response_sent_by_backend` is an app bug. `failed_to_pick_backend` sends you to the health checks (section 04). `denied_by_security_policy` comes with `enforcedSecurityPolicy`, which names the rule (<Ch n="12.3">chapter 12.3</Ch>).
+
+</Figure>
 
 ## Back to Kadé
 
@@ -284,18 +260,7 @@ Request logging is turned on per backend service, with a sample rate. Each log l
 - **Certificate.** Replaced with a Google-managed certificate through Certificate Manager with DNS authorization, for `kade.lk` and `*.kade.lk`, on `kade-cert-map`. It renews itself, and it will keep working behind Cloudflare. SSL policy `kade-tls`: MODERN, TLS 1.2 minimum.
 - **WAF coverage.** `kade-edge-policy` is attached to `kade-api-backend`, the only backend service, and kade-api's ingress is `internal-and-cloud-load-balancing` (<Ch n="10">chapter 10</Ch>), so there is no way around it. Backend buckets can only take an edge security policy, so `kade-static` gets `kade-static-edge` (rate limits and country rules).
 
-<Table>
-  <thead>
-    <tr><th>#</th><th>Link</th><th>Kadé's resource</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1</td><td>Forwarding rules</td><td>`kade-https-rule` (:443) and `kade-http-rule` (:80, redirect only), both on `kade-lb-ip` 34.120.88.10</td></tr>
-    <tr><td>2</td><td>Target proxies</td><td>`kade-https-proxy` (cert map `kade-cert-map`, SSL policy `kade-tls`) and `kade-http-proxy`</td></tr>
-    <tr><td>3</td><td>URL maps</td><td>`kade-url-map` (section 02) and `kade-redirect-map` (HTTP to HTTPS)</td></tr>
-    <tr><td>4</td><td>Backend service and bucket</td><td>`kade-api-backend` (Cloud Armor `kade-edge-policy`, logging 100%) and `kade-static` (Cloud CDN)</td></tr>
-    <tr><td>5</td><td>Backends</td><td>Serverless NEG `kade-api-neg` → Cloud Run `kade-api`; bucket `kade-static-assets`</td></tr>
-  </tbody>
-</Table>
+<Figure wide hues={["amber", "teal", "green"]} labels={{ amber: "A load balancer setting Kadé writes", teal: "What answers" }} drawing={<FigKadeChain />} />
 
 </Box>
 

@@ -710,45 +710,51 @@ export function DnsHybrid() {
 export function PrivOverview() {
   return (
     <WidgetFrame wide label="Three ways to reach Google privately">
-      <Drawing h={384} label="Private Google Access, private services access peering, and Private Service Connect from kade-vpc">
-        <Zone x={16} y={12} w={470} h={356} c="blue" />
-        <T x={32} y={36}>kade-vpc · no external IPs anywhere</T>
-        <Box x={40} y={60} w={190} h={74} c="blue" />
-        <T x={54} y={88} k="t" size={13}>kade-worker</T>
-        <T x={54} y={108} size={11}>sn-app · 10.10.1.20</T>
-        <Box x={40} y={170} w={190} h={74} c="blue" />
-        <T x={54} y={198} k="t" size={13}>kade-api (Cloud Run)</T>
-        <T x={54} y={218} size={11}>egress via sn-run</T>
-        <rect className="n plum dash" x={266} y={150} width={200} height={110} rx="2" />
-        <T x={280} y={174} bold size={12}>kade-psa-range</T>
-        <T x={280} y={192} size={11.5}>10.10.32.0/20</T>
-        <T x={280} y={212} k="f" size={11}>handed to Google</T>
-        <Box x={266} y={290} w={200} h={60} c="orange" />
-        <T x={280} y={316} k="t" size={12.5}>PSC endpoint</T>
-        <T x={280} y={336} size={11}>an IP you choose</T>
-        <Box x={600} y={40} w={344} h={92} c="purple" />
-        <T x={616} y={68} k="t">Google APIs</T>
-        <T x={616} y={90} size={11.5}>Cloud Storage, Secret Manager,</T>
-        <T x={616} y={108} size={11.5}>Logging, Artifact Registry…</T>
-        <Zone x={600} y={160} w={344} h={110} c="purple" />
-        <T x={616} y={184} size={12}>Google&apos;s service network (hidden)</T>
-        <Box x={616} y={198} w={312} h={56} c="green" />
-        <T x={630} y={222} k="t" size={13}>Cloud SQL kade-sql</T>
-        <T x={630} y={242} size={11.5}>private IP 10.10.32.3</T>
-        <Box x={600} y={294} w={344} h={60} />
-        <T x={616} y={320} k="t" size={13}>another company&apos;s service</T>
-        <T x={616} y={340} size={11.5}>published with PSC</T>
-        <path className="w plum" d="M230 96 C 400 96, 450 86, 597 86" markerEnd="url(#dd-ah-plum)" />
-        <T x={262} y={82} bold>1 · Private Google Access</T>
-        <path className="w green" d="M230 207 C 245 207, 250 205, 263 205" markerEnd="url(#dd-ah-green)" />
-        <line className="w green" x1={466} y1={225} x2={613} y2={225} strokeWidth={4} />
-        <T x={500} y={214} bold>2 · PSA peering</T>
-        <path className="w amber" d="M466 320 C 520 320, 540 324, 597 324" markerEnd="url(#dd-ah-amber)" />
-        <T x={504} y={312} bold>3 · PSC</T>
+      <Drawing h={420} label="Inside Google's network: kade-vpc reaches Google APIs with Private Google Access, Cloud SQL in Google's service network over a private services access peering, and another company's service through a Private Service Connect endpoint">
+        <Zone x={16} y={16} w={928} h={388} c="purple" />
+        <T x={32} y={40}>Google&apos;s network</T>
+
+        <Zone x={36} y={56} w={430} h={332} c="blue" />
+        <T x={52} y={80}>kade-vpc (yours) · no external IPs</T>
+        <Box x={56} y={96} w={200} h={64} c="blue" />
+        <T x={70} y={122} k="t">kade-worker</T>
+        <T x={70} y={144}>sn-app · 10.10.1.20</T>
+        <Box x={56} y={196} w={200} h={64} c="blue" />
+        <T x={70} y={222} k="t">Cloud Run kade-api</T>
+        <T x={70} y={244}>egress via sn-run</T>
+        <rect className="n plum dash" x={286} y={186} width={160} height={84} rx="2" />
+        <T x={300} y={210} bold>kade-psa-range</T>
+        <T x={300} y={230}>10.10.32.0/20</T>
+        <T x={300} y={252} k="f">given to Google</T>
+        <Box x={286} y={300} w={160} h={68} c="orange" />
+        <T x={300} y={326} k="t">PSC endpoint</T>
+        <T x={300} y={348}>an IP you choose</T>
+
+        <Box x={600} y={80} w={324} h={80} c="purple" />
+        <T x={616} y={106} k="t">Google APIs · run by Google</T>
+        <T x={616} y={128}>Cloud Storage, Secret Manager,</T>
+        <T x={616} y={146}>Logging…</T>
+        <Zone x={600} y={182} w={324} h={100} c="purple" />
+        <T x={616} y={204}>service network · run by Google</T>
+        <Box x={616} y={214} w={292} h={56} c="green" />
+        <T x={630} y={238} k="t">Cloud SQL kade-sql</T>
+        <T x={630} y={258}>private IP 10.10.32.3</T>
+        <Box x={600} y={300} w={324} h={68} />
+        <T x={616} y={326} k="t">another company&apos;s service</T>
+        <T x={616} y={348}>its own VPC, published with PSC</T>
+
+        <Wire x1={256} y1={128} x2={597} y2={128} c="purple" />
+        <T x={482} y={118} bold>1 · PGA</T>
+        <Wire x1={256} y1={228} x2={283} y2={228} c="green" />
+        <line className="w green" x1={446} y1={228} x2={600} y2={228} strokeWidth={4} />
+        <T x={482} y={218} bold>2 · PSA</T>
+        <path className="w amber" d="M156 260 V334 H283" markerEnd="url(#dd-ah-amber)" />
+        <Wire x1={446} y1={334} x2={597} y2={334} c="orange" />
+        <T x={482} y={324} bold>3 · PSC</T>
       </Drawing>
       <WidgetNote>
-        Three different shapes: a setting that lets traffic reach Google&apos;s APIs, a peering that joins Google&apos;s service network to yours, and an endpoint
-        address that forwards to a service.
+        Three different shapes, all inside Google&apos;s network: a setting that lets traffic reach Google&apos;s APIs, a peering that joins Google&apos;s service
+        network to yours, and an endpoint address that forwards to a service.
       </WidgetNote>
     </WidgetFrame>
   );
@@ -921,87 +927,98 @@ const PSA_CASES: Case[] = [
 function PsaDrawing({ c, what }: { c: Case; what: string }) {
   const staging = c.k === "B";
   const office = c.k === "C";
+  // Every long path runs along the bottom of Google's network, then up into kade-sql.
+  const under = (x: number, y: number) => `M${x} ${y} V368 H834 V229`;
   let result: [boolean, string];
   let path: ReactNode;
   if (c.k === "A") {
     result = [true, "kade-worker and Cloud Run reach 10.10.32.3 over the peering"];
     path = (
       <>
-        <path className="w green" d="M614 89 C 660 89, 680 150, 713 155" markerEnd="url(#dd-ah-green)" />
-        <path className="w green" d="M614 159 C 650 159, 680 165, 713 167" markerEnd="url(#dd-ah-green)" />
+        <path className="w green" d="M684 114 H692 V188 H753" markerEnd="url(#dd-ah-green)" />
+        <path className="w green" d="M684 184 H692" />
       </>
     );
   } else if (staging && what === "psc") {
     result = [true, "Works: kade-staging uses its own PSC endpoint, no peering chain"];
     path = (
       <>
-        <path className="w green" d="M256 120 C 450 340, 650 340, 760 207" markerEnd="url(#dd-ah-green)" />
-        <T x={470} y={384} k="s mid" bold size={11.5}>PSC endpoint 10.20.2.50 in kade-staging → kade-sql</T>
+        <path className="w green" d={under(346, 144)} markerEnd="url(#dd-ah-green)" />
+        <T x={480} y={412} k="s mid" bold>PSC endpoint 10.20.2.50 in kade-staging → kade-sql</T>
       </>
     );
   } else if (staging) {
     result = [false, "Fails: no route, and no firewall rule can change that"];
     path = (
       <>
-        <path className="w fault dash" d="M256 120 C 330 120, 560 240, 632 200" markerEnd="url(#dd-ah-fault)" />
-        <Mark cx={640} cy={196} ok={false} />
-        <T x={470} y={384} k="s mid c-red" size={11.5}>no route to 10.10.32.0/20: peering does not chain</T>
+        <path className="w fault dash" d="M346 144 V368 H820" />
+        <Mark cx={834} cy={368} ok={false} />
+        <T x={480} y={412} k="s mid c-red">no route to 10.10.32.0/20: peering does not chain</T>
       </>
     );
   } else if (what === "fix") {
     result = [true, "Works: both directions now have a route"];
     path = (
       <>
-        <path className="w green" d="M256 280 C 420 366, 660 366, 770 207" markerEnd="url(#dd-ah-green)" />
-        <T x={470} y={384} k="s mid" bold size={11.5}>route out advertised by Cloud Router · route back exported on the peering</T>
+        <path className="w green" d={under(111, 336)} markerEnd="url(#dd-ah-green)" />
+        <T x={480} y={412} k="s mid" bold>route out advertised by Cloud Router · route back exported on the peering</T>
       </>
     );
   } else {
     result = [false, "Fails: routes are missing in both directions"];
     path = (
       <>
-        <path className="w fault dash" d="M256 280 C 420 366, 660 366, 770 207" markerEnd="url(#dd-ah-fault)" />
-        <Mark cx={690} cy={330} ok={false} />
-        <T x={470} y={384} k="s mid c-red" size={11.5}>office has no route to 10.10.32.0/20 · Google has no route back to 172.16.0.0/16</T>
+        <path className="w fault dash" d={under(111, 336)} />
+        <Mark cx={600} cy={368} ok={false} />
+        <T x={480} y={412} k="s mid c-red">office has no route to 10.10.32.0/20 · Google has no route back to 172.16.0.0/16</T>
       </>
     );
   }
   return (
     <div className="space-y-3">
-      <Drawing h={396} label="kade-vpc peered with Google's service network, with kade-staging and the office beside it">
-        <Zone x={300} y={20} w={330} h={300} c="blue" />
-        <T x={316} y={44}>kade-vpc</T>
-        <Box x={316} y={60} w={298} h={58} c="blue" />
-        <T x={330} y={84} k="t" size={12.5}>kade-worker</T>
-        <T x={330} y={104} size={11}>sn-app · 10.10.1.20</T>
-        <Box x={316} y={130} w={298} h={58} c="blue" />
-        <T x={330} y={154} k="t" size={12.5}>Cloud Run kade-api</T>
-        <T x={330} y={174} size={11}>via sn-run 10.10.3.0/24</T>
-        <rect className="n plum dash" x={316} y={204} width={298} height={98} rx="2" />
-        <T x={330} y={228} bold size={12}>kade-psa-range 10.10.32.0/20</T>
-        <T x={330} y={248} k="f" size={11}>routes learned over the peering</T>
-        <T x={330} y={268} k="f" size={11}>{office && what === "fix" ? "+ exports VPN routes to Google" : "shares subnet routes only"}</T>
-        <Zone x={700} y={20} w={244} h={300} c="purple" />
-        <T x={716} y={44} size={12}>Google&apos;s service network</T>
-        <Box x={716} y={130} w={212} h={74} c="green" />
-        <T x={730} y={158} k="t" size={13}>kade-sql</T>
-        <T x={730} y={180} size={11.5}>10.10.32.3:5432</T>
-        <line className="w plum" x1={630} y1={166} x2={700} y2={166} strokeWidth={5} />
-        <T x={665} y={154} k="s mid" size={11}>peering</T>
-        <g className={staging ? undefined : "off"}>
-          <Box x={16} y={40} w={240} h={104} />
-          <T x={30} y={66} k="t" size={12.5}>kade-staging VPC</T>
-          <T x={30} y={86} size={11}>10.20.0.0/16</T>
-          <T x={30} y={106} k="f" size={11}>peered to kade-vpc (ch 14)</T>
-          <line className="w" x1={256} y1={92} x2={300} y2={92} strokeWidth={5} />
-        </g>
+      <Drawing h={424} label="Inside Google's network, kade-vpc peered with Google's service network, with kade-staging peered to kade-vpc and the office outside on a VPN">
         <g className={office ? undefined : "off"}>
-          <Box x={16} y={200} w={240} h={104} />
-          <T x={30} y={226} k="t" size={12.5}>Kadé office</T>
-          <T x={30} y={246} size={11}>172.16.0.0/16</T>
-          <T x={30} y={266} k="f" size={11}>HA VPN to kade-vpc (ch 15)</T>
-          <line className="w dash" x1={256} y1={252} x2={300} y2={252} strokeWidth={3} />
+          <T x={16} y={232}>outside Google</T>
+          <Box x={16} y={240} w={190} h={96} />
+          <T x={30} y={266} k="t">Kadé office</T>
+          <T x={30} y={288}>172.16.0.0/16</T>
+          <T x={30} y={308} k="f">HA VPN (ch. 15)</T>
+          <line className="w dash" x1={206} y1={288} x2={470} y2={288} strokeWidth={3} />
         </g>
+
+        <Zone x={226} y={16} w={718} h={372} c="purple" />
+        <T x={242} y={40}>Google&apos;s network</T>
+        <g className={staging ? undefined : "off"}>
+          <Box x={246} y={56} w={200} h={88} />
+          <T x={260} y={82} k="t">kade-staging VPC</T>
+          <T x={260} y={104}>10.20.0.0/16</T>
+          <T x={260} y={124} k="f">peered to kade-vpc</T>
+          <line className="w" x1={446} y1={100} x2={470} y2={100} strokeWidth={5} />
+        </g>
+
+        <Zone x={470} y={56} w={230} h={290} c="blue" />
+        <T x={486} y={78}>kade-vpc (yours)</T>
+        <Box x={486} y={86} w={198} h={56} c="blue" />
+        <T x={500} y={110} k="t">kade-worker</T>
+        <T x={500} y={130}>10.10.1.20</T>
+        <Box x={486} y={156} w={198} h={56} c="blue" />
+        <T x={500} y={180} k="t">Cloud Run kade-api</T>
+        <T x={500} y={200}>via sn-run</T>
+        <rect className="n plum dash" x={486} y={228} width={198} height={102} rx="2" />
+        <T x={500} y={252} bold>kade-psa-range</T>
+        <T x={500} y={272}>10.10.32.0/20</T>
+        <T x={500} y={296} k="f">{office && what === "fix" ? "+ exports VPN routes" : "shares subnet"}</T>
+        <T x={500} y={314} k="f">{office && what === "fix" ? "to Google" : "routes only"}</T>
+
+        <Zone x={740} y={56} w={188} h={290} c="purple" />
+        <T x={756} y={78}>service network</T>
+        <T x={756} y={96} k="f">run by Google</T>
+        <Box x={756} y={150} w={156} h={76} c="green" />
+        <T x={770} y={176} k="t">kade-sql</T>
+        <T x={770} y={198}>10.10.32.3</T>
+        <T x={770} y={216}>:5432</T>
+        <line className="w plum" x1={700} y1={188} x2={740} y2={188} strokeWidth={5} />
+        <T x={756} y={136}>← peering</T>
         {path}
       </Drawing>
       <Result tone={result[0] ? "ok" : "fault"}>
@@ -1038,26 +1055,29 @@ function PscDrawing({ c }: { c: Case }) {
   if (c.k === "Google APIs endpoint") {
     return (
       <div className="space-y-3">
-        <Drawing h={290} label="A Private Service Connect endpoint for Google APIs inside kade-vpc">
-          <Zone x={16} y={20} w={520} h={250} c="blue" />
-          <T x={32} y={44}>kade-vpc</T>
-          <Box x={40} y={64} w={200} h={70} c="blue" />
-          <T x={54} y={92} k="t" size={13}>kade-worker</T>
-          <T x={54} y={112} size={11}>10.10.1.20</T>
-          <Box x={300} y={140} w={210} h={104} c="orange" />
-          <T x={316} y={166} k="t" size={13}>endpoint kadeapis</T>
-          <T x={316} y={188} size={11.5}>10.10.200.2</T>
-          <T x={316} y={208} k="f" size={11}>global, outside all subnets</T>
-          <T x={316} y={226} k="f" size={11}>bundle: all-apis</T>
-          <path className="w amber" d="M240 99 C 290 99, 280 180, 297 180" markerEnd="url(#dd-ah-amber)" />
-          <T x={60} y={170} size={11}>storage-kadeapis.p</T>
-          <T x={60} y={188} size={11}>.googleapis.com</T>
-          <T x={60} y={206} size={11}>→ 10.10.200.2</T>
-          <Box x={640} y={120} w={304} h={104} c="purple" />
-          <T x={656} y={148} k="t">Google APIs</T>
-          <T x={656} y={170} size={11.5}>Cloud Storage, Secret Manager…</T>
-          <T x={656} y={190} k="f" size={11}>reached on your own address</T>
-          <Wire x1={510} y1={192} x2={637} y2={172} c="orange" />
+        <Drawing h={296} label="Inside Google's network, a Private Service Connect endpoint for Google APIs in kade-vpc">
+          <Zone x={16} y={16} w={928} h={264} c="purple" />
+          <T x={32} y={40}>Google&apos;s network</T>
+          <Zone x={36} y={56} w={520} h={208} c="blue" />
+          <T x={52} y={80}>kade-vpc (yours)</T>
+          <Box x={56} y={92} w={200} h={64} c="blue" />
+          <T x={70} y={118} k="t">kade-worker</T>
+          <T x={70} y={140}>10.10.1.20</T>
+          <T x={70} y={194}>DNS: storage-kadeapis</T>
+          <T x={70} y={212}>.p.googleapis.com</T>
+          <T x={70} y={230}>→ 10.10.200.2</T>
+          <Box x={316} y={120} w={220} h={112} c="orange" />
+          <T x={330} y={146} k="t">endpoint kadeapis</T>
+          <T x={330} y={168}>10.10.200.2</T>
+          <T x={330} y={190} k="f">global, outside all subnets</T>
+          <T x={330} y={210} k="f">bundle: all-apis</T>
+          <path className="w amber" d="M256 124 H286 V176 H313" markerEnd="url(#dd-ah-amber)" />
+          <Box x={640} y={120} w={284} h={112} c="purple" />
+          <T x={656} y={146} k="t">Google APIs · run by Google</T>
+          <T x={656} y={168}>Cloud Storage, Secret</T>
+          <T x={656} y={186}>Manager…</T>
+          <T x={656} y={210} k="f">reached on your own address</T>
+          <Wire x1={536} y1={176} x2={637} y2={176} c="orange" />
         </Drawing>
         <Result tone="ok">
           <b>Your own private address for Google APIs, with its own firewall rules and logs</b>
@@ -1068,29 +1088,30 @@ function PscDrawing({ c }: { c: Case }) {
   if (c.k === "A published service") {
     return (
       <div className="space-y-3">
-        <Drawing h={290} label="A Private Service Connect endpoint in kade-vpc pointing at a vendor's service attachment">
-          <Zone x={16} y={20} w={400} h={250} c="blue" />
-          <T x={32} y={44}>kade-vpc (consumer)</T>
-          <Box x={40} y={64} w={170} h={70} c="blue" />
-          <T x={54} y={92} k="t" size={13}>kade-worker</T>
-          <T x={54} y={112} size={11}>10.10.1.20</T>
-          <Box x={230} y={140} w={170} h={104} c="orange" />
-          <T x={244} y={166} k="t" size={13}>PSC endpoint</T>
-          <T x={244} y={188} size={11.5}>10.10.1.50</T>
-          <T x={244} y={208} k="f" size={11}>in sn-app</T>
-          <path className="w amber" d="M210 99 C 240 99, 220 170, 227 180" markerEnd="url(#dd-ah-amber)" />
-          <Zone x={544} y={20} w={400} h={250} />
-          <T x={560} y={44}>vendor&apos;s VPC (producer)</T>
-          <Box x={568} y={140} w={170} h={104} c="purple" />
-          <T x={582} y={166} k="t" size={13}>service</T>
-          <T x={582} y={188} k="t" size={13}>attachment</T>
-          <T x={582} y={212} k="f" size={11}>PSC NAT subnet</T>
-          <Box x={760} y={64} w={160} h={70} />
-          <T x={774} y={92} k="t" size={12}>metrics service</T>
-          <T x={774} y={112} k="f" size={11}>behind an ILB</T>
-          <Wire x1={400} y1={192} x2={565} y2={192} c="orange" />
-          <T x={482} y={180} k="s mid" size={11}>no peering</T>
-          <path className="w amber" d="M738 180 C 780 180, 800 160, 820 137" markerEnd="url(#dd-ah-amber)" />
+        <Drawing h={296} label="Inside Google's network, a Private Service Connect endpoint in kade-vpc pointing at a vendor's service attachment in the vendor's own VPC">
+          <Zone x={16} y={16} w={928} h={264} c="purple" />
+          <T x={32} y={40}>Google&apos;s network</T>
+          <Zone x={36} y={56} w={400} h={208} c="blue" />
+          <T x={52} y={80}>kade-vpc (consumer)</T>
+          <Box x={56} y={92} w={170} h={64} c="blue" />
+          <T x={70} y={118} k="t">kade-worker</T>
+          <T x={70} y={140}>10.10.1.20</T>
+          <Box x={246} y={140} w={170} h={104} c="orange" />
+          <T x={260} y={166} k="t">PSC endpoint</T>
+          <T x={260} y={188}>10.10.1.50</T>
+          <T x={260} y={210} k="f">in sn-app</T>
+          <path className="w amber" d="M141 156 V192 H243" markerEnd="url(#dd-ah-amber)" />
+          <Zone x={524} y={56} w={400} h={208} />
+          <T x={540} y={80}>vendor&apos;s VPC (producer)</T>
+          <Box x={544} y={140} w={180} h={104} c="purple" />
+          <T x={558} y={166} k="t">service</T>
+          <T x={558} y={186} k="t">attachment</T>
+          <T x={558} y={210} k="f">PSC NAT subnet</T>
+          <Box x={756} y={92} w={152} h={64} />
+          <T x={770} y={118} k="t">metrics</T>
+          <T x={770} y={140} k="f">behind an ILB</T>
+          <Wire x1={416} y1={192} x2={541} y2={192} c="orange" />
+          <path className="w amber" d="M724 192 H832 V159" markerEnd="url(#dd-ah-amber)" />
         </Drawing>
         <Result tone="ok">
           <b>Private on both sides: neither network is exposed, and nothing is peered</b>
@@ -1100,26 +1121,28 @@ function PscDrawing({ c }: { c: Case }) {
   }
   return (
     <div className="space-y-3">
-      <Drawing h={326} label="Two VPCs, each with its own endpoint, reaching one Cloud SQL instance">
-        <Zone x={16} y={20} w={300} h={130} c="blue" />
-        <T x={32} y={44}>kade-vpc</T>
-        <Box x={40} y={60} w={252} h={70} c="orange" />
-        <T x={54} y={88} k="t" size={12.5}>endpoint 10.10.2.50</T>
-        <T x={54} y={108} k="f" size={11}>in sn-data</T>
-        <Zone x={16} y={180} w={300} h={130} />
-        <T x={32} y={204}>kade-staging VPC</T>
-        <Box x={40} y={220} w={252} h={70} c="orange" />
-        <T x={54} y={248} k="t" size={12.5}>endpoint 10.20.2.50</T>
-        <T x={54} y={268} k="f" size={11}>its own subnet</T>
-        <Zone x={600} y={80} w={344} h={170} c="purple" />
-        <T x={616} y={104} size={12}>Google&apos;s network</T>
-        <Box x={624} y={120} w={296} h={58} c="purple" />
-        <T x={638} y={146} k="t" size={12.5}>kade-sql service attachment</T>
-        <T x={638} y={164} k="f" size={11}>allowed: kade-prod, kade-staging</T>
-        <Box x={624} y={186} w={296} h={50} c="green" />
-        <T x={638} y={216} k="t" size={12.5}>Cloud SQL kade-sql</T>
-        <path className="w green" d="M292 95 C 450 95, 500 140, 621 145" markerEnd="url(#dd-ah-green)" />
-        <path className="w green" d="M292 255 C 450 255, 500 160, 621 155" markerEnd="url(#dd-ah-green)" />
+      <Drawing h={340} label="Inside Google's network, two VPCs, each with its own endpoint, reaching one Cloud SQL instance">
+        <Zone x={16} y={16} w={928} h={308} c="purple" />
+        <T x={32} y={40}>Google&apos;s network</T>
+        <Zone x={36} y={56} w={300} h={118} c="blue" />
+        <T x={52} y={80}>kade-vpc</T>
+        <Box x={56} y={92} w={252} h={64} c="orange" />
+        <T x={70} y={118} k="t">endpoint 10.10.2.50</T>
+        <T x={70} y={140} k="f">in sn-data</T>
+        <Zone x={36} y={190} w={300} h={118} />
+        <T x={52} y={214}>kade-staging VPC</T>
+        <Box x={56} y={226} w={252} h={64} c="orange" />
+        <T x={70} y={252} k="t">endpoint 10.20.2.50</T>
+        <T x={70} y={274} k="f">its own subnet</T>
+        <Zone x={580} y={70} w={344} h={190} c="purple" />
+        <T x={596} y={94}>Cloud SQL&apos;s network · run by Google</T>
+        <Box x={600} y={108} w={304} h={64} c="purple" />
+        <T x={614} y={134} k="t">kade-sql service attachment</T>
+        <T x={614} y={156} k="f">allowed: kade-prod, kade-staging</T>
+        <Box x={600} y={188} w={304} h={56} c="green" />
+        <T x={614} y={222} k="t">Cloud SQL kade-sql</T>
+        <path className="w green" d="M308 124 H460 V134 H597" markerEnd="url(#dd-ah-green)" />
+        <path className="w green" d="M308 258 H460 V146 H597" markerEnd="url(#dd-ah-green)" />
       </Drawing>
       <Result tone="ok">
         <b>Both VPCs reach one Cloud SQL instance, each through its own endpoint</b>

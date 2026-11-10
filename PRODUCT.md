@@ -36,7 +36,7 @@ Inside a lab, the order of the fixes is the argument. Drydock does not stop at a
   - Courses: course → part → chapter → section, at `/learn/<course>/<chapter>` (e.g. `/learn/fundamentals/subnet-masks`, `/learn/gcp/egress-and-cloud-nat`).
   - Labs: provider → lab → track → view (e.g. `/gcp/harbour/network/map`).
 - **Networking fundamentals:** 35 chapters (0-34) in six parts - Start here; Addressing and local delivery; Layers, routing and transport; Application protocols; Network building blocks; Putting it together.
-- **Networking on GCP:** 24 chapters (0-18.2, some split as 5.1 and 5.2) in seven parts - Start here; Foundations; Controlling access; Leaving and reaching privately; The front door; Growing out; Running it.
+- **Networking on GCP:** 26 chapters (0-18.2, some split as 5.1 and 5.2) in seven parts - Start here; Foundations; Controlling access; Leaving and reaching privately; The front door; Growing out; Running it.
 - Chapter 0 of each course is the Kadé reference: the story, the map and the address book every chapter uses.
 - The one published lab is **Harbour**, a fictional marketplace platform on Google Cloud, with a **Network** track made of seven views: About, Map, IP plan, Components, Load balancing, Packet journeys, Defects.
 - Readers explore interactively: calculators, simulators, byte dumps and quizzes inside chapters; in the lab, overlays on the map, a phase rail from "as found" (phase 0) through the remediation phases, journeys traced hop by hop, and a defect register ordered by phase.
@@ -62,7 +62,7 @@ Inside a lab, the order of the fixes is the argument. Drydock does not stop at a
 ## Evidence on Hand
 
 - The Harbour network track content in `content/gcp/harbour/network/`: 17 defects with detection and remediation commands, 7 phases (0-6), 6 packet journeys, component sheets, load balancer chains, and the About page's "where I would push back" trade-offs.
-- The two courses in `content/learn/`: 59 chapters, about 115k words, 63 static diagrams, ~350 tables, ~250 code blocks and 158 distinct interactive widgets, plus a glossary of 166 terms collected from them.
+- The two courses in `content/learn/`: 61 chapters, about 115k words, 63 static diagrams, ~350 tables, ~250 code blocks and 158 distinct interactive widgets, plus a glossary of 166 terms collected from them.
 - No testimonials, user or reader counts, press, ratings, endorsements or case studies exist. Future work must not invent them.
 
 ## Product Principles

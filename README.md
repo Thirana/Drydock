@@ -2,7 +2,7 @@
 
 Learn how networks work. Then fix one that doesn't.
 
-A networking guide in three steps: a fundamentals course (35 chapters), a course on networking in Google Cloud (24 chapters), and Harbour, a platform built wrong on purpose to fix in order. Built with Next.js (App Router) and MDX, exported as a fully static site.
+A networking guide in three steps: a fundamentals course (35 chapters), a course on networking in Google Cloud (26 chapters), and Harbour, a platform built wrong on purpose to fix in order. Built with Next.js (App Router) and MDX, exported as a fully static site.
 
 ## Commands
 

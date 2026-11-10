@@ -1,4 +1,5 @@
 import { PgaEx, PrivOverview, PsaEx, PscEx, SqlCutover } from "@/components/learn/widgets/lazy";
+import { FigTwoDoors } from "@content/learn/gcp/figures/09-private-access-to-google-services";
 
 <Box kind="problem" title="The problem">
 
@@ -12,7 +13,12 @@ kade-worker also needs to upload nightly backups to Cloud Storage, and it has no
 
 <Recalls><Recall n="2">Private and public addresses</Recall></Recalls>
 
-A VM with an external IP reaches Google's APIs the normal way: `storage.googleapis.com` is a public endpoint, like any website. Remove the external IP (<Ch n="6.2">chapter 6.2</Ch>) and the VM loses that path, because those APIs are on the public internet too. Removing external IPs improves security but breaks the VM's access to the services it needs. GCP fixes this with three different mechanisms, which people constantly mix up:
+Google's own services do not live inside your VPC. Cloud Storage, Secret Manager and Logging run on Google's servers, and Cloud SQL runs in a network Google manages. A VM normally reaches them through public addresses, just as it would reach any website:
+
+- **With an external IP,** a call to `storage.googleapis.com` works, because that name resolves to a public Google address and the VM can reach public addresses.
+- **Without one** (<Ch n="6.2">chapter 6.2</Ch>), that path is gone. Removing external IPs makes the VM safer, but also cuts it off from the services it needs.
+
+GCP gives back a private path in three different ways. People mix them up constantly, because their names are so alike. The drawing shows all three; the sections after it take one each:
 
 <PrivOverview />
 
@@ -29,7 +35,9 @@ A VM with an external IP reaches Google's APIs the normal way: `storage.googleap
 
 ## Private Google Access
 
-PGA is not something you create. It is a **setting on a subnet** (`privateIpGoogleAccess`, <Ch n="2">chapter 2</Ch>). When it is on, VMs in that subnet without an external IP may send traffic to Google APIs, and Google keeps that traffic on its own network. VMs with an external IP ignore the setting; they already have a way out.
+PGA is not something you create or run. It is a **setting on a subnet** (`privateIpGoogleAccess`, <Ch n="2">chapter 2</Ch>). When it is on, a VM in that subnet with no external IP may send traffic to Google APIs. A VM with an external IP ignores the setting, because it already has a way out.
+
+Where does that traffic go? The VM still sends it to Google's normal **public** addresses, through the route named `default-internet-gateway`. The name is misleading: for addresses that belong to Google's APIs, the "gateway" hands the packet straight to Google's front ends, and it never leaves Google's network. What PGA changes is permission: without it, Google drops traffic from a private address on the way to those public ones. With it, Google accepts it.
 
 What decides the path is two things you already know: **DNS** (<Ch n="8">chapter 8</Ch>), which picks the address, and **routes** (<Ch n="4">chapter 4</Ch>), which pick the next hop. There are three ways to set those up. Each tab follows one call from kade-worker; the "what if" buttons break one piece at a time.
 
@@ -56,9 +64,9 @@ What decides the path is two things you already know: **DNS** (<Ch n="8">chapter
 
 ## Private services access
 
-Cloud SQL, Memorystore and similar services do not run in your project. They run in a project and network Google manages for you, which you cannot see. Your VPC and that network are separate worlds with no route between them (<Ch n="2">chapter 2</Ch> section 01). A public IP sidesteps the gap by putting the database on the internet, which is exactly what Kadé wants to avoid.
+Cloud SQL, Memorystore and similar services do not run in your project. Google runs them on VMs in its own projects, inside a VPC that Google manages: the **service network**. You never see it, log in to it or pay for it separately. Your VPC and that network are separate worlds with no route between them (<Ch n="2">chapter 2</Ch> section 01). A public IP bridges the gap by putting the database on the internet, which is exactly what Kadé wants to avoid.
 
-Private services access joins the two networks with **VPC peering**, and the service gets a private IP from a range you set aside. Two steps, done once per VPC:
+Private services access joins the two networks with **VPC peering**, the same feature you would use to join two of your own VPCs. Because the networks are joined, the database needs an address that clashes with nothing on your side, so you set aside a range and Google takes the database's IP from it. Two steps, done once per VPC:
 
 <Table>
   <thead>
@@ -70,7 +78,7 @@ Private services access joins the two networks with **VPC peering**, and the ser
   </tbody>
 </Table>
 
-<Caption>After that, any Cloud SQL instance created with private IP on kade-vpc gets an address from the range, reachable from kade-vpc over the peering. No public IP, no authorized networks list.</Caption>
+<Caption>After that, a Cloud SQL instance created with `--network=kade-vpc` still runs in Google's service network. It takes its IP from the range, and kade-vpc reaches it over the peering. No public IP, no authorized networks list.</Caption>
 
 Because it is real VPC peering, it follows peering's rules. The tabs show who can and cannot reach kade-sql:
 
@@ -94,9 +102,24 @@ A project can have a working PSA connection while a Cloud SQL instance still run
 
 </Key>
 
+<Note>
+
+**Cloud SQL uses both paths.** Managing the instance is a Google API call. Querying it is a connection to an IP. The connector does both, so sn-app needs PGA as well as the peering.
+
+</Note>
+
+<Figure wide hues={["teal", "plum", "green"]} drawing={<FigTwoDoors />} />
+
 ## Private Service Connect
 
-PSC turns the model around. Instead of flagging a subnet or peering two networks, you create an **endpoint**: one internal IP inside your own VPC that forwards to a service somewhere else. Nothing is peered, so there is no transitivity problem, and each endpoint is a single IP with its own firewall rules and logs.
+PSC turns the model around. Instead of flagging a subnet or peering two networks, you create an **endpoint**: one internal IP inside your own VPC that forwards to a service somewhere else. Under the hood it is a forwarding rule, the same kind of object as a load balancer's front (<Ch n="12.1">chapter 12.1</Ch>), but with a private IP.
+
+Two roles appear in every PSC setup:
+
+- **The consumer** is you. You create the endpoint, pick its IP, and your VMs send traffic to it like any other internal address.
+- **The producer** runs the service. It publishes the service through a **service attachment**, and Google carries traffic from your endpoint to it. For Google APIs and Cloud SQL, Google is the producer. For a vendor's service, the vendor is.
+
+Nothing is peered, so there is no transitivity problem, and each endpoint is one IP with its own firewall rules and logs.
 
 <PscEx />
 

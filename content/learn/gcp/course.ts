@@ -161,6 +161,22 @@ export const gcp: Course = {
       minutes: 11,
     },
     {
+      num: "12.3",
+      slug: "cloud-armor-the-web-application-firewall",
+      title: "Cloud Armor: the web application firewall",
+      lead: "Chapter 12.1 attached a Cloud Armor policy to Kadé's backend service and moved on. This chapter opens the policy up: how a rule is built, how a request travels down the list, how the ready-made WAF rules and rate limits work, and how to add a blocking rule to a live shop without blocking the shoppers.",
+      part: "the-front-door",
+      minutes: 22,
+    },
+    {
+      num: "12.4",
+      slug: "cloud-cdn",
+      title: "Cloud CDN: caching at the edge",
+      lead: "Chapters 12.1 and 12.2 turned Cloud CDN on with one flag and moved on. This chapter covers what that flag does: which responses are stored and for how long, how the cache decides two requests are the same, how to replace a file that is already cached, and why the API must never be cached by accident.",
+      part: "the-front-door",
+      minutes: 18,
+    },
+    {
       num: "13",
       slug: "cloudflare-and-gcp",
       title: "Cloudflare and GCP",

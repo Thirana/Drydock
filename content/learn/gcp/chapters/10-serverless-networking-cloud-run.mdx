@@ -1,4 +1,14 @@
 import { RunPaths } from "@/components/learn/widgets/lazy";
+import {
+  FigBypass,
+  FigEgress,
+  FigGates,
+  FigMultiply,
+  FigOutside,
+  FigServiceCall,
+  FigSizing,
+  FigTwoWays,
+} from "@content/learn/gcp/figures/10-serverless-networking-cloud-run";
 
 <Box kind="problem" title="The problem">
 
@@ -17,6 +27,8 @@ Background jobs move to a small VM, `kade-worker`, which keeps using what <Ch n=
 A VM has a network card in your subnet. It has an internal IP, it is part of the VPC, and <Ch n="1.1">chapters 1.1</Ch> to 7 apply to it directly. Cloud Run has none of that. It runs containers that Google starts and stops on demand, on Google's own infrastructure, **outside your VPC**.
 
 By default, an outgoing call from Cloud Run goes straight to the internet from Google's serverless infrastructure. It never touches your VPC, routes, firewall or Cloud NAT. Two problems follow:
+
+<Figure wide hues={["plum", "teal"]} drawing={<FigOutside />} />
 
 <Table>
   <thead>
@@ -37,6 +49,8 @@ A real backend, one that talks to a private database and needs a fixed outgoing 
 </Note>
 
 ## Two ways to connect to the VPC
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigTwoWays />} />
 
 <Table>
   <thead>
@@ -68,47 +82,28 @@ sn-run 10.10.3.0/24 → 252 usable (chapter 2)  → fits, with a small margin
 A /26 (60 usable) would run out during the first deploy under load.
 ```
 
+<Figure wide hues={["teal"]} labels={{ teal: "Addresses held in sn-run (dashed: the new revision)" }} drawing={<FigSizing />} />
+
 The addresses change all the time, so never write firewall rules for single Cloud Run IPs. Use the whole subnet range, the service's network tags, or its service account.
 
 ## Egress: which traffic goes through the VPC
 
 There are two layers of setting. First, is the service connected to the VPC at all? Second, if it is, which of its traffic uses that connection: `private-ranges-only` or `all-traffic`?
 
-<Box kind="console" title="Default · Not connected">
+The drawing follows the same two calls, one to the database and one to PayGate, under each setting:
 
-```text
-kade-api ──▶ internet            (source = random Google pool IP)
-         ──▶ ✗ 10.10.2.5         (cannot reach it: not in the VPC)
-```
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigEgress />} />
 
-</Box>
-
-<Box kind="console" title="Direct VPC egress + private-ranges-only">
-
-```text
-                          ┌─▶ private destination (10.10.2.5, other VMs)
-kade-api ──▶ kade-vpc ────┤     through sn-run, your routes, your firewall
-                          └─▶ (internet-bound traffic does NOT come here)
-
-kade-api ──▶ internet directly     (source = random Google pool IP)
-```
-
-Only traffic to private ranges (RFC 1918, plus the Private Google Access addresses) goes through the VPC. It can reach the database, but its internet IP is still unpredictable. Fine for a service that needs a private database and calls nothing that checks its IP.
-
-</Box>
-
-<Box kind="console" title="Direct VPC egress + all-traffic">
-
-```text
-                          ┌─▶ private destination (10.10.2.5)   via sn-run + firewall
-kade-api ──▶ kade-vpc ────┤
-                          └─▶ internet destination → Cloud NAT → internet
-                                                     (source = 34.87.200.7)
-```
-
-Everything goes through the VPC. It reaches private things **and** leaves from a fixed, known IP. Required when something allow-lists your outgoing address, like PayGate.
-
-</Box>
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>Through the VPC</th><th>Fits</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Not connected</td><td>Nothing</td><td>A service with nothing private to reach</td></tr>
+    <tr><td>2</td><td>`private-ranges-only`</td><td>Only traffic to private ranges (RFC 1918, plus the Private Google Access addresses)</td><td>A private database, and nothing that checks the caller's IP</td></tr>
+    <tr><td>3</td><td>`all-traffic`</td><td>Everything, so internet calls leave through Cloud NAT</td><td>Anything that allow-lists your outgoing address, like PayGate</td></tr>
+  </tbody>
+</Table>
 
 <Key title="The one-line difference">
 
@@ -163,30 +158,17 @@ Ingress is a completely separate setting. It controls who may reach the service,
 
 <Caption>"Your VPC" here means requests that arrive from inside it, for example from a VM without an external IP, which reaches Cloud Run through Private Google Access.</Caption>
 
-```text
-ingress: all
-  internet ──▶ https://kade-api-xxxx.run.app ──▶ kade-api   ✓ open to the world
-
-ingress: internal
-  kade-vpc ──▶ kade-api   ✓
-  internet ──▶ run.app    ✗ blocked
-
-ingress: internal-and-cloud-load-balancing
-  internet ──▶ load balancer (+ Cloud Armor) ──▶ kade-api   ✓
-  internet ──▶ https://kade-api-xxxx.run.app               ✗ blocked
-  kade-vpc ──▶ kade-api                                     ✓
-```
+<Figure wide hues={["plum", "amber", "green"]} drawing={<FigBypass />} />
 
 <Box kind="console" title={"The trap · ingress left at \"all\""}>
-
-```text
-Intended:   shopper ──▶ Cloudflare ──▶ load balancer + Cloud Armor ──▶ kade-api   ✓ protected
-Also open:  attacker ──▶ kade-api-xxxx.run.app ───────────────────▶ kade-api   ✗ skips all of it
-```
 
 If a service is meant to sit behind a load balancer, with a web application firewall or behind a CDN, but its ingress is left at `all`, the `run.app` address is a second, unprotected way in. The fix is `internal-and-cloud-load-balancing`, which closes the bypass and leaves only the front door.
 
 </Box>
+
+The ingress setting is one of three checks a request has to pass, in this order:
+
+<Figure wide hues={["amber", "plum", "green"]} drawing={<FigGates />} />
 
 <Table>
   <thead>
@@ -200,6 +182,61 @@ If a service is meant to sit behind a load balancer, with a web application fire
 </Table>
 
 <Caption>A public shop API behind a load balancer must allow unauthenticated calls, because shoppers have no Google identity. That makes the ingress setting the thing that protects it, which is why getting it right matters so much.</Caption>
+
+## One service calling another
+
+Kadé has one service today. Suppose a second one appears: `kade-notify`, which sends order emails and should never be reachable from the internet, so its ingress is `internal`. kade-api now has to call it, and two things must both be true:
+
+<Figure wide hues={["plum", "teal", "amber", "green"]} drawing={<FigServiceCall />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Check</th><th>What makes it pass</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>The call arrives as **internal**</td><td>It must travel through the VPC. `all-traffic` egress does this, with Private Google Access on the subnet. A call from a service that is not connected, or uses `private-ranges-only` with no extra DNS setup, goes around the VPC and gets a 404</td></tr>
+    <tr><td>2</td><td>The **caller** is allowed</td><td>kade-api's service account has `roles/run.invoker` on kade-notify, and each request carries an identity token for it. No `--allow-unauthenticated` on an internal service</td></tr>
+  </tbody>
+</Table>
+
+<Key title={"\"Internal\" is about the path, not the project"}>
+
+Two services in the same project are not internal to each other by default. What counts is the route the request takes: through your VPC, or around it.
+
+</Key>
+
+## Scaling multiplies everything
+
+A VM is one machine with one address. A Cloud Run service is as many copies as the load needs, and each copy brings its own connections, ports and addresses:
+
+<Figure wide hues={["plum", "teal"]} drawing={<FigMultiply />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Guard</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Set `--max-instances`</td><td>It caps all three at once. Kadé uses 50</td></tr>
+    <tr><td>2</td><td>Keep the pool per instance small</td><td>Max instances × pool size must stay under the database's connection limit, or a traffic spike locks everyone out of the database</td></tr>
+    <tr><td>3</td><td>Reuse outgoing connections</td><td>Every instance draws on kade-nat's ports when it calls PayGate (<Ch n="7">chapter 7</Ch> section 05)</td></tr>
+  </tbody>
+</Table>
+
+## What else is different from a VM
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Topic</th><th>On Cloud Run</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Its addresses in sn-run</td><td>For outgoing traffic only. Nothing can connect **to** an instance's `10.10.3.x` address; requests always come in through Google's front end</td></tr>
+    <tr><td>2</td><td>A fixed address to come in on</td><td>There is none. The load balancer provides it (<Ch n="11">chapter 11</Ch>)</td></tr>
+    <tr><td>3</td><td>HTTPS</td><td>Google's front end handles TLS and passes plain HTTP to the container's port (`8080` by default)</td></tr>
+    <tr><td>4</td><td>Private DNS</td><td>Once connected to kade-vpc, the service resolves the VPC's private zones, so `db.kade.internal` works (<Ch n="8">chapter 8</Ch>)</td></tr>
+    <tr><td>5</td><td>Limiting what it may call</td><td>Its traffic in the VPC obeys **egress** firewall rules too. Give the service a network tag and write rules for it (<Ch n="5.1">chapter 5.1</Ch>)</td></tr>
+    <tr><td>6</td><td>Jobs and functions</td><td>Cloud Run jobs and Cloud Run functions take the same VPC and egress settings</td></tr>
+  </tbody>
+</Table>
 
 ## Quick reference
 

@@ -1,0 +1,641 @@
+import { ArmorRate, ArmorWalk } from "@/components/learn/widgets/lazy";
+import {
+  FigBody,
+  FigDefault,
+  FigKeys,
+  FigLog,
+  FigPast,
+  FigRequest,
+  FigRollout,
+  FigRule,
+  FigSensitivity,
+  FigSignature,
+  FigTune,
+  FigUserIp,
+  FigWhere,
+} from "@content/learn/gcp/figures/12.3-cloud-armor-the-web-application-firewall";
+
+<Box kind="problem" title="The problem">
+
+`kade-edge-policy` has three rules that were added in a hurry (<Ch n="12.1">chapter 12.1</Ch>): a login rate limit and two WAF rules. A sale is coming, bots are already hammering search, and someone asks "are we protected?". Nobody can answer, because nobody knows:
+
+- what the policy does to a request, rule by rule;
+- how to add a rule without blocking real shoppers at checkout;
+- how to tell, from the logs, what was blocked and why.
+
+</Box>
+
+## Where Cloud Armor sits
+
+<Recalls><Recall n="33">Proxies and load balancers</Recall></Recalls>
+
+Cloud Armor is not a box in the network. It is a set of rules that Google's front end runs on each request, **before** the request reaches your backend. That is only possible on a proxy load balancer, because only a proxy has read the request (<Ch n="11">chapter 11</Ch> section 05).
+
+A rule set is called a <Term>security policy</Term>. You attach it to a **backend service** (link 4 of the chain in <Ch n="12.1">chapter 12.1</Ch>), not to the load balancer as a whole.
+
+<Figure wide hues={["amber", "plum", "green"]} drawing={<FigWhere />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Policy type</th><th>Runs</th><th>Can do</th><th>Attaches to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Backend security policy**</td><td>After the cache lookup, before the backend</td><td>Everything in this chapter: IP, expressions, WAF rules, rate limits</td><td>Backend services. Kadé's `kade-edge-policy`</td></tr>
+    <tr><td>2</td><td>Edge security policy</td><td>First, before the cache</td><td>Allow or deny by IP and country only</td><td>Backend services and backend buckets</td></tr>
+    <tr><td>3</td><td>Network edge security policy</td><td>At layer 3 and 4</td><td>Filter packets by address, port and protocol</td><td>Passthrough load balancers and VMs with external IPs. Enterprise only</td></tr>
+  </tbody>
+</Table>
+
+A policy only judges what passes through it. There are three ways a request never does:
+
+<Figure wide hues={["amber", "plum", "teal"]} drawing={<FigPast />}>
+
+Check every backend service for a policy (command 3), close the side doors (<Ch n="10">chapter 10</Ch> section 05), and use an edge policy when someone must be blocked from cached content too.
+
+</Figure>
+
+## Anatomy of a rule
+
+A policy is a list of rules. Every rule has the same four parts:
+
+<Figure wide hues={["amber"]} labels={{ amber: "One rule in kade-edge-policy" }} drawing={<FigRule />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Action</th><th>What the client gets</th><th>Used for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`allow`</td><td>The request goes on to the backend</td><td>Exceptions, and the default rule</td></tr>
+    <tr><td>2</td><td>`deny-403`, `deny-404`, `deny-502`</td><td>That status code, from Google. The backend is never called</td><td>Blocking. 404 hides that anything is there</td></tr>
+    <tr><td>3</td><td>`throttle`</td><td>429 for requests over a rate</td><td>Slowing down a busy client (section 06)</td></tr>
+    <tr><td>4</td><td>`rate-based-ban`</td><td>429 for everything, for a set time, after going over a rate</td><td>Stopping a client that is clearly abusing (section 06)</td></tr>
+    <tr><td>5</td><td>`redirect`</td><td>A redirect to another URL, or to a reCAPTCHA check</td><td>Bot checks. Needs reCAPTCHA set up</td></tr>
+  </tbody>
+</Table>
+
+Every policy ends with a **default rule** at priority `2147483647`, which matches everything. You cannot delete it; you only choose whether it allows or denies.
+
+<Figure wide hues={["amber", "plum", "green"]} drawing={<FigDefault />}>
+
+A public shop is a block list, so Kadé's default is `allow` for now. An admin tool, or an origin locked to Cloudflare (<Ch n="13">chapter 13</Ch>), is an allow list.
+
+</Figure>
+
+## How a policy decides
+
+Rules are checked in priority order, lowest number first, and **the first rule that matches decides**. Nothing after it is looked at. This is the same idea as firewall rules (<Ch n="5.1">chapter 5.1</Ch>), with one extra twist: a rule in preview never decides.
+
+Send each request down Kadé's finished policy and watch where it stops:
+
+<ArmorWalk />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Consequence</th><th>What to do</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>An `allow` rule placed early skips every rule below it, including the WAF rules</td><td>Keep early allow rules as narrow as possible. Prefer "deny unless" over "allow if"</td></tr>
+    <tr><td>2</td><td>Order is the design</td><td>Cheap and certain checks first (IP, path), expensive ones after (WAF rules)</td></tr>
+    <tr><td>3</td><td>You will need to insert rules later</td><td>Leave gaps: 100, 200, 300 for your own rules, 1000 and up for WAF rules</td></tr>
+  </tbody>
+</Table>
+
+## Writing a match
+
+There are two ways to say which requests a rule applies to:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Basic match</th><th>Advanced match</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Written as</td><td>A list of IP ranges (`--src-ip-ranges`)</td><td>An expression (`--expression`)</td></tr>
+    <tr><td>2</td><td>Can look at</td><td>The source address only</td><td>Address, country, path, query, method, headers</td></tr>
+    <tr><td>3</td><td>Use it for</td><td>A plain block list or allow list</td><td>Everything else</td></tr>
+  </tbody>
+</Table>
+
+An expression is built from what Cloud Armor knows about the request:
+
+<Figure wide hues={["amber"]} labels={{ amber: "The name to use in an expression" }} drawing={<FigRequest />} />
+
+Join them with `&&` (and), `||` (or) and `!` (not). Text can be tested with `contains`, `startsWith`, `endsWith` and `matches` (a regular expression). Four expressions worth keeping:
+
+```text
+Admin pages, unless from the office
+  request.path.startsWith('/admin') && !inIpRange(origin.ip, '198.51.100.20/32')
+
+One path and one method
+  request.path.matches('/api/login') && request.method == 'POST'
+
+A scanner that names itself
+  request.headers['user-agent'].lower().contains('sqlmap')
+
+Everything except two countries
+  !(origin.region_code == 'LK' || origin.region_code == 'IN')
+```
+
+<Note>
+
+**Expressions have a size limit.** One rule holds only a handful of sub-expressions, so a long list (such as all of Cloudflare's ranges) has to be split over several rules. Check the Cloud Armor quotas page for the current number.
+
+</Note>
+
+## Preconfigured WAF rules
+
+Writing your own rule for every kind of attack is impossible. Google maintains ready-made rule sets, based on the open OWASP Core Rule Set, and you switch each one on with a single expression:
+
+```text
+evaluatePreconfiguredWaf('sqli-v33-stable', {'sensitivity': 1})
+```
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Rule set</th><th>Catches</th><th>Kadé</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`sqli-v33-stable`</td><td>SQL injection: database commands hidden in input</td><td>On</td></tr>
+    <tr><td>2</td><td>`xss-v33-stable`</td><td>Cross-site scripting: script tags and handlers in input</td><td>On</td></tr>
+    <tr><td>3</td><td>`rce-v33-stable`</td><td>Remote code execution: shell commands in input</td><td>Preview, then on</td></tr>
+    <tr><td>4</td><td>`lfi-v33-stable`, `rfi-v33-stable`</td><td>File inclusion: paths like `../../etc/passwd`, or remote URLs</td><td>Next</td></tr>
+    <tr><td>5</td><td>`scannerdetection-v33-stable`</td><td>Known scanning tools</td><td>Next</td></tr>
+    <tr><td>6</td><td>`protocolattack-v33-stable`, `methodenforcement-v33-stable`</td><td>Malformed HTTP, request smuggling, unexpected methods</td><td>Later</td></tr>
+    <tr><td>7</td><td>`php-`, `java-`, `nodejs-v33-stable`</td><td>Attacks on one language's runtime</td><td>Only the one you run</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Each set also has a `-canary` version with the newest signatures. Use `-stable` in production. `gcloud compute security-policies list-preconfigured-expression-sets` prints the current list.</Caption>
+
+### Sensitivity: how much to switch on
+
+Each rule set is many small signatures, and each signature has a level from 1 to 4. The `sensitivity` you choose switches on every signature at that level and below:
+
+<Figure wide hues={["amber"]} labels={{ amber: "Signatures switched on" }} drawing={<FigSensitivity />} />
+
+A <Term>false positive</Term> is a real shopper's request that a signature mistakes for an attack. A signature looks for a pattern, and patterns do not know intent:
+
+<Figure wide hues={["amber"]} labels={{ amber: "A SQL injection signature" }} drawing={<FigSignature />} />
+
+The higher the sensitivity, the more often this happens.
+
+### Tuning out a false positive
+
+When the logs show a real request being caught, narrow the rule instead of removing it. From the smallest change to the largest:
+
+<Figure wide hues={["amber"]} labels={{ amber: "How much of the rule set you switch off" }} drawing={<FigTune />} />
+
+```text
+One signature off
+  evaluatePreconfiguredWaf('sqli-v33-stable',
+    {'sensitivity': 2, 'opt_out_rule_ids': ['owasp-crs-v030301-id942260-sqli']})
+
+Everywhere except the search box
+  evaluatePreconfiguredWaf('sqli-v33-stable', {'sensitivity': 2})
+    && !request.path.startsWith('/api/search')
+```
+
+The signature ID to opt out of is printed in the log entry of the request it caught (section 08).
+
+### What the rules can read
+
+<Figure wide hues={["amber"]} labels={{ amber: "Read by the WAF rules" }} drawing={<FigBody />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Limit</th><th>Consequence</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Only the start of a body is inspected: the first 8 KB by default</td><td>The WAF is a filter, not a guarantee. The app must still validate its input</td></tr>
+    <tr><td>2</td><td>JSON bodies are read as plain text unless JSON parsing is on</td><td>For a JSON API like Kadé's, turn it on (command 9). It cuts false positives and catches more</td></tr>
+    <tr><td>3</td><td>File uploads and other body types are not parsed</td><td>Scan uploads in the app or in storage, not here</td></tr>
+  </tbody>
+</Table>
+
+## Rate limiting
+
+A rate limit rule counts requests per client and acts when a client goes over. There are two actions, and they behave very differently. Try both:
+
+<ArmorRate />
+
+Every rate limit rule answers three questions:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Question</th><th>Setting</th><th>Kadé's login rule</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Which requests are counted?</td><td>The rule's match</td><td>`request.path.matches('/api/login')`</td></tr>
+    <tr><td>2</td><td>Counted per what?</td><td>`--enforce-on-key`</td><td>`IP`</td></tr>
+    <tr><td>3</td><td>How many, in how long?</td><td>`--rate-limit-threshold-count` and `-interval-sec`</td><td>60 in 60 seconds, then banned for 600</td></tr>
+  </tbody>
+</Table>
+
+The key decides how requests are grouped into counters. The same six requests, counted three ways:
+
+<Figure wide hues={["amber"]} labels={{ amber: "One counter" }} drawing={<FigKeys />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Key</th><th>One counter per</th><th>Use when</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`IP`</td><td>Source address</td><td>The default. Clients reach Google directly</td></tr>
+    <tr><td>2</td><td>`HTTP-HEADER`</td><td>Value of a header you name</td><td>Another proxy is in front and passes the visitor's address in a header (section 09), or clients send an API key</td></tr>
+    <tr><td>3</td><td>`HTTP-COOKIE`</td><td>Value of a cookie you name</td><td>Limiting per logged-in session</td></tr>
+    <tr><td>4</td><td>`XFF-IP`</td><td>First address in `X-Forwarded-For`</td><td>Rarely: a client can write that header itself</td></tr>
+    <tr><td>5</td><td>`ALL`</td><td>One counter for everyone</td><td>Protecting a fragile backend from total load</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Choosing a threshold">
+
+Do not guess. Put the rule in preview with a low threshold, then read from the logs how many requests your busiest **real** clients make. Set the limit a few times above that. A whole office or a mobile carrier can share one address, so a per-IP limit that is right for one person is too low for them.
+
+</Key>
+
+## Rolling out a rule safely
+
+A WAF rule that blocks a real shopper at checkout costs more than most attacks. So no blocking rule goes straight to production. It goes through preview:
+
+<Figure wide hues={["amber"]} labels={{ amber: "The only step that can block a shopper" }} drawing={<FigRollout />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Step</th><th>How</th><th>Done when</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Add in preview</td><td>`--preview` on the rule (command 7)</td><td>The rule is in the list and marked preview</td></tr>
+    <tr><td>2</td><td>Read the logs</td><td>Look for `previewSecurityPolicy` entries (command 5)</td><td>You have seen a full week, including the busiest day</td></tr>
+    <tr><td>3</td><td>Tune</td><td>Section 05: exclude, opt out, lower, scope</td><td>Every remaining match is a real attack</td></tr>
+    <tr><td>4</td><td>Enforce</td><td>`--no-preview` (command 8), at a quiet time</td><td>The same requests now show under `enforcedSecurityPolicy`</td></tr>
+    <tr><td>5</td><td>Keep watching</td><td>An alert on a sudden rise in denies (<Ch n="16.2">chapter 16.2</Ch>)</td><td>Always. New app features bring new false positives</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Preview is per rule, not per policy.** Enforced rules keep working while a new one sits in preview next to them. And a change to a policy takes a few minutes to reach every Google location, so wait before testing.
+
+</Note>
+
+## Reading the logs
+
+Cloud Armor does not have its own log. Its decision is written into the load balancer's request log, so **logging must be on for the backend service** (<Ch n="12.1">chapter 12.1</Ch>). Kadé's is at 100%.
+
+<Figure wide hues={["amber"]} labels={{ amber: "What the line tells you" }} drawing={<FigLog />} />
+
+<Box kind="check" title="gcloud check">
+
+```text
+gcloud logging read 'resource.type="http_load_balancer"
+  AND jsonPayload.enforcedSecurityPolicy.outcome="DENY"' --freshness=1h --limit=3 \
+  --format="table(httpRequest.remoteIp,httpRequest.requestUrl,jsonPayload.enforcedSecurityPolicy.priority,jsonPayload.enforcedSecurityPolicy.preconfiguredExprIds)"
+```
+
+<Label>Output</Label>
+
+```text
+REMOTE_IP      REQUEST_URL                                    PRIORITY  PRECONFIGURED_EXPR_IDS
+203.0.113.99   https://api.kade.lk/api/search?q=%27+OR+1=1    1000      ['owasp-crs-v030301-id942130-sqli']
+203.0.113.99   https://api.kade.lk/admin/orders               200
+198.51.100.77  https://api.kade.lk/api/login                  100
+```
+
+<Label>What it tells you</Label>
+
+Three requests refused by three different rules. Only the WAF rule names a signature. If the first line were a real shopper, `id942130` is what you would opt out of.
+
+</Box>
+
+Turn on **verbose logging** for the policy while tuning (command 9). The entry then also names the field and the piece of text that matched, which is usually enough to see at once whether it was an attack.
+
+## The real client IP
+
+`origin.ip` is the address the connection to Google came from. With nothing in front, that is the shopper. With another proxy in front, it is the proxy:
+
+<Figure wide hues={["amber", "green"]} drawing={<FigUserIp />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>What breaks</th><th>Fix</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Per-IP rate limits count all shoppers as a few proxy addresses, and ban everyone at once</td><td>Key the limit on the header: `--enforce-on-key=HTTP-HEADER` with `--enforce-on-key-name=CF-Connecting-IP`</td></tr>
+    <tr><td>2</td><td>Rules on `origin.ip` or `origin.region_code` judge the proxy, not the visitor</td><td>Match on the header instead, or move that rule to the proxy</td></tr>
+    <tr><td>3</td><td>Anyone who reaches Google directly can write the header themselves</td><td>Lock the origin first, so only the proxy can reach it</td></tr>
+  </tbody>
+</Table>
+
+<Caption>Kadé meets all three in <Ch n="13">chapter 13</Ch>, where Cloudflare goes in front and the origin lock is added at priority 500.</Caption>
+
+## Standard or Enterprise
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Standard</th><th>Enterprise adds</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Everything so far</td><td>Yes: rules, expressions, WAF rule sets, rate limits, preview</td><td>-</td></tr>
+    <tr><td>2</td><td>Large network floods (layer 3 and 4)</td><td>Absorbed by the load balancer itself, always on</td><td>Extra protection for passthrough load balancers and VMs</td></tr>
+    <tr><td>3</td><td>Adaptive Protection</td><td>Basic alerts</td><td>Learns your normal traffic, flags an HTTP flood and proposes the rule to stop it</td></tr>
+    <tr><td>4</td><td>Threat intelligence</td><td>-</td><td>Google-kept lists to match on: Tor exit nodes, known bad addresses, search engine crawlers</td></tr>
+    <tr><td>5</td><td>Named IP lists</td><td>-</td><td>Provider ranges kept up to date for you, such as Cloudflare's</td></tr>
+    <tr><td>6</td><td>Billing</td><td>Per policy, per rule, per million requests</td><td>A subscription, or pay as you go</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="cost" title="Cost and limits (checked November 2026)">
+
+Standard is billed per policy, per rule and per million requests inspected, so a policy with a dozen rules in front of one small API costs little. Enterprise is priced per protected resource and is worth it once you need Adaptive Protection or the managed lists. Check the Cloud Armor pricing page before turning on Enterprise features.
+
+</Box>
+
+## Limits and traps
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Trap</th><th>What happens</th><th>Avoid it by</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Enforcing a WAF rule without preview</td><td>Real shoppers get 403 at checkout</td><td>Section 07, every time</td></tr>
+    <tr><td>2</td><td>A broad `allow` rule at a low priority</td><td>It skips every WAF rule below it</td><td>Narrow allows; put the condition in a deny instead</td></tr>
+    <tr><td>3</td><td>Changing the default to `deny` first</td><td>The site goes down until allow rules exist</td><td>Add the allow rules, check the logs, then flip the default</td></tr>
+    <tr><td>4</td><td>Logging off on the backend service</td><td>Rules work, but you cannot see what they do</td><td>Logging on before the first rule</td></tr>
+    <tr><td>5</td><td>A new backend service with no policy</td><td>That part of the site is unprotected</td><td>Command 3, and an organisation policy later (<Ch n="17">chapter 17</Ch>)</td></tr>
+    <tr><td>6</td><td>Trusting the WAF alone</td><td>Attacks past the 8 KB, or shaped to avoid signatures, get through</td><td>The app still validates input and uses parameterised queries</td></tr>
+    <tr><td>7</td><td>Per-IP limits behind a proxy</td><td>Everyone is banned together</td><td>Section 09</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="exam" title="Exam angle">
+
+"Block SQL injection at the edge" is a preconfigured WAF rule in a backend security policy. "Test a rule without affecting users" is preview mode. "Limit login attempts per client" is a rate-based ban. "Block a country from cached content too" is an edge security policy. "The policy exists but traffic is not filtered" is a backend service without the policy, or a path around the load balancer.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: kade-edge-policy, rule by rule">
+
+- **Kept.** The login ban at 100 and the SQL injection and cross-site scripting rules at 1000 and 1001, now pinned to sensitivity 1.
+- **Added.** `/admin` closed to everyone but the office at 200, and a search throttle at 300 against the bots.
+- **In preview.** Remote code execution at 1002. It is enforced after a week of clean logs.
+- **Policy settings.** JSON parsing on, because the API speaks JSON. Verbose logging on while tuning.
+- **Default.** Still `allow`. It becomes `deny` in <Ch n="13">chapter 13</Ch>, once Cloudflare is the only way in.
+
+</Box>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Priority</th><th>Match</th><th>Action</th><th>State</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>100</td><td>`/api/login`, over 60 a minute per IP</td><td>ban for 10 min, 429</td><td>Enforced</td></tr>
+    <tr><td>2</td><td>200</td><td>`/admin`, not from `198.51.100.20`</td><td>deny 404</td><td>Enforced</td></tr>
+    <tr><td>3</td><td>300</td><td>`/api/search`, over 120 a minute per IP</td><td>throttle, 429</td><td>Enforced</td></tr>
+    <tr><td>4</td><td>500</td><td>(kept free for the origin lock, <Ch n="13">chapter 13</Ch>)</td><td>-</td><td>-</td></tr>
+    <tr><td>5</td><td>1000</td><td>`sqli-v33-stable`, sensitivity 1</td><td>deny 403</td><td>Enforced</td></tr>
+    <tr><td>6</td><td>1001</td><td>`xss-v33-stable`, sensitivity 1</td><td>deny 403</td><td>Enforced</td></tr>
+    <tr><td>7</td><td>1002</td><td>`rce-v33-stable`, sensitivity 1</td><td>deny 403</td><td>Preview</td></tr>
+    <tr><td>8</td><td>2147483647</td><td>everything else</td><td>allow</td><td>Default</td></tr>
+  </tbody>
+</Table>
+
+### The whole policy as Terraform
+
+The same policy as one file, for when it lives in version control instead of being typed rule by rule:
+
+```hcl
+resource "google_compute_security_policy" "kade_edge" {
+  name = "kade-edge-policy"
+
+  advanced_options_config {
+    json_parsing = "STANDARD"
+    log_level    = "VERBOSE"
+  }
+
+  rule {
+    priority = 100
+    action   = "rate_based_ban"
+    match {
+      expr { expression = "request.path.matches('/api/login')" }
+    }
+    rate_limit_options {
+      conform_action   = "allow"
+      exceed_action    = "deny(429)"
+      enforce_on_key   = "IP"
+      ban_duration_sec = 600
+      rate_limit_threshold {
+        count        = 60
+        interval_sec = 60
+      }
+    }
+  }
+
+  rule {
+    priority = 200
+    action   = "deny(404)"
+    match {
+      expr { expression = "request.path.startsWith('/admin') && !inIpRange(origin.ip, '198.51.100.20/32')" }
+    }
+  }
+
+  rule {
+    priority = 300
+    action   = "throttle"
+    match {
+      expr { expression = "request.path.startsWith('/api/search')" }
+    }
+    rate_limit_options {
+      conform_action = "allow"
+      exceed_action  = "deny(429)"
+      enforce_on_key = "IP"
+      rate_limit_threshold {
+        count        = 120
+        interval_sec = 60
+      }
+    }
+  }
+
+  rule {
+    priority = 1000
+    action   = "deny(403)"
+    match {
+      expr { expression = "evaluatePreconfiguredWaf('sqli-v33-stable', {'sensitivity': 1})" }
+    }
+  }
+
+  rule {
+    priority = 1001
+    action   = "deny(403)"
+    match {
+      expr { expression = "evaluatePreconfiguredWaf('xss-v33-stable', {'sensitivity': 1})" }
+    }
+  }
+
+  rule {
+    priority = 1002
+    action   = "deny(403)"
+    preview  = true
+    match {
+      expr { expression = "evaluatePreconfiguredWaf('rce-v33-stable', {'sensitivity': 1})" }
+    }
+  }
+
+  rule {
+    priority = 2147483647
+    action   = "allow"
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config { src_ip_ranges = ["*"] }
+    }
+  }
+}
+```
+
+## Commands in this chapter
+
+Commands 1 to 5 are read-only. Commands 6 to 10 change the project. Command 11 only sends test requests.
+
+<TryIt n={1} title="See a policy and all its rules">
+
+- **What it shows:** Every rule in kade-edge-policy: priority, match, action and whether it is in preview.
+- **What to look for:** The order, the default rule's action at the bottom, and `preview: true` on rules still being tested.
+
+```sh
+gcloud compute security-policies describe kade-edge-policy
+```
+
+</TryIt>
+
+<TryIt n={2} title="List the ready-made WAF rule sets">
+
+- **What it shows:** The preconfigured rule sets and the signature IDs inside each.
+- **What to look for:** The `-stable` names used in section 05, and the IDs you see in log entries.
+
+```sh
+gcloud compute security-policies list-preconfigured-expression-sets
+```
+
+</TryIt>
+
+<TryIt n={3} title="Find backend services without a policy">
+
+- **What it shows:** Each backend service and the policy attached to it.
+- **What to look for:** An empty policy column on anything public (the first trap in section 01).
+
+```sh
+gcloud compute backend-services list \
+  --format="table(name,securityPolicy.basename(),edgeSecurityPolicy.basename())"
+```
+
+</TryIt>
+
+<TryIt n={4} title="See what was blocked in the last hour">
+
+- **What it shows:** Requests Cloud Armor refused, with the rule that refused each.
+- **What to look for:** The priority column. A real shopper in this list is a false positive to tune (section 05).
+
+```sh
+gcloud logging read 'resource.type="http_load_balancer"
+  AND jsonPayload.enforcedSecurityPolicy.outcome="DENY"' --freshness=1h --limit=20 \
+  --format="table(timestamp,httpRequest.remoteIp,httpRequest.requestUrl,jsonPayload.enforcedSecurityPolicy.priority)"
+```
+
+</TryIt>
+
+<TryIt n={5} title="See what a preview rule would have blocked">
+
+- **What it shows:** Requests that matched a rule in preview and were let through.
+- **What to look for:** Read these for a week before enforcing. The signature IDs are what you opt out of.
+
+```sh
+gcloud logging read 'resource.type="http_load_balancer"
+  AND jsonPayload.previewSecurityPolicy.outcome="DENY"' --freshness=7d --limit=50 \
+  --format="table(timestamp,httpRequest.remoteIp,httpRequest.requestUrl,jsonPayload.previewSecurityPolicy.priority,jsonPayload.previewSecurityPolicy.preconfiguredExprIds)"
+```
+
+</TryIt>
+
+<TryIt n={6} title="Add the admin rule and the search throttle (changes the project)">
+
+- **What it shows:** A deny rule with an expression, and a throttle rule.
+- **What to look for:** Both rules in command 1. From outside the office, `/admin` now returns 404.
+
+```sh
+gcloud compute security-policies rules create 200 --security-policy=kade-edge-policy \
+  --expression="request.path.startsWith('/admin') && !inIpRange(origin.ip, '198.51.100.20/32')" \
+  --action=deny-404 --description="admin: office only"
+gcloud compute security-policies rules create 300 --security-policy=kade-edge-policy \
+  --expression="request.path.startsWith('/api/search')" \
+  --action=throttle --rate-limit-threshold-count=120 --rate-limit-threshold-interval-sec=60 \
+  --conform-action=allow --exceed-action=deny-429 --enforce-on-key=IP
+```
+
+</TryIt>
+
+<TryIt n={7} title="Add a WAF rule set in preview (changes the project)">
+
+- **What it shows:** Step 1 of section 07: the remote code execution rules, logging only.
+- **What to look for:** `preview: true` in command 1, then matches in command 5.
+
+```sh
+gcloud compute security-policies rules create 1002 --security-policy=kade-edge-policy \
+  --expression="evaluatePreconfiguredWaf('rce-v33-stable', {'sensitivity': 1})" \
+  --action=deny-403 --preview
+```
+
+</TryIt>
+
+<TryIt n={8} title="Enforce a rule that has been in preview (changes the project)">
+
+- **What it shows:** Step 4 of section 07.
+- **What to look for:** The same requests move from command 5 to command 4. Do it at a quiet time, and wait a few minutes before testing.
+
+```sh
+gcloud compute security-policies rules update 1002 --security-policy=kade-edge-policy --no-preview
+```
+
+</TryIt>
+
+<TryIt n={9} title="Turn on JSON parsing and verbose logs (changes the project)">
+
+- **What it shows:** Two settings of the policy itself, not of a rule.
+- **What to look for:** `jsonParsing: STANDARD` and `logLevel: VERBOSE` in command 1. Set the log level back to `NORMAL` when tuning is done.
+
+```sh
+gcloud compute security-policies update kade-edge-policy \
+  --json-parsing=STANDARD --log-level=VERBOSE
+```
+
+</TryIt>
+
+<TryIt n={10} title="Tighten the login rule into a ban (changes the project)">
+
+- **What it shows:** The login rule as a rate-based ban: 60 a minute per IP, then refused for 10 minutes.
+- **What to look for:** `rateLimitOptions` with `banDurationSec: 600` in command 1.
+
+```sh
+gcloud compute security-policies rules update 100 --security-policy=kade-edge-policy \
+  --expression="request.path.matches('/api/login')" \
+  --action=rate-based-ban --rate-limit-threshold-count=60 --rate-limit-threshold-interval-sec=60 \
+  --ban-duration-sec=600 --conform-action=allow --exceed-action=deny-429 --enforce-on-key=IP
+```
+
+</TryIt>
+
+<TryIt n={11} title="Test each rule with curl">
+
+- **What it shows:** The status code each kind of request gets back.
+- **What to look for:** 403 for the first, 403 for the second, 404 for the third (from outside the office), and 429 appearing partway through the loop. Only run these against your own service.
+
+```sh
+curl -s -o /dev/null -w "%{http_code}\n" "https://api.kade.lk/api/search?q=%27%20OR%20%271%27=%271"
+curl -s -o /dev/null -w "%{http_code}\n" "https://api.kade.lk/api/search?q=%3Cscript%3Ealert(1)%3C/script%3E"
+curl -s -o /dev/null -w "%{http_code}\n" "https://api.kade.lk/admin/orders"
+for i in $(seq 1 70); do
+  curl -s -o /dev/null -w "%{http_code} " -X POST "https://api.kade.lk/api/login" -d "user=test&pass=wrong"
+done
+```
+
+</TryIt>

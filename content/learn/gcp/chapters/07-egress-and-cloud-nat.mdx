@@ -1,4 +1,4 @@
-import { NatCalc, NatScenarios } from "@/components/learn/widgets/lazy";
+import { NatCalc, NatPorts, NatScenarios } from "@/components/learn/widgets/lazy";
 import { FigOneWay, FigRouter, FigSplit, FigThree } from "@content/learn/gcp/figures/07-egress-and-cloud-nat";
 
 <Box kind="problem" title="The problem">
@@ -180,6 +180,10 @@ NAT works by giving each outgoing connection its own source port on the NAT IP, 
 </Table>
 
 Row 4 is what hurts in practice. If kade-api-1 opens more than 64 connections to `api.paygate.lk:443` at the same time, connection 65 is dropped, and the NAT logs show `OUT_OF_RESOURCES`. The fundamentals course (<Ch n="10">ch 10</Ch>) mentioned this error; this is where it comes from. Closed connections also hold their port for a while (TIME\_WAIT, section 06), so a burst of short connections can use up ports faster than you expect.
+
+### See it: two VMs, two destinations
+
+<NatPorts />
 
 <Table>
   <thead>

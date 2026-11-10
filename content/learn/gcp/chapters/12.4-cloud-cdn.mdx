@@ -1,0 +1,463 @@
+import { CdnDecide, CdnKey } from "@/components/learn/widgets/lazy";
+import {
+  FigCacheable,
+  FigCacheLog,
+  FigEdges,
+  FigHitMiss,
+  FigKey,
+  FigLeak,
+  FigSigned,
+  FigStale,
+  FigTtl,
+  FigUpdate,
+} from "@content/learn/gcp/figures/12.4-cloud-cdn";
+
+<Box kind="problem" title="The problem">
+
+Cloud CDN was turned on for `kade-static` and `kade-media-backend` with one flag each (<Ch n="12.1">chapters 12.1</Ch> and <Ch n="12.2">12.2</Ch>), and nobody looked at it again. Then three things happen in one week:
+
+- the sale banner is replaced, and shoppers keep seeing the old one;
+- `kade-media` is busy all day, although it serves the same few hundred photos;
+- someone suggests "just cache the API too, it will be faster".
+
+</Box>
+
+## What a cache does
+
+A <Term>cache</Term> keeps a copy of a response, so the next request for the same thing is answered from the copy. The server that made the original is called the <Term>origin</Term>. For Kadé the origins are the bucket `kade-static-assets` and the `kade-media` VMs.
+
+Every request ends in one of three ways:
+
+<Figure wide hues={["plum", "teal", "green"]} labels={{ plum: "Cloud CDN", teal: "The origin" }} drawing={<FigHitMiss />}>
+
+A **hit** never reaches the origin. A **miss** does, once. How long a copy counts as fresh is its <Term>TTL</Term> (time to live). After that, Cloud CDN asks the origin "has it changed?", which is called **revalidation**: a `304` answer costs almost nothing, because the file itself is not sent again.
+
+</Figure>
+
+## Where Cloud CDN sits
+
+<Recalls><Recall n="33">Proxies and load balancers</Recall></Recalls>
+
+Cloud CDN is not a separate product in front of the load balancer. It is a switch on a **backend service or backend bucket** (link 4 of the chain in <Ch n="12.1">chapter 12.1</Ch>), the same place Cloud Armor attaches. It works only on the external Application Load Balancer, because only a proxy has read the request and the response (<Ch n="11">chapter 11</Ch> section 05).
+
+The copies are kept at Google's edge locations, close to users. **Each location keeps its own cache**:
+
+<Figure wide hues={["plum", "teal", "green"]} labels={{ plum: "Cloud CDN", teal: "The origin" }} drawing={<FigEdges />}>
+
+So "the first request is a miss" is true once per location, not once in the world. A file that few people ask for may never be a hit anywhere.
+
+</Figure>
+
+Where the cache falls among Cloud Armor's checks matters (<Ch n="12.3">chapter 12.3</Ch> section 01): an edge security policy runs **before** the cache, a backend security policy runs **after** it. A cache hit is never seen by `kade-edge-policy`.
+
+## What gets stored
+
+Not every response is kept. It must pass four checks:
+
+<Figure wide hues={["amber", "plum"]} labels={{ amber: "A check the response must pass", plum: "Cloud CDN" }} drawing={<FigCacheable />} />
+
+Check 4 is the <Term>cache mode</Term>, one setting per backend:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Cache mode</th><th>Stores</th><th>Kadé's use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`CACHE_ALL_STATIC`</td><td>Static content types (images, CSS, JS, fonts) even with no header, plus anything the origin marks cacheable</td><td>`kade-static` and `kade-media-backend`</td></tr>
+    <tr><td>2</td><td>`USE_ORIGIN_HEADERS`</td><td>Only what the origin marks cacheable with `Cache-Control`</td><td>None yet. The right mode if the API is ever cached</td></tr>
+    <tr><td>3</td><td>`FORCE_CACHE_ALL`</td><td>Every successful response. Ignores `private` and `no-store`</td><td>Never on anything that knows who the shopper is</td></tr>
+  </tbody>
+</Table>
+
+Try each response under each mode:
+
+<CdnDecide />
+
+<Note>
+
+A public Cloud Storage object with no `Cache-Control` of its own is served with `public, max-age=3600`. So files from a bucket always arrive with a header, and one hour is what you get until you set something else (section 04).
+
+</Note>
+
+## How long it is kept
+
+The origin states a lifetime in the `Cache-Control` header. Cloud CDN adds three settings of its own, which act as a fallback and two caps:
+
+<Figure wide hues={["plum"]} labels={{ plum: "Cloud CDN" }} drawing={<FigTtl />}>
+
+A cap can only shorten what the origin asked for. To keep a file longer, the origin must ask for longer **and** the cap must allow it.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Setting</th><th>Default</th><th>What it does in `CACHE_ALL_STATIC`</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Default TTL**</td><td>1 hour</td><td>Used when the origin gives no lifetime</td></tr>
+    <tr><td>2</td><td>**Max TTL**</td><td>1 day</td><td>Caps how long the edge keeps a copy</td></tr>
+    <tr><td>3</td><td>**Client TTL**</td><td>1 hour</td><td>Caps how long browsers are told to keep it</td></tr>
+  </tbody>
+</Table>
+
+<Caption>In `USE_ORIGIN_HEADERS` none of the three apply: the origin's header is followed as it is. In `FORCE_CACHE_ALL` the default TTL and client TTL replace the origin's header.</Caption>
+
+The parts of `Cache-Control` worth knowing:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>The origin sends</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`public, max-age=86400`</td><td>Anyone may keep it, for a day</td></tr>
+    <tr><td>2</td><td>`s-maxage=600`</td><td>A lifetime for shared caches such as Cloud CDN only. It wins over `max-age` there</td></tr>
+    <tr><td>3</td><td>`private`</td><td>Only the shopper's own browser may keep it. Not stored at the edge</td></tr>
+    <tr><td>4</td><td>`no-store`</td><td>Nobody keeps it. Kadé's API sends this on everything</td></tr>
+    <tr><td>5</td><td>`immutable`</td><td>This URL's content will never change, so browsers need not re-check it</td></tr>
+  </tbody>
+</Table>
+
+## The cache key
+
+When a request arrives, Cloud CDN has to decide whether it already holds "the same thing". It does that by building a <Term>cache key</Term> from the request and looking the key up. Two requests with the same key share one stored copy.
+
+For a backend service, the default key is the whole URL:
+
+<Figure wide hues={["amber"]} labels={{ amber: "The part you usually change" }} drawing={<FigKey />} />
+
+The query string is where this goes wrong, in both directions. `kade-media` can return another file format with `?fmt=`, and marketing adds `?utm_source=` to every link:
+
+<CdnKey />
+
+<Key title="The rule for a cache key">
+
+Put in everything that changes the response, and nothing else. Too much in the key wastes the cache. Too little serves the wrong response.
+
+</Key>
+
+## Changing a file
+
+This is the stale banner from the top of the chapter. After `banner.jpg` is replaced in the bucket, the old copy still exists in two kinds of place, and you can only reach one of them:
+
+<Figure wide hues={["plum", "teal"]} labels={{ plum: "Cloud CDN", teal: "The origin" }} drawing={<FigUpdate />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Way</th><th>How</th><th>Use it for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**A new name for every version**</td><td>The build puts a hash in the name (`app.3f9c.js`), and the page links to the new name</td><td>Everything a page links to: scripts, styles, banners. These can then be cached for a year</td></tr>
+    <tr><td>2</td><td>**Invalidation**</td><td>A command that tells every edge to drop matching copies (command 8)</td><td>A mistake that must go now. It is rate limited, takes a moment, and does not reach browsers</td></tr>
+    <tr><td>3</td><td>**A short lifetime**</td><td>`max-age=300` on the file</td><td>The one file whose name cannot change: `index.html`</td></tr>
+  </tbody>
+</Table>
+
+<Caption>The three fit together: the page is cached for minutes and names the versioned files, which are cached for a year.</Caption>
+
+## When the origin is slow or down
+
+A copy does not have to be thrown away the second it expires. Two settings make the cache carry on when the origin cannot:
+
+<Figure wide drawing={<FigStale />}>
+
+**Serve while stale**: for a set time after the TTL, shoppers get the old copy at once while Cloud CDN fetches a fresh one behind them. If the origin is failing, they keep getting the old copy.
+
+</Figure>
+
+**Negative caching** stores error answers too, for a short time. Without it, every request for a photo that does not exist is a miss, and a bot asking for thousands of missing files reaches `kade-media` with every one. With it, the `404` is answered from the edge for a minute or two.
+
+<Note>
+
+Negative caching has a cost: a file uploaded one second after someone asked for it stays "not found" until the stored `404` runs out. Keep that lifetime short.
+
+</Note>
+
+## Private files
+
+Cloud CDN is built for files anyone may read. Some files are not: an invoice, a paid download. For these the app hands out a <Term>signed URL</Term>, a link that carries an expiry time and a signature made with a key only the app and Cloud CDN know:
+
+<Figure wide hues={["amber", "teal", "green"]} labels={{ amber: "Cloud CDN checks the link", teal: "The origin" }} drawing={<FigSigned />}>
+
+The bucket itself is private. Only Cloud CDN's own service account may read it, so the signed link is the only way in.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Tool</th><th>Covers</th><th>Use it for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Signed URL</td><td>One file</td><td>A download link in an email</td></tr>
+    <tr><td>2</td><td>Signed cookie</td><td>Everything under a path</td><td>A video made of hundreds of small files</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A signed link is a key, not a login: anyone who has it can use it until it expires. Keep the expiry short. Kadé has no private files yet, so this is not part of its setup.</Caption>
+
+## Reading hits and misses
+
+Each load balancer log entry says what the cache did (logging is set per backend, <Ch n="12.1">chapter 12.1</Ch> section 10):
+
+<Figure wide hues={["amber"]} labels={{ amber: "What the line tells you" }} drawing={<FigCacheLog />} />
+
+The number to watch is the <Term>cache hit ratio</Term>: hits divided by all requests. The Cloud CDN page in the console draws it per backend.
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>You see</th><th>Likely cause</th><th>Look at</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Low ratio, many different query strings</td><td>The key holds too much</td><td>Section 05</td></tr>
+    <tr><td>2</td><td>`cacheLookup: true`, never a hit</td><td>The response fails a check: a cookie, `private`, a `Vary` header</td><td>Section 03, and the response headers (command 3)</td></tr>
+    <tr><td>3</td><td>Hits, then a wave of misses every hour</td><td>A short TTL</td><td>Section 04</td></tr>
+    <tr><td>4</td><td>Low ratio on rarely requested files</td><td>Each location fills its own cache</td><td>Normal. Section 02</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+```sh
+curl -sI https://www.kade.lk/media/rice-640w.jpg | grep -iE "^(age|cache-control|via|cache-status)"
+```
+
+```console
+cache-control: public, max-age=86400
+age: 1312
+via: 1.1 google
+cache-status: hit
+```
+
+`age` is how many seconds the copy has been in the cache. No `age` header means the origin answered. `cache-status` is not there by default: command 4 adds it.
+
+</Box>
+
+## The trap: caching personal data
+
+"Cache the API too" is how this happens. The cache key is the URL. It does not include the cookie or the login token, so two shoppers asking for `/api/orders` have the **same key**:
+
+<Figure wide hues={["plum", "green"]} labels={{ plum: "Cloud CDN and kade-api" }} drawing={<FigLeak />}>
+
+Nothing is broken and nothing is logged as an error. One shopper simply sees another's orders.
+
+</Figure>
+
+<Key title="Before turning on Cloud CDN for a backend">
+
+Ask: does any response from this backend depend on **who** is asking? If yes, leave CDN off, or use `USE_ORIGIN_HEADERS` and have the app mark only the shared responses as `public`.
+
+</Key>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Trap</th><th>What happens</th><th>Avoid it by</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`FORCE_CACHE_ALL` on an app</td><td>One shopper's page is served to another</td><td>Only ever on a backend of public files</td></tr>
+    <tr><td>2</td><td>Replacing a file under the same name</td><td>Old copies live on in browsers, out of reach</td><td>Versioned names (section 06)</td></tr>
+    <tr><td>3</td><td>The whole query string in the key</td><td>Tracking parameters split the cache</td><td>An include list (section 05)</td></tr>
+    <tr><td>4</td><td>A `Set-Cookie` or `Vary: Cookie` on static files</td><td>Nothing is cached, with no error</td><td>Checking the response headers (command 3)</td></tr>
+    <tr><td>5</td><td>Relying on the backend policy for cached content</td><td>A blocked address still gets cache hits</td><td>An edge security policy (<Ch n="12.3">chapter 12.3</Ch> section 01)</td></tr>
+    <tr><td>6</td><td>Long negative caching</td><td>A new file stays "not found"</td><td>A minute or two, not hours</td></tr>
+    <tr><td>7</td><td>Invalidating on every deploy</td><td>Slow deploys, rate limits, and browsers still stale</td><td>Versioned names</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="cost" title="Cost and limits (checked November 2026)">
+
+Cloud CDN bills for data served from the cache, data fetched from the origin to fill it, and a small amount per lookup. Cached data usually costs less than the same data served from the origin, so a good hit ratio lowers the bill as well as the load. Invalidations are billed each and rate limited. Check the Cloud CDN pricing page for the current numbers.
+
+</Box>
+
+<Box kind="exam" title="Exam angle">
+
+"Serve static files faster worldwide" is Cloud CDN on a backend bucket. "Cache only what the app marks cacheable" is `USE_ORIGIN_HEADERS`. "Users see old content after a deploy" is versioned file names, or an invalidation for a one-off. "Keep serving when the origin is down" is serve while stale. "Time-limited access to a private file" is a signed URL. "Low hit ratio with many URL parameters" is the cache key.
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="Fixed: three backends, three answers">
+
+- **The stale banner.** The build now puts a hash in every file name under `/assets/`, and those files are cached for a year. `index.html` keeps its name and is cached for five minutes. One invalidation cleared the old banner from the edge.
+- **The busy kade-media.** Its cache key now holds only `fmt` from the query string, so tracking parameters no longer cause misses. Serve while stale and negative caching are on.
+- **"Cache the API too".** No. `kade-api-backend` stays without CDN, and the API keeps sending `no-store`.
+
+</Box>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Backend</th><th>CDN</th><th>Settings</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`kade-static` (bucket)</td><td>On, `CACHE_ALL_STATIC`</td><td>Max TTL and client TTL 1 year, so each file's own header decides. Serve while stale 1 day. Negative caching on</td></tr>
+    <tr><td>2</td><td>`kade-media-backend` (VMs)</td><td>On, `CACHE_ALL_STATIC`</td><td>Key: only `fmt` from the query string. Serve while stale 1 day. `404` cached for 1 minute</td></tr>
+    <tr><td>3</td><td>`kade-api-backend` (Cloud Run)</td><td>Off</td><td>The API sends `Cache-Control: no-store`</td></tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Files in `kade-static-assets`</th><th>`Cache-Control` on the object</th><th>Changed by</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>`/assets/*` (hashed names)</td><td>`public, max-age=31536000, immutable`</td><td>A new name</td></tr>
+    <tr><td>2</td><td>`/images/*`</td><td>`public, max-age=86400`</td><td>A new name, or an invalidation</td></tr>
+    <tr><td>3</td><td>`index.html`</td><td>`public, max-age=300`</td><td>Waiting five minutes</td></tr>
+  </tbody>
+</Table>
+
+<Caption><Ch n="13">Chapter 13</Ch> puts Cloudflare's cache in front of this one. The headers above then steer both caches.</Caption>
+
+### The CDN settings as Terraform
+
+```hcl
+resource "google_compute_backend_bucket" "kade_static" {
+  name        = "kade-static"
+  bucket_name = "kade-static-assets"
+  enable_cdn  = true
+
+  cdn_policy {
+    cache_mode        = "CACHE_ALL_STATIC"
+    default_ttl       = 3600
+    max_ttl           = 31536000
+    client_ttl        = 31536000
+    serve_while_stale = 86400
+    negative_caching  = true
+  }
+}
+
+resource "google_compute_backend_service" "kade_media" {
+  name       = "kade-media-backend"
+  enable_cdn = true
+  # backend, health check, security policy and logging: chapter 12.2
+
+  cdn_policy {
+    cache_mode        = "CACHE_ALL_STATIC"
+    default_ttl       = 3600
+    max_ttl           = 86400
+    client_ttl        = 3600
+    serve_while_stale = 86400
+    negative_caching  = true
+
+    negative_caching_policy {
+      code = 404
+      ttl  = 60
+    }
+
+    cache_key_policy {
+      include_protocol       = true
+      include_host           = true
+      include_query_string   = true
+      query_string_whitelist = ["fmt"]
+    }
+  }
+}
+```
+
+## Commands in this chapter
+
+Commands 1 to 3 are read-only. Commands 4 to 8 change the project.
+
+<TryIt n={1} title="See the CDN settings of a backend">
+
+- **What it shows:** Whether CDN is on, the cache mode, the three TTLs and the cache key.
+- **What to look for:** `enableCDN: true`, `cacheMode`, and for kade-media the `cacheKeyPolicy`.
+
+```sh
+gcloud compute backend-buckets describe kade-static --format="yaml(enableCdn,cdnPolicy)"
+gcloud compute backend-services describe kade-media-backend --global --format="yaml(enableCDN,cdnPolicy)"
+```
+
+</TryIt>
+
+<TryIt n={2} title="See hits and misses in the logs">
+
+- **What it shows:** Recent requests to kade-media, with what the cache did for each.
+- **What to look for:** `cacheHit: True` and `response_from_cache` on most lines. The same photo missing again and again is a key or header problem.
+
+```sh
+gcloud logging read 'resource.type="http_load_balancer"
+  AND resource.labels.backend_service_name="kade-media-backend"' --freshness=1h --limit=20 \
+  --format="table(timestamp,httpRequest.requestUrl,httpRequest.cacheLookup,httpRequest.cacheHit,jsonPayload.statusDetails)"
+```
+
+</TryIt>
+
+<TryIt n={3} title="Read the headers of one response">
+
+- **What it shows:** What the origin said about caching, and whether this answer came from the cache.
+- **What to look for:** An `age` header on the second run. A `set-cookie` or `vary: cookie` line explains a file that is never cached.
+
+```sh
+curl -sI https://www.kade.lk/media/rice-640w.jpg
+curl -sI https://www.kade.lk/media/rice-640w.jpg | grep -iE "^(age|cache-control|set-cookie|vary)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="Add a hit-or-miss header to responses (changes the project)">
+
+- **What it shows:** A response header filled in by Cloud CDN itself.
+- **What to look for:** `cache-status: hit`, `miss` or `revalidated` in command 3.
+
+```sh
+gcloud compute backend-services update kade-media-backend --global \
+  --custom-response-header="Cache-Status: {cdn_cache_status}"
+```
+
+</TryIt>
+
+<TryIt n={5} title="Set the TTLs, serve while stale and negative caching (changes the project)">
+
+- **What it shows:** The settings of sections 04 and 07 on the bucket backend.
+- **What to look for:** The new values under `cdnPolicy` in command 1.
+
+```sh
+gcloud compute backend-buckets update kade-static \
+  --enable-cdn --cache-mode=CACHE_ALL_STATIC \
+  --default-ttl=3600 --max-ttl=31536000 --client-ttl=31536000 \
+  --serve-while-stale=86400 --negative-caching
+```
+
+</TryIt>
+
+<TryIt n={6} title="Keep only fmt in the cache key (changes the project)">
+
+- **What it shows:** Section 05's fix for kade-media.
+- **What to look for:** `queryStringWhitelist: [fmt]` in command 1, then a rising hit ratio.
+
+```sh
+gcloud compute backend-services update kade-media-backend --global \
+  --cache-key-include-query-string --cache-key-query-string-whitelist=fmt \
+  --serve-while-stale=86400 --negative-caching --negative-caching-policy="404=60"
+```
+
+</TryIt>
+
+<TryIt n={7} title="Set Cache-Control on files in the bucket (changes the project)">
+
+- **What it shows:** The lifetime each kind of file asks for.
+- **What to look for:** The new `cache-control` line in command 3. Set it in the upload step of the build, so new files get it too.
+
+```sh
+gcloud storage objects update "gs://kade-static-assets/assets/**" \
+  --cache-control="public, max-age=31536000, immutable"
+gcloud storage objects update gs://kade-static-assets/index.html \
+  --cache-control="public, max-age=300"
+```
+
+</TryIt>
+
+<TryIt n={8} title="Invalidate cached copies (changes the project)">
+
+- **What it shows:** Every edge location dropping its copies of the matching paths.
+- **What to look for:** The next request is a miss. Browsers that already hold the file are not affected. A `*` is allowed only at the end of the path.
+
+```sh
+gcloud compute url-maps invalidate-cdn-cache kade-url-map \
+  --host=www.kade.lk --path="/images/banner.jpg"
+gcloud compute url-maps invalidate-cdn-cache kade-url-map \
+  --host=www.kade.lk --path="/images/*"
+```
+
+</TryIt>

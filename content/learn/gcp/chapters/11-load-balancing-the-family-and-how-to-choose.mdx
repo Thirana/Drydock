@@ -1,4 +1,5 @@
 import { LbDecoder, LbGlobal, LbL7L4, LbTree, ProxyEx } from "@/components/learn/widgets/lazy";
+import { FigFamily, FigLbName, FigReach, FigWhereRuns } from "@content/learn/gcp/figures/11-load-balancing-the-family-and-how-to-choose";
 
 <Box kind="problem" title="The problem">
 
@@ -22,11 +23,17 @@ Kadé's load balancer was set up quickly in the fundamentals course, by followin
   </tbody>
 </Table>
 
-Read a name word by word and it explains itself. "Global external Application Load Balancer" is one IP worldwide, on the internet, that understands HTTP (and so must be a proxy). "Regional internal passthrough Network Load Balancer" is one region, private IP, L4 only, and does not end the connection. Not every combination exists. Try it:
+Read a name word by word and it explains itself. "Global external Application Load Balancer" is one IP worldwide, on the internet, that understands HTTP (and so must be a proxy). "Regional internal passthrough Network Load Balancer" is one region, private IP, L4 only, and does not end the connection. Not every combination exists.
+
+<Figure wide drawing={<FigLbName />} />
+
+Try it:
 
 <LbDecoder />
 
 ## External or internal
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigReach />} />
 
 <Table>
   <thead>
@@ -69,6 +76,12 @@ A **global** load balancer has one IP announced from Google's edge locations all
 <Recalls><Recall n="24">HTTP</Recall></Recalls>
 
 <LbL7L4 />
+
+<Note>
+
+**WebSockets and gRPC are HTTP.** Both run through an Application load balancer. Reach for a Network load balancer only when the protocol is not HTTP at all.
+
+</Note>
 
 <Table>
   <thead>
@@ -114,9 +127,30 @@ Does the load balancer end the client's connection and open a new one to the bac
 
 <Caption>If you need a WAF in front of a web app, you must use a proxy, and accept that the app reads client IPs from a header (<Ch n="12">chapter 12</Ch> section 06).</Caption>
 
+## Where it runs, and what your backends see
+
+The four choices also decide **where** the load balancer runs. That matters for one practical reason: it sets the source address your backends see, and so the firewall rule they need.
+
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigWhereRuns />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Kind</th><th>Runs on</th><th>Backend firewall must allow</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Global external proxies</td><td>Google Front Ends, outside your VPC</td><td>`35.191.0.0/16` and `130.211.0.0/22`, for traffic and health checks</td></tr>
+    <tr><td>2</td><td>Regional and internal proxies</td><td>Envoy in a proxy-only subnet, inside your VPC</td><td>The proxy-only subnet's range for traffic, plus Google's health check ranges</td></tr>
+    <tr><td>3</td><td>Passthrough</td><td>The data plane on each backend's host (<Ch n="1.2">chapter 1.2</Ch>)</td><td>The real clients' addresses, plus Google's health check ranges</td></tr>
+  </tbody>
+</Table>
+
+<Caption>A Cloud Run backend needs none of these: it is not in your VPC, so no firewall rule applies (<Ch n="10">chapter 10</Ch>). Health checks and their ranges are <Ch n="12.1">chapter 12.1</Ch>.</Caption>
+
 ## The whole family, and how to choose
 
 Put the four choices together and these are the load balancers that exist today:
+
+<Figure wide hues={["plum"]} drawing={<FigFamily />} />
 
 <Table>
   <thead>

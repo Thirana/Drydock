@@ -1,5 +1,5 @@
 import { DnsHybrid, DnsOrder, GcpDnsWalk, SplitEx, TtlEx } from "@/components/learn/widgets/lazy";
-import { FigZones } from "@content/learn/gcp/figures/08-dns-inside-gcp";
+import { FigAsk, FigDnssec, FigName, FigTwoHomes, FigZones } from "@content/learn/gcp/figures/08-dns-inside-gcp";
 
 <Box kind="problem" title="The problem">
 
@@ -28,6 +28,8 @@ DNS turns names into addresses. Everything else in GCP DNS is detail about **who
 
 Every question a VM asks goes to the same place: the metadata server at `169.254.169.254`, which DHCP set as its DNS server (<Ch n="1.2">chapter 1.2</Ch> section 06). What the metadata server checks, and in what order, is section 04.
 
+<Figure wide hues={["teal", "plum"]} drawing={<FigAsk />} />
+
 <Key title="Do not change a VM's DNS server">
 
 If you point `/etc/resolv.conf` at another server (say `8.8.8.8`), the VM can still resolve public names, but it loses every internal name and every private zone, unless that other server forwards those names back to `169.254.169.254`. It is the DNS version of "never set a static IP inside the guest".
@@ -38,9 +40,9 @@ If you point `/etc/resolv.conf` at another server (say `8.8.8.8`), the VM can st
 
 Every VM gets a DNS name automatically, with no setup. It is built from the VM's name, zone and project:
 
-```text
-VM_NAME.ZONE.c.PROJECT_ID.internal
+<Figure wide hues={["teal"]} labels={{ teal: "Set by the VM and its project" }} drawing={<FigName />} />
 
+```text
 kade-db.asia-southeast1-b.c.kade-prod.internal     → 10.10.2.5
 kade-api-1.asia-southeast1-a.c.kade-prod.internal  → 10.10.1.10
 ```
@@ -187,6 +189,8 @@ Each tab follows one question from the asker to the answer, numbered in order. R
 
 Normal DNS answers are not authenticated, so an attacker in the lookup path could return a forged answer that points your domain at their server. **DNSSEC** adds signatures to records, so a resolver can check that an answer came from the real authoritative source and was not changed.
 
+<Figure wide hues={["plum", "green"]} drawing={<FigDnssec />} />
+
 <Table>
   <thead>
     <tr><th>#</th><th>Point</th><th>Detail</th></tr>
@@ -203,15 +207,7 @@ Normal DNS answers are not authenticated, so an attacker in the lookup path coul
 
 <Ch n="13">Chapter 13</Ch> moves `kade.lk` to Cloudflare. After that, Cloudflare is authoritative for the public domain, with its own records and DNSSEC, and the public zone `kade-lk` in Cloud DNS is deleted. The private zone `kade-internal` stays in Cloud DNS: public and private DNS do not have to live in the same place.
 
-```text
-Cloudflare (authoritative for kade.lk)
-  │  decides what api.kade.lk and www.kade.lk resolve to
-  ▼
-points at the GCP load balancer, 34.120.88.10
-  │
-  ▼
-traffic reaches GCP
-```
+<Figure wide hues={["plum", "teal", "green"]} drawing={<FigTwoHomes />} />
 
 External DNS is what makes three things concrete, all covered in <Ch n="13">chapter 13</Ch>:
 
