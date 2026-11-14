@@ -288,3 +288,183 @@ export function RequestDrawing({ className }: { className?: string }) {
     </figure>
   );
 }
+
+const PROBLEMS = [
+  "The default network is still there, open to the internet.",
+  "SSH on tcp:22 is open to 0.0.0.0/0.",
+  "Web ports 80, 443 and 8080 are open to everyone.",
+  "Internal traffic is allowed on every port.",
+  "kade-api has no external IP and no NAT, so it cannot reach PayGate.",
+];
+
+/**
+ * The same project drawn upright for a phone: the request's path at full
+ * size, and the five problems as a list a thumb can read.
+ */
+export function RequestDrawingPhone({ className }: { className?: string }) {
+  return (
+    <figure className={className}>
+      <div className="dd-fig">
+        <svg
+          viewBox="0 0 350 502"
+          role="img"
+          className="min-w-0"
+          aria-label="Kadé’s Google Cloud project as found. Shoppers resolve api.kade.lk through Cloud DNS to the load balancer at 34.120.88.10, which sends HTTP on port 8080 to kade-api-1 and kade-api-2 in sn-app. kade-api queries kade-db in sn-data. kade-api cannot reach PayGate because it has no NAT."
+        >
+          <Box
+            x={189}
+            y={1}
+            w={160}
+            h={66}
+            title="Shoppers"
+            lines={["app + website"]}
+          />
+          <Box
+            x={1}
+            y={1}
+            w={160}
+            h={66}
+            hue="plum"
+            title="Cloud DNS"
+            lines={["→ 34.120.88.10"]}
+          />
+          <Box
+            x={189}
+            y={104}
+            w={160}
+            h={90}
+            hue="plum"
+            title="Load balancer"
+            lines={["34.120.88.10:443", "TLS ends here"]}
+          />
+          <Box
+            x={1}
+            y={104}
+            w={160}
+            h={66}
+            title="PayGate"
+            lines={["only 34.87.200.7"]}
+          />
+          <Bad n={5} x={10} y={190} />
+          <text
+            className="s"
+            x="24"
+            y="194"
+            style={{ fill: "var(--dd-fault)" }}
+          >
+            no NAT, no reply
+          </text>
+
+          <rect
+            className="zone teal"
+            x="1"
+            y="230"
+            width="348"
+            height="270"
+            rx="2"
+          />
+          <text className="s" x="15" y="252">
+            kade-vpc · 10.10.0.0/16
+          </text>
+          <rect
+            className="zone"
+            x="13"
+            y="262"
+            width="324"
+            height="106"
+            rx="2"
+          />
+          <text className="s" x="25" y="282">
+            sn-app · 10.10.1.0/24
+          </text>
+          <Box
+            x={25}
+            y={292}
+            w={146}
+            h={62}
+            hue="teal"
+            title="kade-api-1"
+            lines={["10.10.1.10:8080"]}
+          />
+          <Box
+            x={179}
+            y={292}
+            w={146}
+            h={62}
+            hue="teal"
+            title="kade-api-2"
+            lines={["10.10.1.11:8080"]}
+          />
+          <rect
+            className="zone"
+            x="13"
+            y="380"
+            width="324"
+            height="106"
+            rx="2"
+          />
+          <text className="s" x="25" y="400">
+            sn-data · 10.10.2.0/24
+          </text>
+          <Box
+            x={25}
+            y={410}
+            w={300}
+            h={62}
+            hue="green"
+            title="kade-db (PostgreSQL)"
+            lines={["10.10.2.5:5432"]}
+          />
+
+          <path
+            className="w dash"
+            d="M189 34 H164"
+            markerEnd="url(#dd-ah-muted)"
+          />
+          <path
+            className="w teal dd-hop"
+            pathLength={1}
+            d="M269 67 V101"
+            markerEnd="url(#dd-ah-teal)"
+            style={{ animationDelay: "300ms" }}
+          />
+          <path
+            className="w plum dd-hop"
+            pathLength={1}
+            d="M300 194 V289"
+            markerEnd="url(#dd-ah-plum)"
+            style={{ animationDelay: "560ms" }}
+          />
+          <path
+            className="w green dd-hop"
+            pathLength={1}
+            d="M252 354 V407"
+            markerEnd="url(#dd-ah-green)"
+            style={{ animationDelay: "820ms" }}
+          />
+        </svg>
+      </div>
+      <figcaption className="mt-6">
+        <p className="text-ink text-[16px] font-semibold">
+          Kadé’s Google Cloud project, as you find it. Five things are wrong.
+        </p>
+        <ol className="mt-3 space-y-2.5">
+          {PROBLEMS.map((p, i) => (
+            <li
+              key={p}
+              className="text-ink-body grid grid-cols-[22px_1fr] gap-x-2.5 text-[15.5px] leading-[1.45]"
+            >
+              <span
+                aria-hidden="true"
+                className="bg-fault text-ground mt-px grid size-[18px] place-items-center rounded-full font-mono text-[11px] font-bold"
+              >
+                {i + 1}
+              </span>
+              {p}
+            </li>
+          ))}
+        </ol>
+      </figcaption>
+    </figure>
+  );
+}

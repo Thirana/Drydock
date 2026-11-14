@@ -3,6 +3,7 @@ import {
   Atkinson_Hyperlegible_Mono,
   Atkinson_Hyperlegible_Next,
 } from "next/font/google";
+import { DesktopHint } from "@/components/site/desktop-hint";
 import { site } from "@/config/site";
 import "./globals.css";
 
@@ -42,7 +43,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="flex min-h-full flex-col antialiased">{children}</body>
+      <body className="flex min-h-full flex-col antialiased">
+        {children}
+        <DesktopHint />
+      </body>
     </html>
   );
 }

@@ -7,12 +7,16 @@ import { DiagramDefs } from "@/components/learn/diagram-defs";
 import { Figure } from "@/components/learn/figure";
 import { MapSwitch, type MapView } from "@/components/site/landing/map-switch";
 import { HarbourFollow } from "@/components/site/landing/harbour-follow";
-import { RequestDrawing } from "@/components/site/landing/request-drawing";
+import {
+  RequestDrawing,
+  RequestDrawingPhone,
+} from "@/components/site/landing/request-drawing";
 import { TryStage, type TryMove } from "@/components/site/landing/try-stage";
 import { PageShell } from "@/components/site/page-shell";
 import { ButtonLink } from "@/components/ui/button";
 import { FadeIn } from "@/components/ui/fade-in";
 import { IconArrow } from "@/components/ui/icons";
+import { cn } from "@/lib/utils";
 import type { FeaturedTrack } from "@/lib/content/featured";
 import { getFeaturedTrack } from "@/lib/content/featured";
 import {
@@ -76,7 +80,8 @@ function Hero() {
             )}
           </div>
         </div>
-        <RequestDrawing className="min-w-0 lg:col-span-7 lg:w-full lg:max-w-[600px] lg:justify-self-end" />
+        <RequestDrawing className="hidden min-w-0 md:block lg:col-span-7 lg:w-full lg:max-w-[600px] lg:justify-self-end" />
+        <RequestDrawingPhone className="mx-auto w-full max-w-[420px] md:hidden" />
       </div>
     </section>
   );
@@ -99,6 +104,7 @@ function Try() {
       key: "dns",
       name: "Resolve a name",
       title: "Where is api.kade.lk?",
+      gist: "Three servers are asked before the laptop gets 34.120.88.10. Each one only knows who to ask next.",
       prompt:
         "Before anything is sent, the laptop needs an address. Look the name up, look again a minute later, then once the answer's 300 s TTL has run out.",
       source: from("fundamentals", "22"),
@@ -107,6 +113,7 @@ function Try() {
       key: "nat",
       name: "Leave home",
       title: "How does a private address reach the internet?",
+      gist: "The router swaps the private source for its own public address and a free port, 40001, and writes the pair down.",
       prompt:
         "192.168.1.23 means nothing outside your home. Watch the router rewrite the packet on the way out, and undo it on the way back.",
       source: from("fundamentals", "10"),
@@ -115,6 +122,8 @@ function Try() {
       key: "lb",
       name: "Cross the load balancer",
       title: "Which VM gets the request?",
+      gist: "A firewall clean-up removed the rule for the health-check probes. Both VMs looked unhealthy while the app was fine, and Kadé’s shop was down for twenty minutes.",
+      broken: true,
       prompt:
         "The load balancer only sends traffic to VMs that pass its health check. Fail one, then block the probes the way a firewall clean-up once did.",
       source: from("gcp", "12.1"),
@@ -123,6 +132,8 @@ function Try() {
       key: "firewall",
       name: "Pass the firewall",
       title: "Will the firewall let it in?",
+      gist: "kade-allow-ssh lets anyone on the internet try SSH. Allowed, and that is a problem: GCP chapter 6.1 closes it with IAP.",
+      broken: true,
       prompt:
         "Every packet that reaches kade-api-1 is checked against the VPC's firewall rules. Pick who is knocking, and on which port.",
       source: from("gcp", "5.1"),
@@ -131,6 +142,7 @@ function Try() {
       key: "same-net",
       name: "Reach the database",
       title: "Is kade-db on the same network?",
+      gist: "With a /24 mask, 10.10.1.10 and 10.10.2.5 are on different networks, so the packet goes to the gateway, not straight across.",
       prompt:
         "kade-api at 10.10.1.10/24 wants to reach kade-db at 10.10.2.5. AND each address with the mask: if the networks match, the packet goes straight across; if not, it goes to the gateway. Change any of the three values.",
       source: from("fundamentals", "4"),
@@ -144,11 +156,23 @@ function Try() {
       className="border-rule border-t py-16 sm:py-20"
     >
       <FadeIn className="mb-10 max-w-[720px]">
-        <Intro id="try-title" title="Try five steps of that request.">
-          <p>
+        <Intro
+          id="try-title"
+          title={
+            <>
+              <span className="hidden md:inline">Try five steps</span>
+              <span className="md:hidden">Five steps</span> of that request.
+            </>
+          }
+        >
+          <p className="hidden md:block">
             You learn it by trying it. The two courses hold {WIDGETS} figures
             you can change by hand. Here are five small ones, one for each step
             Kadé’s request takes, in order. Each chapter goes much further.
+          </p>
+          <p className="md:hidden">
+            The stops Kadé’s request makes on its way, in order. Each one is a
+            figure you can change by hand in the chapter that teaches it.
           </p>
         </Intro>
       </FadeIn>
@@ -164,7 +188,7 @@ function Intro({
   children,
 }: {
   id: string;
-  title: string;
+  title: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -221,10 +245,10 @@ function Courses() {
           </p>
         </Intro>
       </FadeIn>
-      <FadeIn delay={130}>
+      <FadeIn delay={130} className="hidden md:block">
         <KadeMaps />
       </FadeIn>
-      <FadeIn className="mt-16">
+      <FadeIn className="md:mt-16">
         <CourseParts />
       </FadeIn>
     </section>
@@ -341,6 +365,7 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
             Here is one of them, {d.id}, followed the way the lab follows all{" "}
             {featured.totals.defects}.
           </p>
+          <HarbourPhone defect={d} order={order} />
           <p className="text-ink-muted mt-5 text-[16px] leading-[1.55] text-pretty">
             I’m Thirana. I broke {featured.lab} on purpose, and{" "}
             <Link
@@ -364,7 +389,7 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
             </ButtonLink>
           </div>
         </FadeIn>
-        <FadeIn delay={130} className="min-w-0 [&_figure]:my-0">
+        <FadeIn delay={130} className="hidden min-w-0 md:block [&_figure]:my-0">
           <HarbourFollow
             defect={d}
             order={order}
@@ -376,5 +401,58 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
         </FadeIn>
       </div>
     </section>
+  );
+}
+
+/** D6 on a phone: the same three stages as the drawing, as three short reads. */
+function HarbourPhone({
+  defect,
+  order,
+}: {
+  defect: FeaturedTrack["followed"]["defect"];
+  order: string;
+}) {
+  const [flag, ...rest] = defect.after.split(" ");
+  const [flagName, flagValue] = flag.split("=");
+  const note = rest.join(" ").replace(/^- /, "");
+  const code = "font-mono text-[14.5px] whitespace-nowrap";
+  const stages: { label: string; body: ReactNode; broken?: boolean }[] = [
+    { label: "Find it", body: defect.symptom, broken: true },
+    { label: "Put it in order", body: order },
+    {
+      label: "Fix it",
+      body: (
+        <>
+          <span className={code}>{defect.before}</span> becomes{" "}
+          <span className="text-ink block py-1">
+            <span className={code}>{flagName}=</span>
+            <wbr />
+            <span className={code}>{flagValue}</span>
+          </span>
+          {note && `${note[0].toUpperCase()}${note.slice(1)}.`}
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <ol className="border-rule mt-6 border-t md:hidden">
+      {stages.map((st, i) => (
+        <li key={st.label} className="border-rule border-b py-4">
+          <p className="text-ink-muted text-[14px] font-semibold">
+            <span className="text-ink-faint font-mono font-bold">{i + 1}.</span>{" "}
+            {st.label}
+          </p>
+          <p
+            className={cn(
+              "mt-1.5 text-[16.5px] leading-[1.55] text-pretty",
+              st.broken ? "text-fault font-semibold" : "text-ink-body",
+            )}
+          >
+            {st.body}
+          </p>
+        </li>
+      ))}
+    </ol>
   );
 }

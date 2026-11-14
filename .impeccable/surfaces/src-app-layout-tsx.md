@@ -32,3 +32,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 ## Motion on the home page
 
 Switching content inside a home widget runs as a view transition (`src/lib/view-transition.ts`, rules at the end of `globals.css`), never an in-place swap. The five steps: the old move leaves sideways in 150ms, the new copy arrives from the direction of travel with a slight blur, and the figure follows 60ms later; the blue marker slides between tabs. Inside a drawing (the `Step` widgets and Harbour's D6): the drawing crossfades and the verdict rises 6px. Kadé's maps crossfade. The rest of the page holds still. Reduced motion and browsers without view transitions get a plain swap (the latter keep `.dd-stage-in`).
+
+## Phones (below 768px)
+
+The home page is rewritten for a phone, not shrunk. Nothing on it scrolls sideways.
+- Hero: `RequestDrawingPhone`, the request's path drawn upright at 1:1 (viewBox 350 wide), with the five problems as a list under it.
+- Five steps: `TryRoute`, a vertical route with a stop per step: name, question, what the figure shows (red if it is a fault), and "Try it in chapter N".
+- Kadé's maps are left out; the course part lists stay.
+- Harbour: D6 as three short reads (Find it, Put it in order, Fix it) instead of the drawing.
+- `DesktopHint` (site-wide, in the root layout): once per browser, on a first phone visit, a paper sheet with an ink hairline and the blue marker bar on its top edge shows a small drawing (this phone at its real width, wired to a laptop at 1024px +) and says the figures are best on a laptop or tablet, with "Got it" and "Send me the link" (share sheet, else copy).

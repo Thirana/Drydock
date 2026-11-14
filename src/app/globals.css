@@ -1187,3 +1187,19 @@ html[data-vt="map"]::view-transition-new(kade-map) {
     animation: none !important;
   }
 }
+
+/* The one-time phone notice rises from the bottom edge. */
+.dd-sheet-in {
+  animation: dd-sheet-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes dd-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dd-sheet-in {
+    animation: dd-fade 200ms ease both;
+  }
+}
