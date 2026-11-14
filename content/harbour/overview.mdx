@@ -4,43 +4,51 @@ Harbour is a fictional marketplace running on Google Cloud, and its network is *
 
 I built it while working through GCP networking end to end. The defects are the kind that appear in real projects: each one started as a reasonable short-term choice that nobody revisited. None of them is obvious from a diagram, which is why this case study follows the traffic instead.
 
-**What this is not:** a production template, a best-practice reference, or an audit of any real system. Names, addresses and identifiers are invented.
+<Caption>
+  **What this is not:** a production template, a best-practice reference, or an
+  audit of any real system. Names, addresses and identifiers are invented.
+</Caption>
 
 </Hero>
 
+## How to read it
+
+<Lede>
+  Three parts, in order. The platform first, so the names mean something; then
+  the traffic, so you see the defects doing damage; then each defect on its own.
+</Lede>
+
+<Glance />
+
 ## The business
 
-Harbour runs an online marketplace for independent sellers - makers, small shops, a few hundred workshops across Southeast Asia - and takes a commission on every sale. Shoppers use the mobile app or the website. Sellers manage listings and see their payouts in the same app.
+Harbour runs an online marketplace for independent sellers - makers, small shops, a few hundred workshops across Southeast Asia - and takes a commission on every sale. Four things keep it alive, and each one is a path through the network you can follow:
 
-Four things keep the business alive, and each one is a path through the network:
-
-<Columns>
-  <Column title="Product pages load fast">
+<Paths>
+  <Path journey="product-page" title="Product pages load fast">
     Most traffic is browsing. It comes through Cloudflare, then Google's load
     balancer, then the API. A slow or broken page is lost revenue.
-  </Column>
-  <Column title="Checkout charges the card">
+  </Path>
+  <Path journey="card-charge" title="Checkout charges the card">
     Payments go to PayGate, which accepts calls only from addresses Harbour has
     registered. If the source address drifts, checkout fails.
-  </Column>
-  <Column title="Sellers get paid">
+  </Path>
+  <Path journey="nightly-job" title="Sellers get paid">
     A nightly job gathers the day's orders and queues the payouts through a
     message broker. Nobody watches it, so it has to fail loudly.
-  </Column>
-  <Column title="Orders reach the courier">
+  </Path>
+  <Path journey="partner-database" title="Orders reach the courier">
     A delivery partner reads order status from Harbour's systems over a private
     network link. Without it, parcels sit on shelves.
-  </Column>
-</Columns>
-
-The team is four engineers, and one of them looks after the platform part-time. Everyone has owner access, because that was easiest at the start. The platform lives in one host project, `harbour-net-prod`, in Singapore (`asia-southeast1`), with Mumbai (`asia-south1`) set aside as a standby that holds nothing yet.
+  </Path>
+</Paths>
 
 ## How it got this way
 
 <Lede>
   Nobody designed Harbour to be insecure. Every defect is a decision that made
-  sense on the day, made by a small team moving fast, and never revisited. Read
-  in order, the history explains the platform better than the diagram does.
+  sense on the day, made by a small team moving fast, and never revisited. Open
+  one to read how it happened.
 </Lede>
 
 <Origins>
@@ -110,43 +118,65 @@ The team is four engineers, and one of them looks after the platform part-time. 
   </Origin>
 </Origins>
 
-## How to read it
-
-<Lede>
-  Three parts, in order. The platform first, so the names mean something; then
-  the traffic, so you see the defects doing damage; then each defect on its own.
-</Lede>
-
-<Sections />
-
 ## What it covers
 
-<Columns>
-  <Column title="Routing">
-    Route types, longest-prefix versus priority, tag-scoped routes, why priority
-    never beats specificity.
-  </Column>
-  <Column title="Firewall">
-    Distributed enforcement, stateful return traffic, rule scoping, the implied
-    rules at 65535, hierarchical policies.
-  </Column>
-  <Column title="Private connectivity">
-    Private Google Access, Private Service Access, Private Service Connect - and
-    which one solves which problem.
-  </Column>
-  <Column title="Egress">
-    Cloud NAT, port exhaustion, the static egress IP pattern, and Cloud Run’s
-    two egress modes.
-  </Column>
-  <Column title="Load balancing">
-    The four axes, proxy versus passthrough, the component chain, health checks,
-    Cloud Armor’s attachment point.
-  </Column>
-  <Column title="Secure access">
-    IAP TCP forwarding, OS Login versus metadata keys, and what it takes to run
-    a VM with no external IP.
-  </Column>
-</Columns>
+<Topics>
+  <Topic
+    title="Routing"
+    items={[
+      "Route types",
+      "Longest prefix versus priority",
+      "Tag-scoped routes",
+      "Why priority never beats specificity",
+    ]}
+  />
+  <Topic
+    title="Firewall"
+    items={[
+      "Distributed enforcement",
+      "Stateful return traffic",
+      "Rule scoping",
+      "The implied rules at 65535",
+      "Hierarchical policies",
+    ]}
+  />
+  <Topic
+    title="Private connectivity"
+    items={[
+      "Private Google Access",
+      "Private Service Access",
+      "Private Service Connect",
+      "Which one solves which problem",
+    ]}
+  />
+  <Topic
+    title="Egress"
+    items={[
+      "Cloud NAT",
+      "Port exhaustion",
+      "The static egress IP pattern",
+      "Cloud Run’s two egress modes",
+    ]}
+  />
+  <Topic
+    title="Load balancing"
+    items={[
+      "The four axes",
+      "Proxy versus passthrough",
+      "The component chain",
+      "Health checks",
+      "Where Cloud Armor attaches",
+    ]}
+  />
+  <Topic
+    title="Secure access"
+    items={[
+      "IAP TCP forwarding",
+      "OS Login versus metadata keys",
+      "VMs with no external IP",
+    ]}
+  />
+</Topics>
 
 ## Where I would push back on the textbook answer
 

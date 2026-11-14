@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { architectureMdxComponents } from "@/components/architecture/mdx-components";
 import { Origin, Origins } from "@/components/harbour/origins";
+import { Glance, Path, Paths } from "@/components/harbour/overview-parts";
 import { PageHeader } from "@/components/harbour/page-header";
 import { Pager } from "@/components/harbour/pager";
 import { PageRoute } from "@/components/layout/page-route";
-import { ViewGuide, ViewGuideItem } from "@/components/layout/view-guide";
-import { HarbourPhases } from "@/components/site/landing/harbour-phases";
+import { WaysIn } from "@/components/harbour/ways-in";
 import { SearchMeta } from "@/components/site/search-meta";
 import { ButtonLink } from "@/components/ui/button";
-import { IconArrow, ICONS } from "@/components/ui/icons";
+import { IconArrow } from "@/components/ui/icons";
 import { harbour, journeysHref, sections } from "@/lib/content/harbour";
 
 export const metadata: Metadata = {
@@ -25,21 +25,9 @@ export default function HarbourOverview() {
     ...architectureMdxComponents(model),
     Origins,
     Origin,
-    Sections: () => (
-      <ViewGuide>
-        {sections.slice(1).map((s, i) => (
-          <ViewGuideItem
-            key={s.href}
-            href={s.href}
-            title={s.label}
-            frame={i + 2}
-            icon={ICONS[s.icon]}
-          >
-            {s.description}
-          </ViewGuideItem>
-        ))}
-      </ViewGuide>
-    ),
+    Glance,
+    Paths,
+    Path,
   };
 
   return (
@@ -52,16 +40,11 @@ export default function HarbourOverview() {
         asideClassName="hidden md:block lg:w-[min(46vw,560px)]"
         aside={
           <figure>
-            <HarbourPhases
-              phases={model.phases.map(({ number, name }) => ({
-                number,
-                name,
-              }))}
-              trims={model.defects.map(({ id, phase }) => ({ id, phase }))}
-            />
+            <WaysIn />
             <figcaption className="text-ink-muted mt-3 max-w-[60ch] text-[15px] leading-[1.5] text-pretty">
-              {harbour.title}’s front door, phase by phase. The Platform section
-              draws all of it.
+              Every way into {harbour.title} from the internet. Red goes
+              straight in, with nothing checking it on the way. The IDs are the
+              defects that leave each door open.
             </figcaption>
           </figure>
         }

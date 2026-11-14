@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Tone } from "@/lib/architecture/types";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
+import { Fold, Folds } from "./fold";
 
 /**
  * Content building blocks available in every MDX file (see src/mdx-components.tsx).
@@ -77,9 +78,9 @@ export function Column({
   );
 }
 
-/** Positions argued at length: the claim, then the reasoning, marked as the author's. */
+/** Positions argued at length: the claim up, the reasoning folded, marked as the author's. */
 export function Arguments({ children }: { children: ReactNode }) {
-  return <dl className="not-prose my-8 max-w-[860px]">{children}</dl>;
+  return <Folds>{children}</Folds>;
 }
 
 export function Argument({
@@ -90,22 +91,40 @@ export function Argument({
   children: ReactNode;
 }) {
   return (
-    <div className="border-rule grid grid-cols-[28px_minmax(0,1fr)] gap-x-2 border-t py-6">
-      <span
-        aria-hidden="true"
-        className="text-ink pt-[2px] font-mono text-[16px] font-bold"
-      >
-        !?
-      </span>
-      <div>
-        <dt className="text-ink text-[20px] leading-[1.3] font-bold text-balance">
-          {title}
-        </dt>
-        <dd className="text-ink-body mt-2 max-w-[66ch] text-[17px] leading-[1.62] text-pretty">
-          {children}
-        </dd>
-      </div>
-    </div>
+    <Fold
+      name="arguments"
+      mark={<span aria-hidden="true">!?</span>}
+      title={title}
+    >
+      {children}
+    </Fold>
+  );
+}
+
+/** Short topics as tiles: a title over the things it covers, set as tags. */
+export function Topics({ children }: { children: ReactNode }) {
+  return (
+    <ul className="not-prose my-8 grid grid-cols-1 gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+      {children}
+    </ul>
+  );
+}
+
+export function Topic({ title, items }: { title: string; items: string[] }) {
+  return (
+    <li className="border-rule border-t pt-4 pb-7">
+      <h3 className="text-ink text-[18px] font-bold">{title}</h3>
+      <ul className="mt-3 flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <li
+            key={item}
+            className="border-rule text-ink-body rounded-[2px] border px-2 py-[3px] text-[14.5px] leading-[1.35]"
+          >
+            {item}
+          </li>
+        ))}
+      </ul>
+    </li>
   );
 }
 

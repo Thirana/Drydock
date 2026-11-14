@@ -14,6 +14,8 @@ import {
   Note,
   PhaseTag,
   Status,
+  Topic,
+  Topics,
 } from "@/components/mdx/primitives";
 
 // Global MDX components. Most elements are styled by `.gl-prose` in
@@ -66,6 +68,8 @@ const components: MDXComponents = {
   PhaseTag,
   SeverityBadge,
   Status,
+  Topic,
+  Topics,
 };
 
 export function useMDXComponents(): MDXComponents {
