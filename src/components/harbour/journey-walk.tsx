@@ -9,7 +9,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import { DefectLink } from "@/components/architecture/defect-link";
-import { Swatch } from "@/components/learn/swatch";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -27,18 +26,10 @@ import type { Journey, JourneyHop, Packet } from "@/lib/architecture/types";
 import { cn } from "@/lib/utils";
 import type { Walk } from "./journey-drawing-kit";
 import { JourneyDrawing } from "./journey-drawings";
+import { DrawingKey } from "./drawing-key";
 import { StateSwitch } from "./state-switch";
 
 const NONE: ReadonlySet<string> = new Set();
-
-/** The drawing's key: the GCP course's hues, then the red this case study adds. */
-const KEY = [
-  { hue: "teal", label: "Your VPC" },
-  { hue: "plum", label: "Run by Google" },
-  { hue: "amber", label: "Firewall rules" },
-  { hue: "green", label: "Allowed traffic" },
-  { hue: "fault", label: "Where it breaks" },
-] as const;
 
 /** A hop's identity across the two states: its stop and its place there. */
 const hopKey = (hop: JourneyHop) => `${hop.at ?? ""}|${hop.where}`;
@@ -234,14 +225,7 @@ export function JourneyWalk({
           <JourneyDrawing slug={journey.slug} walk={walk} />
         </div>
         <div className="mt-3 space-y-2">
-          <ul className="text-ink-muted flex flex-wrap gap-x-5 gap-y-1.5 text-[14px]">
-            {KEY.map(({ hue, label }) => (
-              <li key={hue} className="inline-flex items-center gap-2">
-                <Swatch hue={hue} />
-                {label}
-              </li>
-            ))}
-          </ul>
+          <DrawingKey />
           <p className="text-ink-muted max-w-[72ch] text-[15px] leading-[1.55] text-pretty">
             Only what this journey touches. Numbers follow the route - click a
             numbered box to open its hop below. Red dashed lines are paths that

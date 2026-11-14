@@ -232,6 +232,8 @@ export function Plain({
   hue,
   broken,
   dim,
+  ghost,
+  tags,
 }: {
   x: number;
   y: number;
@@ -242,18 +244,23 @@ export function Plain({
   hue?: Hue;
   broken?: boolean;
   dim?: boolean;
+  /** Does not exist in this state: a dashed outline. */
+  ghost?: boolean;
+  /** Defect IDs on the box's top-right edge. */
+  tags?: string[];
 }) {
+  const { closed } = useWalk();
   return (
     <g style={{ opacity: dim ? 0.4 : 1 }} className={EASE}>
       <rect
-        className={cn("n", hue, broken && "fault", EASE)}
+        className={ghost ? "ghost" : cn("n", hue, broken && "fault", EASE)}
         x={x}
         y={y}
         width={w}
         height={h}
         rx="2"
       />
-      <text className="t" x={x + 16} y={y + 26}>
+      <text className={cn("t", ghost && "f")} x={x + 16} y={y + 26}>
         {title}
       </text>
       {lines.map((l, i) => (
@@ -261,7 +268,25 @@ export function Plain({
           {l}
         </text>
       ))}
+      {tags && <Tag x={x + w} y={y - 7} ids={tags} closed={closed} />}
     </g>
+  );
+}
+
+/** A path that is not a hop wire: a dashed hue line, such as a proxy's home. */
+export function Dashed({
+  d,
+  hue,
+}: {
+  d: string;
+  hue: "plum" | "teal" | "amber";
+}) {
+  return (
+    <path
+      className={cn("w dash", hue, EASE)}
+      d={d}
+      markerEnd={arrowHead(hue)}
+    />
   );
 }
 

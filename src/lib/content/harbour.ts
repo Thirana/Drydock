@@ -1,15 +1,6 @@
 import { harbour } from "@content/harbour";
-import { boundsOf, fitAspect } from "@/lib/architecture/geometry";
-import { boxIndex, byPhaseThenSeverity } from "@/lib/architecture/state";
-import type {
-  ArchGroup,
-  ArchNode,
-  Defect,
-  Journey,
-  JourneyHop,
-  MapModel,
-  Rect,
-} from "@/lib/architecture/types";
+import { byPhaseThenSeverity } from "@/lib/architecture/state";
+import type { Defect, Journey, JourneyHop } from "@/lib/architecture/types";
 import {
   defectsHref,
   harbourHref,
@@ -91,70 +82,11 @@ export function defectsOn(journey: Journey): Defect[] {
   return orderedDefects().filter((d) => ids.has(d.id));
 }
 
-/** What the map needs to draw itself, without the prose: small enough to hand to a client component. */
-export function mapModel(): MapModel {
-  return {
-    name: model.name,
-    viewBox: model.viewBox,
-    groups: model.groups,
-    nodes: model.nodes,
-    edges: model.edges,
-    defects: model.defects.map(({ id, phase, applies }) => ({
-      id,
-      phase,
-      applies,
-    })),
-  };
-}
-
 /** Box id → its label on the map. */
 export function boxLabels(): Record<string, string> {
   return Object.fromEntries(
     [...model.groups, ...model.nodes].map((b) => [b.id, b.label]),
   );
-}
-
-/**
- * The part of the map framing these boxes, padded, and kept between a wide
- * strip and a square so it neither turns into a sliver nor a tower.
- */
-export function cropAround(ids: Iterable<string>): Rect {
-  const boxes = boxIndex(model);
-  const framed = [...new Set(ids)]
-    .map((id) => boxes.get(id))
-    .filter((b): b is ArchGroup | ArchNode => !!b);
-  if (!framed.length) return { x: 0, y: 0, ...model.viewBox };
-  const rect = boundsOf(framed, 56);
-  const aspect = rect.width / rect.height;
-  return aspect > 2.6
-    ? fitAspect(rect, 2.6, model.viewBox)
-    : aspect < 1.25
-      ? fitAspect(rect, 1.25, model.viewBox)
-      : rect;
-}
-
-/** A journey's frame on the map: every box it touches, as found and fixed, so the switch never moves it. */
-/** A defect's frame on the map: the boxes it sits on, changes, and the paths it opens or closes. */
-export function defectCrop(d: Defect): Rect {
-  return cropAround(defectBoxes(d));
-}
-
-/** The boxes a defect sits on or changes, and the ends of the paths it opens or closes. */
-export function defectBoxes(d: Defect): string[] {
-  return [
-    ...[...model.groups, ...model.nodes]
-      .filter((b) => b.defects?.includes(d.id))
-      .map((b) => b.id),
-    ...Object.keys(d.applies),
-    ...model.edges
-      .filter(
-        (e) =>
-          e.closedBy === d.id ||
-          e.opensWith === d.id ||
-          e.changedBy?.defect === d.id,
-      )
-      .flatMap((e) => [e.from, e.to]),
-  ];
 }
 
 /** The journeys a defect shows up on, with the hops where it fails. */
