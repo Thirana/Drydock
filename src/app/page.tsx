@@ -1,12 +1,17 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CourseParts, LearningPath } from "@/components/learn/path";
-import { SameNet } from "@/components/learn/widgets/same-net";
-import { HeroMap } from "@/components/site/landing/hero-map";
+import { FigMap } from "@content/learn/fundamentals/figures/00-the-kade-scenario";
+import { FigTarget, FigToday } from "@content/learn/gcp/figures/00-kade-on-gcp";
+import { DiagramDefs } from "@/components/learn/diagram-defs";
+import { Figure } from "@/components/learn/figure";
+import { MapSwitch, type MapView } from "@/components/site/landing/map-switch";
+import { RequestDrawing } from "@/components/site/landing/request-drawing";
+import { TryStage, type TryMove } from "@/components/site/landing/try-stage";
 import { PageShell } from "@/components/site/page-shell";
 import { ButtonLink } from "@/components/ui/button";
 import { FadeIn } from "@/components/ui/fade-in";
-import { IconArrow, IconArrowRight } from "@/components/ui/icons";
+import { IconArrow } from "@/components/ui/icons";
 import type { FeaturedTrack } from "@/lib/content/featured";
 import { getFeaturedTrack } from "@/lib/content/featured";
 import {
@@ -15,6 +20,9 @@ import {
   courseHref,
   getCourse,
 } from "@/lib/content/learn";
+
+/** Distinct interactive figures across both courses. */
+const WIDGETS = 158;
 
 /** The About section where the standard advice gets argued with. */
 const PUSH_BACK_ANCHOR = "where-i-would-push-back-on-the-textbook-answer";
@@ -25,7 +33,8 @@ export default function HomePage() {
   return (
     <PageShell>
       <Hero />
-      <Taste />
+      <Try />
+      <Path />
       <Courses />
       {featured && <Harbour featured={featured} />}
     </PageShell>
@@ -37,35 +46,112 @@ function Hero() {
   const gcp = getCourse("gcp");
 
   return (
-    <section className="pt-16 pb-16 sm:pt-24 sm:pb-20">
-      <h1 className="dd-head animate-rise text-ink max-w-[1080px] text-[48px] leading-[1.02] text-balance sm:text-[64px] lg:text-[76px]">
-        Learn how networks work.
-        <br />
-        Then fix one that doesn’t.
-      </h1>
-      <p className="text-ink-body mt-6 max-w-[46ch] text-[20px] leading-[1.5] text-pretty sm:text-[22px]">
-        Two courses and a lab, in order. Follow one request from a laptop to a
-        server, see how Google Cloud does the same job, then fix a platform I
-        built wrong on purpose. Free, with no sign-up.
-      </p>
-      <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
-        {first && (
-          <ButtonLink
-            href={chapterHref(first)}
-            size="lg"
-            trailing={<IconArrow size={14} />}
-          >
-            Start with chapter 1
-          </ButtonLink>
-        )}
-        {gcp && (
-          <ButtonLink href={courseHref(gcp)} variant="ghost" size="lg">
-            Jump to GCP
-          </ButtonLink>
-        )}
+    <section className="pt-12 pb-16 sm:pt-20 sm:pb-24">
+      <DiagramDefs />
+      <div className="grid items-center gap-x-12 gap-y-12 lg:grid-cols-12">
+        <div className="lg:col-span-5">
+          <h1 className="dd-head animate-rise text-ink text-[40px] leading-[1.04] text-balance sm:text-[48px] xl:text-[54px]">
+            Learn how networks work. Then fix one that doesn’t.
+          </h1>
+          <p className="text-ink-body mt-6 max-w-[44ch] text-[19px] leading-[1.5] text-pretty sm:text-[20px]">
+            Two courses and a lab, in order. Follow one request from a laptop to
+            a server, see how Google Cloud does the same job, then fix a
+            platform I built wrong on purpose. Free, with no sign-up.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-3">
+            {first && (
+              <ButtonLink
+                href={chapterHref(first)}
+                size="lg"
+                trailing={<IconArrow size={14} />}
+              >
+                Start with chapter 1
+              </ButtonLink>
+            )}
+            {gcp && (
+              <ButtonLink href={courseHref(gcp)} variant="ghost" size="lg">
+                Jump to GCP
+              </ButtonLink>
+            )}
+          </div>
+        </div>
+        <RequestDrawing className="min-w-0 lg:col-span-7 lg:w-full lg:max-w-[600px] lg:justify-self-end" />
       </div>
+    </section>
+  );
+}
 
-      <LearningPath className="animate-rise animation-delay-300 mt-16 sm:mt-20" />
+/** Five real figures from the chapters, in the order a request meets them. */
+function Try() {
+  const from = (course: string, num: string, cta = "Read the chapter") => {
+    const ch = chapterByNum(course, num);
+    return ch
+      ? {
+          label: `Taught in ${course === "gcp" ? "GCP " : ""}chapter ${ch.chapter.num}, ${ch.chapter.title}`,
+          cta,
+          href: chapterHref(ch),
+        }
+      : undefined;
+  };
+  const drafts: (Omit<TryMove, "source"> & { source?: TryMove["source"] })[] = [
+    {
+      key: "dns",
+      name: "Resolve a name",
+      title: "Where is api.kade.lk?",
+      prompt:
+        "Before anything is sent, the laptop needs an address. Look the name up, look again a minute later, then once the answer's 300 s TTL has run out.",
+      source: from("fundamentals", "22"),
+    },
+    {
+      key: "nat",
+      name: "Leave home",
+      title: "How does a private address reach the internet?",
+      prompt:
+        "192.168.1.23 means nothing outside your home. Watch the router rewrite the packet on the way out, and undo it on the way back.",
+      source: from("fundamentals", "10"),
+    },
+    {
+      key: "lb",
+      name: "Cross the load balancer",
+      title: "Which VM gets the request?",
+      prompt:
+        "The load balancer only sends traffic to VMs that pass its health check. Fail one, then block the probes the way a firewall clean-up once did.",
+      source: from("gcp", "12.1"),
+    },
+    {
+      key: "firewall",
+      name: "Pass the firewall",
+      title: "Will the firewall let it in?",
+      prompt:
+        "Every packet that reaches kade-api-1 is checked against the VPC's firewall rules. Pick who is knocking, and on which port.",
+      source: from("gcp", "5.1"),
+    },
+    {
+      key: "same-net",
+      name: "Reach the database",
+      title: "Is kade-db on the same network?",
+      prompt:
+        "kade-api at 10.10.1.10/24 wants to reach kade-db at 10.10.2.5. AND each address with the mask: if the networks match, the packet goes straight across; if not, it goes to the gateway. Change any of the three values.",
+      source: from("fundamentals", "4"),
+    },
+  ];
+  const moves = drafts.filter((m): m is TryMove => Boolean(m.source));
+
+  return (
+    <section
+      aria-labelledby="try-title"
+      className="border-rule border-t py-16 sm:py-20"
+    >
+      <FadeIn className="mb-10 max-w-[720px]">
+        <Intro id="try-title" title="Try five steps of that request.">
+          <p>
+            You learn it by trying it. The two courses hold {WIDGETS} figures
+            you can change by hand. Here are five small ones, one for each step
+            Kadé’s request takes, in order. Each chapter goes much further.
+          </p>
+        </Intro>
+      </FadeIn>
+      <TryStage moves={moves} />
     </section>
   );
 }
@@ -92,40 +178,25 @@ function Intro({
   );
 }
 
-/** One real widget, running, so the first visit shows what a chapter feels like. */
-function Taste() {
-  const ch = chapterByNum("fundamentals", "4");
-  if (!ch) return null;
-
+/** The whole guide as three moves. */
+function Path() {
   return (
     <section
-      aria-labelledby="taste-title"
+      aria-labelledby="path-title"
       className="border-rule border-t py-16 sm:py-20"
     >
-      <div className="grid items-start gap-x-12 gap-y-4 lg:grid-cols-12">
-        <FadeIn className="lg:col-span-5">
-          <Intro id="taste-title" title="Most chapters have something to try.">
-            <p>
-              This one is from chapter {ch.chapter.num}, {ch.chapter.title}.
-              kade-api at 10.10.1.10/24 wants to reach kade-db at 10.10.2.5. AND
-              each address with the mask: if the networks match, the packet goes
-              straight across; if not, it goes to the gateway.
-            </p>
-            <p>Change any of the three values.</p>
-          </Intro>
-          <ButtonLink
-            href={chapterHref(ch)}
-            variant="ghost"
-            className="mt-4"
-            trailing={<IconArrowRight size={12} />}
-          >
-            Read {ch.chapter.num}. {ch.chapter.title}
-          </ButtonLink>
-        </FadeIn>
-        <FadeIn delay={130} className="min-w-0 lg:col-span-7">
-          <SameNet a="10.10.1.10" b="10.10.2.5" prefix="24" />
-        </FadeIn>
-      </div>
+      <FadeIn className="max-w-[720px]">
+        <Intro id="path-title" title="Three stages, in this order.">
+          <p>
+            The courses teach and the lab tests. Each stage uses what the one
+            before it taught, and the lab’s defects link back to the chapter
+            that explains them.
+          </p>
+        </Intro>
+      </FadeIn>
+      <FadeIn delay={130}>
+        <LearningPath className="mt-10" />
+      </FadeIn>
     </section>
   );
 }
@@ -150,10 +221,84 @@ function Courses() {
         </Intro>
       </FadeIn>
       <FadeIn delay={130}>
+        <KadeMaps />
+      </FadeIn>
+      <FadeIn className="mt-16">
         <CourseParts />
       </FadeIn>
     </section>
   );
+}
+
+/** Kadé's map at three points in the courses: the drawings chapter 0 of each course opens with. */
+function KadeMaps() {
+  const fundamentals = getCourse("fundamentals");
+  const gcp = getCourse("gcp");
+  const f0 = chapterByNum("fundamentals", "0");
+  const g0 = chapterByNum("gcp", "0");
+  if (!fundamentals || !gcp || !f0 || !g0) return null;
+
+  const views: MapView[] = [
+    {
+      value: "whole",
+      label: "Whole map",
+      source: { label: "Fundamentals chapter 0", href: chapterHref(f0) },
+      figure: (
+        <Figure
+          wide
+          hues={["plum", "teal", "green"]}
+          legend={fundamentals.legend}
+          drawing={<FigMap />}
+        >
+          <p>
+            Solid boxes exist today. Dashed boxes join the map when a chapter
+            needs them.
+          </p>
+        </Figure>
+      ),
+    },
+    {
+      value: "today",
+      label: "Cloud today",
+      source: { label: "GCP chapter 0", href: chapterHref(g0) },
+      figure: (
+        <Figure
+          wide
+          hues={["plum", "teal", "green"]}
+          legend={gcp.legend}
+          drawing={<FigToday />}
+        >
+          <p>
+            Traffic from shoppers takes the right path: DNS, then the load
+            balancer, then kade-api on port 8080. Everything around that path is
+            either too open or missing. Solid lines work today; red dashed lines
+            are problems.
+          </p>
+        </Figure>
+      ),
+    },
+    {
+      value: "target",
+      label: "Cloud at the end",
+      source: { label: "GCP chapter 0", href: chapterHref(g0) },
+      figure: (
+        <Figure
+          wide
+          hues={["plum", "teal", "green", "amber"]}
+          legend={gcp.legend}
+          drawing={<FigTarget />}
+        >
+          <p>
+            Shoppers now reach Kadé only through Cloudflare and the load
+            balancer. Nothing in kade-vpc has an external IP. Admin access goes
+            through IAP, outgoing calls through Cloud NAT, and the database is
+            reachable only on a private IP.
+          </p>
+        </Figure>
+      ),
+    },
+  ];
+  return <MapSwitch views={views} />;
 }
 
 /** The lab, condensed: the score, and one defect's three steps pointing into the lab page. */
@@ -207,19 +352,7 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
         </p>
       </FadeIn>
 
-      <HeroMap
-        lab={featured.lab}
-        track={featured.track}
-        mapHref={featured.mapHref}
-        map={featured.map}
-        phases={featured.phases}
-        trims={featured.trims}
-        callouts={featured.callouts}
-        focus={featured.focus}
-        revealAt={featured.revealAt}
-      />
-
-      <FadeIn className="mt-16 max-w-[860px]">
+      <FadeIn delay={130} className="max-w-[860px]">
         <h3 className="text-ink text-[22px] leading-[1.3] font-bold">
           <span className="text-fault font-mono">{d.id}</span>, followed from
           finding to fix
