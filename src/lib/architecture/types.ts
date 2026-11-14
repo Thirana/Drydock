@@ -147,6 +147,8 @@ export interface Defect {
   /** Course sections that teach what this defect gets wrong, the main one first. */
   learn?: ChapterRef[];
   symptom: string;
+  /** What it can cause while it stays open, one consequence per entry. */
+  impact: string[];
   explanation: string;
   concept: string;
   /** Command(s) that surface the finding. */
@@ -171,11 +173,29 @@ export interface JourneyHop {
   why: string;
   fails?: boolean;
   fixedBy?: string;
+  /** The packet as this hop leaves it. The packet card holds the last one shown. */
+  packet?: Packet;
+}
+
+/** What a packet looks like at one point on its journey. */
+export interface Packet {
+  /** Source address, as whoever receives it sees it. */
+  from: string;
+  /** Destination address and port. */
+  to: string;
+  /** What else matters about it here: the protocol, a header, TLS. */
+  carries?: string;
 }
 
 export interface Journey {
+  /** Its URL: /harbour/journeys/<slug>. */
+  slug: string;
   title: string;
   shortTitle: string;
+  /** Why this flow matters, before the first hop. */
+  intro: string;
+  /** How it ends: as found, and with every defect closed. */
+  outcome: { found: string; fixed: string };
   summary: string;
   path: string[];
   context?: string[];

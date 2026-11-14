@@ -4,7 +4,7 @@ import { edgeKey, type JourneyHighlight } from "@/lib/architecture/journeys";
 import {
   boxIndex,
   closedDefects,
-  patchesAt,
+  patchesFor,
   resolveBox,
   resolveEdge,
   type ResolvedBox,
@@ -35,6 +35,8 @@ import {
 interface ArchitectureDiagramProps {
   model: MapModel;
   phase: number;
+  /** Exactly these defects closed, instead of every defect up to `phase`. */
+  closed?: ReadonlySet<string>;
   /** Region of the map to show. Defaults to the whole viewBox. */
   crop?: Rect;
   /** Merged over the defaults; pass `min-w-0` to let the map shrink. */
@@ -60,6 +62,7 @@ const SELECTED = "var(--dd-sel)";
 export function ArchitectureDiagram({
   model,
   phase,
+  closed: closedOverride,
   crop,
   className,
   hidden,
@@ -71,8 +74,8 @@ export function ArchitectureDiagram({
 }: ArchitectureDiagramProps) {
   const view = crop ?? { x: 0, y: 0, ...model.viewBox };
   const markerId = markerIdFrom(useId());
-  const closed = closedDefects(model, phase);
-  const patches = patchesAt(model, phase);
+  const closed = closedOverride ?? closedDefects(model, phase);
+  const patches = patchesFor(model, closed);
   const boxes = boxIndex(model);
   const clickable = !highlight && onSelect;
   const selectHandler = (id: string) =>

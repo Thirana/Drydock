@@ -1,0 +1,219 @@
+<Hero>
+
+Harbour is a fictional marketplace running on Google Cloud, and its network is **deliberately misconfigured**. Every problem in it is one I put there on purpose, because the point is not the architecture - it is the reasoning about what is wrong with it, why it is wrong, and what order the fixes have to happen in.
+
+I built it while working through GCP networking end to end. The defects are the kind that appear in real projects: each one started as a reasonable short-term choice that nobody revisited. None of them is obvious from a diagram, which is why this case study follows the traffic instead.
+
+**What this is not:** a production template, a best-practice reference, or an audit of any real system. Names, addresses and identifiers are invented.
+
+</Hero>
+
+## The business
+
+Harbour runs an online marketplace for independent sellers - makers, small shops, a few hundred workshops across Southeast Asia - and takes a commission on every sale. Shoppers use the mobile app or the website. Sellers manage listings and see their payouts in the same app.
+
+Four things keep the business alive, and each one is a path through the network:
+
+<Columns>
+  <Column title="Product pages load fast">
+    Most traffic is browsing. It comes through Cloudflare, then Google's load
+    balancer, then the API. A slow or broken page is lost revenue.
+  </Column>
+  <Column title="Checkout charges the card">
+    Payments go to PayGate, which accepts calls only from addresses Harbour has
+    registered. If the source address drifts, checkout fails.
+  </Column>
+  <Column title="Sellers get paid">
+    A nightly job gathers the day's orders and queues the payouts through a
+    message broker. Nobody watches it, so it has to fail loudly.
+  </Column>
+  <Column title="Orders reach the courier">
+    A delivery partner reads order status from Harbour's systems over a private
+    network link. Without it, parcels sit on shelves.
+  </Column>
+</Columns>
+
+The team is four engineers, and one of them looks after the platform part-time. Everyone has owner access, because that was easiest at the start. The platform lives in one host project, `harbour-net-prod`, in Singapore (`asia-southeast1`), with Mumbai (`asia-south1`) set aside as a standby that holds nothing yet.
+
+## How it got this way
+
+<Lede>
+  Nobody designed Harbour to be insecure. Every defect is a decision that made
+  sense on the day, made by a small team moving fast, and never revisited. Read
+  in order, the history explains the platform better than the diagram does.
+</Lede>
+
+<Origins>
+  <Origin
+    when="Year one"
+    title="One server group, open to everyone"
+    defects={["D3b", "D2", "D3a", "D16", "D1"]}
+  >
+    The first version was a single group of VMs, `legacy-api`, each with its own
+    public address. SSH was opened to the internet so the founders could deploy
+    from anywhere, a bastion got a public address of its own, and everyone's
+    keys went into project metadata. During a late-night outage someone added a
+    rule allowing everything in. It fixed the outage and never came out.
+  </Origin>
+  <Origin
+    when="Year one"
+    title="A database you could reach from home"
+    defects={["D5"]}
+  >
+    Cloud SQL went in with a public IP so the team could query it from their
+    laptops. Each engineer's home broadband address went on its allow-list.
+  </Origin>
+  <Origin
+    when="Year two"
+    title="The new API moves to Cloud Run"
+    defects={["D6", "D7"]}
+  >
+    The new API shipped on Cloud Run, and its `run.app` URL worked on day one.
+    The load balancer came later, in front of it, and nobody went back to close
+    the original door. The egress setting was picked because it reached the
+    database - and it did, so nobody noticed it was wrong for everything else.
+  </Origin>
+  <Origin
+    when="Year two"
+    title="Bots hit the product pages"
+    defects={["D8", "D14", "D15"]}
+  >
+    A wave of scraping took the product pages down, so Cloudflare went in front
+    and a WAF policy went on the new API's backend. The load balancer was never
+    told to accept traffic only from Cloudflare, the old backend never got the
+    WAF, and the TLS settings stayed at their defaults.
+  </Origin>
+  <Origin
+    when="Year three"
+    title="Half of a good idea"
+    defects={["D4", "D12", "D13"]}
+  >
+    The message broker went into a private subnet with no external address - the
+    right call - but the subnet never got Private Google Access, so the broker
+    cannot reach any Google API. An internal load balancer for the legacy API
+    was planned and stalled when the create command failed, and the legacy
+    backend kept its old TCP health check.
+  </Origin>
+  <Origin when="Year three" title="A courier joins" defects={["D11"]}>
+    The delivery partner peered its network with Harbour's for a pilot,
+    expecting to read order data straight from Harbour's managed services. The
+    pilot is still waiting.
+  </Origin>
+  <Origin
+    when="Throughout"
+    title="Nothing above, nothing out"
+    defects={["D10", "D9"]}
+  >
+    Every engineer is an owner and nothing sits above the project, so any of
+    them can change any rule. No egress rule was ever written, so every machine
+    can reach anywhere on the internet.
+  </Origin>
+</Origins>
+
+## How to read it
+
+<Lede>
+  Three parts, in order. The platform first, so the names mean something; then
+  the traffic, so you see the defects doing damage; then each defect on its own.
+</Lede>
+
+<Sections />
+
+## What it covers
+
+<Columns>
+  <Column title="Routing">
+    Route types, longest-prefix versus priority, tag-scoped routes, why priority
+    never beats specificity.
+  </Column>
+  <Column title="Firewall">
+    Distributed enforcement, stateful return traffic, rule scoping, the implied
+    rules at 65535, hierarchical policies.
+  </Column>
+  <Column title="Private connectivity">
+    Private Google Access, Private Service Access, Private Service Connect - and
+    which one solves which problem.
+  </Column>
+  <Column title="Egress">
+    Cloud NAT, port exhaustion, the static egress IP pattern, and Cloud Run’s
+    two egress modes.
+  </Column>
+  <Column title="Load balancing">
+    The four axes, proxy versus passthrough, the component chain, health checks,
+    Cloud Armor’s attachment point.
+  </Column>
+  <Column title="Secure access">
+    IAP TCP forwarding, OS Login versus metadata keys, and what it takes to run
+    a VM with no external IP.
+  </Column>
+</Columns>
+
+## Where I would push back on the textbook answer
+
+<Lede>
+  Not every “correct” answer is the right one for a given system. These are the
+  places in Harbour where the standard advice deserves an argument.
+</Lede>
+
+<Arguments>
+  <Argument title="Session affinity on the legacy backend">
+    Affinity works against even balancing and breaks when the sticky backend
+    goes away. The clean fix is stateless backends with shared session state -
+    but that is an application change, not a network one. Naming which layer a
+    fix belongs to matters more than naming the fix.
+  </Argument>
+  <Argument title="PSA rather than PSC for the database">
+    PSC would have been the better original choice, because it sidesteps the
+    non-transitivity that causes D11. But the PSA peering already exists, so PSA
+    is the shorter path to a private database. Taking the shorter path knowingly
+    is a different thing from not knowing.
+  </Argument>
+  <Argument title="Network tags for firewall targeting">
+    Anyone who can edit a VM can add a tag and pull in every rule that targets
+    it. Service accounts are a real identity and much harder to attach casually.
+    Harbour uses tags everywhere, like most projects - that is convenience over
+    strength, and worth stating as a choice rather than leaving unsaid.
+  </Argument>
+  <Argument title="Two CDNs in the path">
+    Cloudflare and Cloud CDN can both cache. Running both without deciding which
+    one actually does is the common mistake, and it makes cache invalidation
+    ambiguous. The decision matters more than either answer.
+  </Argument>
+  <Argument title="DNSSEC">
+    Supported, free, and still skipped by most domains. Whether it is worth
+    enabling depends on the threat model, not on whether it is available. Not
+    every available hardening step earns its place.
+  </Argument>
+  <Argument title="Global load balancing by default">
+    Global is the GCP instinct and the geographic routing is free. Regional is
+    right when data residency or cost dominate - and choosing it deliberately is
+    a better signal than reaching for global because it is the default.
+  </Argument>
+</Arguments>
+
+## The remediation sequence
+
+<Lede>
+  Seventeen problems is a list. The order they have to be fixed in is the
+  argument. Several cannot start until another is finished, and one of them is
+  dangerous to do at any point other than last.
+</Lede>
+
+<PhaseSequence />
+
+<Lede>
+  The Map walks the whole platform through these phases. Every packet journey
+  and every defect page can be read two ways: as found, and fixed.
+</Lede>
+
+## Conventions
+
+| Thing                                 | Meaning                                                                                                         |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| <SeverityBadge severity="critical" /> | Directly exposes data or grants access to the internet                                                          |
+| <SeverityBadge severity="high" />     | Removes a protection that is assumed to be working, or breaks silently                                          |
+| <SeverityBadge severity="medium" />   | Weakens a control, or blocks a hardening step that depends on it                                                |
+| <SeverityBadge severity="low" />      | Causes confusion or a failed change rather than exposure                                                        |
+| <PhaseTag>phase 1–6</PhaseTag>        | Which step of the sequence closes it. Ordering is the point - several defects cannot be fixed until another is. |
+| As found · Fixed                      | On every journey and defect page. As found is Harbour today; Fixed is Harbour with the defects closed.          |
+| Phase rail                            | On the Map. Move along it and the boxes and defect badges change to that point in the sequence.                 |

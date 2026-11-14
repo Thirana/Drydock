@@ -171,8 +171,8 @@ export function Search({ className }: { className?: string }) {
               type="search"
               value={query}
               onChange={(e) => void search(e.target.value)}
-              placeholder="Search the chapters and the lab"
-              aria-label="Search the chapters and the lab"
+              placeholder="Search the chapters and the case study"
+              aria-label="Search the chapters and the case study"
               aria-describedby={statusId}
               autoComplete="off"
               spellCheck={false}
@@ -195,7 +195,7 @@ export function Search({ className }: { className?: string }) {
               className="text-ink-muted pt-4 text-[15px] leading-[1.5]"
             >
               {state.status === "idle" &&
-                "Every chapter and every view of the Harbour lab. Try “subnet mask”, “Cloud NAT” or “D6”."}
+                "Every chapter, and every page of the Harbour case study. Try “subnet mask”, “Cloud NAT” or “D6”."}
               {state.status === "loading" && "Searching…"}
               {state.status === "unavailable" &&
                 "Search is built with the site, so it works on the published pages and after npm run build, not in the dev server."}

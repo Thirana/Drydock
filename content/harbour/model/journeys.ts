@@ -1,0 +1,646 @@
+// Harbour's packet journeys. Each hop is shown as found, once its defect is
+// closed, or always; `packet` is what the packet looks like as the hop leaves
+// it. Addresses ending in .x are any address in that range.
+import type { Journey } from "@/lib/architecture/types";
+
+export const journeys: Journey[] = [
+  {
+    slug: "product-page",
+    title: "A shopper loads a product page",
+    shortTitle: "Product page",
+    intro:
+      "The request that pays the bills. A shopper opens a listing in the app, and the request crosses three companies' infrastructure before it reaches a database: Cloudflare's edge, Google's load balancer, then Harbour's own API. Every protection Harbour pays for sits on this path, which is why the ways around it matter.",
+    outcome: {
+      found:
+        "The page loads, and nothing a shopper would notice is wrong. But every layer on the way can be walked around, the TLS is weaker than it looks, and the last hop crosses the public internet.",
+      fixed:
+        "The page loads the same way, and now each layer is the only way in: Cloudflare is the only door to the load balancer, the load balancer is the only door to the API, and the database has no public address at all.",
+    },
+    summary: "internet → Cloudflare → ALB → harbour-api → database",
+    summaryAfter:
+      "internet → Cloudflare → ALB → harbour-api → PSA → database, private the whole way",
+    path: ["USERS", "CF", "GLB", "API", "SQL"],
+    context: ["G_VPC", "G_REGA", "G_APP", "G_MANAGED", "GCS"],
+    switchAt: "D5",
+    pathAfter: ["USERS", "CF", "GLB", "API", "PSA", "SQL"],
+    contextAfter: ["G_VPC", "G_REGA", "G_APP", "G_MANAGED", "GCS"],
+    hops: [
+      {
+        at: "CF",
+        whileOpen: "D8",
+        where: "Cloudflare",
+        what: "TLS terminates at the edge, WAF rules run, cached assets are served",
+        why: "Nothing has touched your VPC yet",
+        packet: {
+          from: "203.0.113.24 · the shopper",
+          to: "Cloudflare edge :443",
+          carries: "HTTPS · GET /products/4127",
+        },
+      },
+      {
+        at: "CF",
+        afterClosed: "D8",
+        where: "Cloudflare",
+        what: "Same work, but now the only way in - the load balancer accepts only Cloudflare’s published ranges",
+        why: "Bypassing the CDN no longer reaches the origin",
+        packet: {
+          from: "203.0.113.24 · the shopper",
+          to: "Cloudflare edge :443",
+          carries: "HTTPS · GET /products/4127",
+        },
+      },
+      {
+        at: "GLB",
+        whileOpen: "D8",
+        where: "forwarding rule",
+        what: "The request arrives at 34.120.95.195:443 and enters the load balancer",
+        why: "The LB accepts connections from any source, so the CDN and its WAF can be skipped entirely",
+        fails: true,
+        fixedBy: "D8",
+        packet: {
+          from: "172.68.x.x · Cloudflare",
+          to: "34.120.95.195:443 · the load balancer",
+          carries:
+            "A new HTTPS connection - Cloudflare opens its own to the origin",
+        },
+      },
+      {
+        at: "GLB",
+        afterClosed: "D8",
+        where: "forwarding rule",
+        what: "Same entry point, now behind a Cloud Armor rule allowing only the cloudflare-edge address group",
+        why: "The address group tracks the provider’s ranges, so the lock does not go stale",
+        packet: {
+          from: "172.68.x.x · Cloudflare",
+          to: "34.120.95.195:443 · the load balancer",
+          carries:
+            "A new HTTPS connection - Cloudflare opens its own to the origin",
+        },
+      },
+      {
+        at: "GLB",
+        whileOpen: "D15",
+        where: "target proxy",
+        what: "TLS terminates a second time, at the load balancer",
+        why: "No SSL policy is set, so it will negotiate older TLS versions with any client that asks",
+        fails: true,
+        fixedBy: "D15",
+        packet: {
+          from: "172.68.x.x · Cloudflare",
+          to: "34.120.95.195:443 · the load balancer",
+          carries: "TLS ends here · TLS 1.0 still accepted",
+        },
+      },
+      {
+        at: "GLB",
+        afterClosed: "D15",
+        where: "target proxy",
+        what: "TLS terminates with a minimum of 1.2 and a restricted cipher profile",
+        why: "Everything about TLS lives on this one object - certificate, policy, mTLS",
+        packet: {
+          from: "172.68.x.x · Cloudflare",
+          to: "34.120.95.195:443 · the load balancer",
+          carries: "TLS ends here · 1.2 minimum, restricted ciphers",
+        },
+      },
+      {
+        at: "GLB",
+        where: "URL map",
+        what: "Host and path are read, and the request is sent to api-backend-service",
+        why: "/static/* would have gone to the backend bucket instead",
+      },
+      {
+        at: "GLB",
+        where: "backend service",
+        what: "Cloud Armor inspects the request, then it goes to the serverless NEG",
+        why: "This is the only place the WAF exists - it attaches here, not to the load balancer",
+        packet: {
+          from: "Google Front End",
+          to: "harbour-api · serverless NEG",
+          carries: "X-Forwarded-For: 203.0.113.24, 172.68.x.x",
+        },
+      },
+      {
+        at: "API",
+        whileOpen: "D6",
+        where: "harbour-api",
+        what: "Cloud Run handles the request - and its run.app URL answers the internet too",
+        why: "Everything above is real and every bit of it can be walked around",
+        fails: true,
+        fixedBy: "D6",
+      },
+      {
+        at: "API",
+        afterClosed: "D6",
+        where: "harbour-api",
+        what: "Cloud Run handles the request. Ingress is internal-and-cloud-load-balancing, so the LB is the only door",
+        why: "The source IP it sees is the load balancer’s; the real client is in X-Forwarded-For",
+      },
+      {
+        at: "SQL",
+        whileOpen: "D5",
+        where: "to the database",
+        what: "The database has a public IP, so this is not a private destination",
+        why: "The query crosses the public internet and is admitted by the authorized-networks list",
+        fails: true,
+        fixedBy: "D5",
+        packet: {
+          from: "harbour-api",
+          to: "harbour-pg · public IP :5432",
+          carries: "Postgres over the internet, behind an allow-list",
+        },
+      },
+      {
+        at: "PSA",
+        afterClosed: "D5",
+        where: "PSA peering",
+        what: "The database now holds a private IP from the reserved 10.90.0.0/16 range",
+        why: "The peering already existed - Redis was using it. Only the database had to be pointed at it.",
+      },
+      {
+        at: "SQL",
+        afterClosed: "D5",
+        where: "to the database",
+        what: "The query never leaves the VPC, and the authorized-networks list is gone",
+        why: "No public IP, no allow-list to maintain, no home broadband addresses in production config",
+        packet: {
+          from: "10.10.0.x · harbour-api, by direct VPC egress",
+          to: "10.90.0.x:5432 · harbour-pg",
+          carries: "Postgres, private the whole way",
+        },
+      },
+    ],
+  },
+  {
+    slug: "health-probe",
+    title: "A health check probe arrives",
+    shortTitle: "Health probe",
+    intro:
+      "Not every packet is a customer. The legacy API still runs on a managed instance group behind the load balancer, and Google probes each instance every few seconds to decide whether it gets traffic. This journey is about what that probe actually proves.",
+    outcome: {
+      found:
+        "Healthy instances pass. So does a hung one, because the probe only checks that port 80 is open. It keeps getting traffic, fails every request, and is never replaced.",
+      fixed:
+        "The probe asks the application itself for /health. A hung instance fails, leaves rotation, and the autohealer replaces it.",
+    },
+    summary: "Google probe range → firewall → legacy-api VM",
+    path: ["HC", "G_APP", "LEGACY"],
+    context: ["G_VPC", "G_REGA", "ILB", "G_PROXY"],
+    hops: [
+      {
+        at: "HC",
+        where: "35.191.0.0/16",
+        what: "Google opens a connection to the probe port on each MIG instance",
+        why: "The probe does not come from the load balancer and does not come from your VPC",
+        packet: {
+          from: "35.191.x.x · Google's probe range",
+          to: "10.10.0.x:80 · a legacy-api instance",
+          carries: "A health probe, every few seconds",
+        },
+      },
+      {
+        at: "G_APP",
+        where: "firewall",
+        what: "allow-health-check permits the two probe ranges to VMs tagged lb-health-check",
+        why: "Without this rule every backend reads unhealthy while the app works perfectly",
+      },
+      {
+        at: "LEGACY",
+        whileOpen: "D13",
+        where: "legacy-api VM",
+        what: "A TCP connection to port 80 succeeds",
+        why: "Healthy. But this proves only that something holds the port open.",
+        packet: {
+          from: "35.191.x.x · Google's probe range",
+          to: "10.10.0.x:80 · a legacy-api instance",
+          carries: "TCP handshake only - no request is made",
+        },
+      },
+      {
+        at: "LEGACY",
+        whileOpen: "D13",
+        where: "a hung instance",
+        what: "Still accepting TCP, still returning 500 to every request",
+        why: "It passes, stays in rotation, and the autohealer leaves it alone because it uses the same check",
+        fails: true,
+        fixedBy: "D13",
+      },
+      {
+        at: "LEGACY",
+        afterClosed: "D13",
+        where: "legacy-api VM",
+        what: "An HTTP GET to /health returns 200",
+        why: "This proves the application is actually responding, not just that a port is open",
+        packet: {
+          from: "35.191.x.x · Google's probe range",
+          to: "10.10.0.x:80 · a legacy-api instance",
+          carries: "HTTP GET /health → 200",
+        },
+      },
+      {
+        at: "LEGACY",
+        afterClosed: "D13",
+        where: "a hung instance",
+        what: "/health returns 500, so the probe fails three times running",
+        why: "It leaves rotation, and the autohealer replaces it - one setting fixing both",
+        packet: {
+          from: "35.191.x.x · Google's probe range",
+          to: "10.10.0.x:80 · the hung instance",
+          carries: "HTTP GET /health → 500",
+        },
+      },
+    ],
+  },
+  {
+    slug: "card-charge",
+    title: "The API charges a card",
+    shortTitle: "Card charge",
+    intro:
+      "Harbour's payment provider, PayGate, accepts calls only from addresses it has on file. Harbour reserved two static addresses for exactly this and registered them. This journey is why payments still fail - and why they fail on some days and not others.",
+    outcome: {
+      found:
+        "The charge leaves from an address Google picks from a shared pool, not one of Harbour's two. PayGate rejects it, and no amount of allow-listing fixes that for long.",
+      fixed:
+        "The call goes through the VPC and out through Cloud NAT on one of the two reserved addresses, every time. PayGate accepts it.",
+    },
+    summary: "harbour-api → PayGate, which allow-lists your IP",
+    path: ["API", "NAT", "PAY"],
+    context: [
+      "USERS",
+      "CF",
+      "GLB",
+      "G_VPC",
+      "G_REGA",
+      "G_APP",
+      "ROUTER",
+      "G_EXT",
+      "BILL",
+      "FCM",
+    ],
+    hops: [
+      {
+        at: "API",
+        where: "harbour-api",
+        what: "Opens a connection to PayGate over HTTPS",
+        why: "PayGate is a public address, not an RFC 1918 range",
+        packet: {
+          from: "harbour-api",
+          to: "api.paygate.example :443",
+          carries: "HTTPS · POST /charges",
+        },
+      },
+      {
+        at: "API",
+        whileOpen: "D7",
+        where: "egress decision",
+        what: "private-ranges-only means internet traffic does not enter the VPC",
+        why: "It leaves through Google’s shared serverless pool instead",
+        fails: true,
+        fixedBy: "D7",
+        packet: {
+          from: "an address from Google's shared pool",
+          to: "api.paygate.example :443",
+          carries: "Never enters the VPC, so no route or rule applies",
+        },
+      },
+      {
+        at: "API",
+        afterClosed: "D7",
+        where: "egress decision",
+        what: "all-traffic sends everything through the VPC, internet included",
+        why: "Now the call follows your routes like any other VPC traffic",
+        packet: {
+          from: "10.10.0.x · harbour-api, by direct VPC egress",
+          to: "api.paygate.example :443",
+          carries: "Inside the VPC, following its routes",
+        },
+      },
+      {
+        at: "NAT",
+        whileOpen: "D7",
+        where: "Cloud NAT",
+        what: "Never involved, because the traffic never reached the VPC",
+        why: "The stable egress address exists and is simply not on this path",
+        fails: true,
+      },
+      {
+        at: "NAT",
+        afterClosed: "D7",
+        where: "Cloud NAT",
+        what: "Translates the source to one of the two manually reserved addresses",
+        why: "Manual rather than automatic, precisely so the address is stable enough to register",
+        packet: {
+          from: "harbour-egress-1 · a reserved NAT address",
+          to: "api.paygate.example :443",
+          carries: "Source rewritten by Cloud NAT",
+        },
+      },
+      {
+        at: "PAY",
+        whileOpen: "D7",
+        where: "source IP at PayGate",
+        what: "A random Google address that changes constantly",
+        why: "Not on the allow-list, so the charge is rejected",
+        fails: true,
+        packet: {
+          from: "an address from Google's shared pool",
+          to: "api.paygate.example :443",
+          carries: "Rejected - the source is not on file",
+        },
+      },
+      {
+        at: "PAY",
+        afterClosed: "D7",
+        where: "source IP at PayGate",
+        what: "One of the two reserved NAT addresses, every time",
+        why: "The allow-list holds, and it keeps holding across redeploys and scale events",
+        packet: {
+          from: "harbour-egress-1 · a reserved NAT address",
+          to: "api.paygate.example :443",
+          carries: "Accepted - the source is on file",
+        },
+      },
+    ],
+  },
+  {
+    slug: "nightly-job",
+    title: "The nightly job runs",
+    shortTitle: "Nightly job",
+    intro:
+      "Every night a job gathers the day's orders and queues them for the sellers' payouts. It touches a scheduler, a secret and a message broker - and, without anyone planning it, the logging API. The broken part is not on the job's path at all. It is beside it.",
+    outcome: {
+      found:
+        "The job runs and the work reaches the broker. But the broker cannot reach any Google API, so its own logs never arrive. Nothing fails loudly until someone needs those logs.",
+      fixed:
+        "The same path. The broker's subnet now has Private Google Access, so it writes its logs with no external address.",
+    },
+    summary: "Cloud Scheduler → harbour-jobs → broker + Secret Manager",
+    path: ["SCHED", "JOBS", "SECRET", "RABBIT", "G_DATA"],
+    context: ["G_VPC", "G_REGA", "G_APP", "G_DATA", "G_APIS", "GCS"],
+    hops: [
+      {
+        at: "SCHED",
+        where: "Cloud Scheduler",
+        what: "Fires an authenticated request with an OIDC token",
+        why: "Ingress on the job service is internal-and-cloud-load-balancing, so the public URL is closed",
+        packet: {
+          from: "Cloud Scheduler",
+          to: "harbour-jobs :443",
+          carries: "HTTPS · Authorization: Bearer <OIDC token>",
+        },
+      },
+      {
+        at: "SECRET",
+        where: "harbour-jobs",
+        what: "Reads credentials from Secret Manager",
+        why: "Its subnet has PGA on, so this works with no external IP",
+        packet: {
+          from: "harbour-jobs",
+          to: "secretmanager.googleapis.com :443",
+          carries: "A Google API call, no public address needed",
+        },
+      },
+      {
+        at: "RABBIT",
+        where: "to the broker",
+        what: "Publishes work onto rabbitmq-1 at 10.10.17.x",
+        why: "Two firewall checks: the job service’s egress, then the broker’s ingress",
+        packet: {
+          from: "10.10.0.x · harbour-jobs",
+          to: "10.10.17.x:5672 · rabbitmq-1",
+          carries: "AMQP · the night's payout batch",
+        },
+      },
+      {
+        at: "G_DATA",
+        whileOpen: "D4",
+        where: "broker side effect",
+        what: "The broker tries to write its own logs",
+        why: "sn-a-data has PGA off and the VM has no external IP, so it cannot reach the logging API at all",
+        fails: true,
+        fixedBy: "D4",
+        packet: {
+          from: "10.10.17.x · rabbitmq-1",
+          to: "logging.googleapis.com :443",
+          carries: "No way out: no external IP, no Private Google Access",
+        },
+      },
+      {
+        at: "G_DATA",
+        afterClosed: "D4",
+        where: "broker side effect",
+        what: "The broker writes its logs over Private Google Access",
+        why: "One subnet flag. Doing half of the no-external-IP design was worse than doing none of it.",
+        packet: {
+          from: "10.10.17.x · rabbitmq-1",
+          to: "logging.googleapis.com :443",
+          carries: "Over Private Google Access",
+        },
+      },
+    ],
+  },
+  {
+    slug: "ssh-session",
+    title: "An engineer opens an SSH session",
+    shortTitle: "SSH session",
+    intro:
+      "An engineer needs a shell on the message broker to look at a stuck queue. As found, they SSH to the bastion's public address and hop on from there. The fixed design is not the same route with a lock on it. It is a different route.",
+    outcome: {
+      found:
+        "It works - and it would work for anyone on the internet holding a key. Port 22 is open to everyone, and the log records that a key was used, not who used it.",
+      fixed:
+        "The engineer proves who they are to Google first, then gets a tunnel. No VM has a public address, and the log names the person.",
+    },
+    summary: "laptop → public IP → bastion",
+    summaryAfter: "laptop → IAP tunnel → VM, no public IP anywhere",
+    path: ["BASTION", "RABBIT"],
+    context: ["G_VPC", "G_REGA", "G_MGMT", "G_DATA", "G_APP"],
+    switchAt: "D2",
+    pathAfter: ["IAP", "BASTION", "RABBIT"],
+    noteAfter:
+      "Not the same route made to work. The bastion stops being a box you reach and becomes a box you are tunnelled into - its public address is deleted, not narrowed.",
+    hops: [
+      {
+        at: "BASTION",
+        whileOpen: "D2",
+        where: "the bastion's public address",
+        what: "The bastion has an external IP and port 22 is open to 0.0.0.0/0",
+        why: "Anyone on the internet can attempt authentication. The only thing between them and a shell is the key.",
+        fails: true,
+        fixedBy: "D2",
+        packet: {
+          from: "198.51.100.7 · the engineer, at home",
+          to: "the bastion's public IP :22",
+          carries: "SSH, open to any source address",
+        },
+      },
+      {
+        at: "IAP",
+        afterClosed: "D2",
+        where: "gcloud",
+        what: "--tunnel-through-iap authenticates you to Google first",
+        why: "Access is decided by who you are, not by whether you can reach an IP",
+        packet: {
+          from: "the engineer's laptop",
+          to: "tunnel.cloudproxy.app :443",
+          carries: "HTTPS, with the engineer's Google identity",
+        },
+      },
+      {
+        at: "IAP",
+        afterClosed: "D2",
+        where: "IAP",
+        what: "Checks whether your identity holds roles/iap.tunnelResourceAccessor",
+        why: "roles/editor does not include it. This is the check people assume their broad access covers.",
+      },
+      {
+        at: "IAP",
+        afterClosed: "D2",
+        where: "35.235.240.0/20",
+        what: "An encrypted tunnel opens to the VM’s port 22 from IAP’s own fixed range",
+        why: "The firewall allows only this range, and traffic originates here only after the identity check passed",
+        packet: {
+          from: "35.235.240.x · IAP",
+          to: "10.10.16.x:22 · the bastion",
+          carries: "SSH, inside the tunnel",
+        },
+      },
+      {
+        at: "BASTION",
+        whileOpen: "D16",
+        where: "the VM",
+        what: "The VM still decides who may log in, and as which user",
+        why: "Metadata SSH keys, so the log records that a key was used, not who used it",
+        fails: true,
+        fixedBy: "D16",
+      },
+      {
+        at: "BASTION",
+        afterClosed: "D16",
+        where: "the VM",
+        what: "OS Login derives the Linux user from your Google identity",
+        why: "Revoking roles/compute.osLogin removes access to every VM at once, and the log names the person",
+      },
+      {
+        at: "BASTION",
+        afterClosed: "D3a",
+        where: "no public address",
+        what: "The external IP is gone entirely",
+        why: "IAP covers inbound, PGA covers Google APIs, Cloud NAT covers the internet. All three, or none of it works.",
+      },
+      {
+        afterClosed: "D2",
+        where: "when it fails",
+        what: "The API, the role and the firewall rule must all three be true",
+        why: "Miss one and it fails, often looking like a different problem. --troubleshoot checks all three at once.",
+      },
+      {
+        at: "RABBIT",
+        where: "onward",
+        what: "From this VM to rabbitmq-1 on 22",
+        why: "Still two firewall checks. Being inside the VPC grants nothing on its own.",
+        packet: {
+          from: "10.10.16.x · the bastion",
+          to: "10.10.17.x:22 · rabbitmq-1",
+          carries: "SSH, one hop further in",
+        },
+      },
+    ],
+  },
+  {
+    slug: "partner-database",
+    title: "The partner network reaches the database",
+    shortTitle: "Partner → DB",
+    intro:
+      "Harbour's delivery partner runs its own VPC, peered to Harbour's, and wants to read order state straight from Harbour's managed cache. Everyone involved assumes the peering makes that possible. It cannot, and no setting changes that.",
+    outcome: {
+      found:
+        "The partner's traffic is dropped without a word at the second peering. No firewall rule or route can let it through.",
+      fixed:
+        "The partner reaches the service through a Private Service Connect endpoint in its own network. Nothing is peered on that path, so nothing has to chain.",
+    },
+    summary: "partner-vpc → peering → harbour-vpc → ✗",
+    summaryAfter: "partner-vpc → its own PSC endpoint → published service",
+    path: ["PARTNER", "PEER", "PSA", "REDIS"],
+    context: ["G_VPC", "G_MANAGED", "PSC", "SQL"],
+    switchAt: "D11",
+    pathAfter: ["PARTNER", "PSC", "REDIS"],
+    contextAfter: ["G_VPC", "G_MANAGED", "PEER", "SQL", "PSA"],
+    noteAfter:
+      "A different design, not the same path repaired. The peering stays for what it is good at; the database is reached by a path of its own.",
+    hops: [
+      {
+        at: "PARTNER",
+        whileOpen: "D11",
+        where: "partner-vpc",
+        what: "Sends traffic to the Redis private IP in 10.90.0.0/16",
+        why: "The partner is peered to your VPC and assumes that is enough",
+        packet: {
+          from: "172.20.x.x · partner-vpc",
+          to: "10.90.x.x:6379 · harbour-cache",
+          carries: "Redis, aimed through two peerings",
+        },
+      },
+      {
+        at: "PEER",
+        whileOpen: "D11",
+        where: "peering",
+        what: "Peering carries traffic between the two directly connected VPCs",
+        why: "Your subnet routes are shared with them, so they can reach your VMs",
+      },
+      {
+        at: "PSA",
+        whileOpen: "D11",
+        where: "the PSA hop",
+        what: "Redis lives in Google’s managed VPC, reached over a second peering",
+        why: "Peering does not chain. Traffic cannot cross two peerings, so this can never work.",
+        fails: true,
+        fixedBy: "D11",
+        packet: {
+          from: "172.20.x.x · partner-vpc",
+          to: "10.90.x.x:6379 · harbour-cache",
+          carries: "Dropped - there is no route across a second peering",
+        },
+      },
+      {
+        at: "REDIS",
+        whileOpen: "D11",
+        where: "never reached",
+        what: "No firewall rule or route can change the outcome",
+        why: "This is structural, not configuration - which is why the fix is a different path, not a different rule",
+        fails: true,
+      },
+      {
+        at: "PARTNER",
+        afterClosed: "D11",
+        where: "partner-vpc",
+        what: "Creates a PSC endpoint in its own network, pointing at a service attachment you publish",
+        why: "The endpoint is an IP in their subnet, with their own firewall rules on it",
+        packet: {
+          from: "172.20.x.x · partner-vpc",
+          to: "172.20.x.y:6379 · their own PSC endpoint",
+          carries: "An address in the partner's own subnet",
+        },
+      },
+      {
+        at: "PSC",
+        afterClosed: "D11",
+        where: "service attachment",
+        what: "You publish the service and accept their connection explicitly",
+        why: "Nothing is peered, so there is no transitivity to run into",
+      },
+      {
+        at: "REDIS",
+        afterClosed: "D11",
+        where: "reached",
+        what: "Traffic arrives without either side exposing anything to the internet",
+        why: "This is why PSC would have been the better original choice for the database too",
+        packet: {
+          from: "an address from Harbour's PSC NAT subnet",
+          to: "harbour-cache :6379",
+          carries: "Neither side sees the other's network",
+        },
+      },
+    ],
+  },
+];

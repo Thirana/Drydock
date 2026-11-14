@@ -5,7 +5,7 @@ const GREEN = "url(#dd-ah-green)";
 const FAULT = "url(#dd-ah-fault)";
 
 /** Defect IDs on a box's top-right edge, as the lab draws them; closed ones struck. */
-function Tag({
+export function Tag({
   x,
   y,
   ids,

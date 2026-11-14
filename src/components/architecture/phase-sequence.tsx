@@ -1,19 +1,14 @@
 import Link from "next/link";
 import type { ArchitectureModel } from "@/lib/architecture/types";
+import { defectHref } from "@/lib/content/harbour-routes";
 import { cn } from "@/lib/utils";
 
 /**
  * The remediation sequence as a route: a stop per phase, why it sits where it
- * does, and the defects it closes, each linked to its register entry with
- * what it waits for.
+ * does, and the defects it closes, each linked to its own page with what it
+ * waits for.
  */
-export function PhaseSequence({
-  model,
-  defectsHref,
-}: {
-  model: ArchitectureModel;
-  defectsHref?: string;
-}) {
+export function PhaseSequence({ model }: { model: ArchitectureModel }) {
   const steps = model.phases.filter((p) => p.number > 0);
   return (
     <ol className="not-prose my-10 max-w-[760px]">
@@ -85,16 +80,12 @@ export function PhaseSequence({
                     "grid grid-cols-[48px_minmax(0,1fr)] items-baseline gap-x-2 py-2.5";
                   return (
                     <li key={d.id} className="border-rule border-b">
-                      {defectsHref ? (
-                        <Link
-                          href={`${defectsHref}#${d.id}`}
-                          className={cn("group", grid)}
-                        >
-                          {row}
-                        </Link>
-                      ) : (
-                        <div className={grid}>{row}</div>
-                      )}
+                      <Link
+                        href={defectHref(d.id)}
+                        className={cn("group", grid)}
+                      >
+                        {row}
+                      </Link>
                     </li>
                   );
                 })}

@@ -13,7 +13,6 @@ import { PhaseRail } from "./phase-rail";
 
 interface MapExplorerProps {
   model: ArchitectureModel;
-  defectsHref: string;
   invite?: string;
   overviewTitle?: string;
   /** Shown in the detail panel while nothing is selected. */
@@ -22,7 +21,6 @@ interface MapExplorerProps {
 
 export function MapExplorer({
   model,
-  defectsHref,
   invite,
   overviewTitle,
   children,
@@ -95,7 +93,6 @@ export function MapExplorer({
           <ComponentPanel
             model={model}
             id={selected}
-            defectsHref={defectsHref}
             onBack={() => select(null)}
           />
         ) : (
@@ -118,7 +115,7 @@ export function MapExplorer({
       </section>
 
       <div className="border-rule border-t pt-8">
-        <PhaseCard model={model} phase={phase} defectsHref={defectsHref} />
+        <PhaseCard model={model} phase={phase} />
       </div>
     </div>
   );

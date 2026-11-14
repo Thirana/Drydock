@@ -4,13 +4,7 @@ import { DefectLink } from "./defect-link";
 import { FactList } from "./fact-list";
 
 /** Every component sheet as a card, grouped by section. */
-export function ComponentSheets({
-  model,
-  defectsHref,
-}: {
-  model: ArchitectureModel;
-  defectsHref: string;
-}) {
+export function ComponentSheets({ model }: { model: ArchitectureModel }) {
   const boxes = boxIndex(model);
   const sheets = Object.entries(model.componentSheets);
 
@@ -49,11 +43,7 @@ export function ComponentSheets({
                       {box?.defects && (
                         <div className="flex flex-wrap gap-1.5">
                           {box.defects.map((d) => (
-                            <DefectLink
-                              key={d}
-                              id={d}
-                              defectsHref={defectsHref}
-                            />
+                            <DefectLink key={d} id={d} />
                           ))}
                         </div>
                       )}

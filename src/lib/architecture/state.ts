@@ -17,10 +17,18 @@ export function closedDefects(model: Pick<MapModel, "defects">, phase: number) {
 
 /** Box id → merged patch from every defect closed at or before `phase`. */
 export function patchesAt(model: Pick<MapModel, "defects">, phase: number) {
+  return patchesFor(model, closedDefects(model, phase));
+}
+
+/** Box id → merged patch from every defect in `closed`, applied in phase order. */
+export function patchesFor(
+  model: Pick<MapModel, "defects">,
+  closed: ReadonlySet<string>,
+) {
   const patches: Record<string, BoxPatch> = {};
   [...model.defects]
     .sort((a, b) => a.phase - b.phase)
-    .filter((d) => d.phase <= phase)
+    .filter((d) => closed.has(d.id))
     .forEach((d) => {
       for (const [id, patch] of Object.entries(d.applies)) {
         patches[id] = { ...patches[id], ...patch };
@@ -37,7 +45,7 @@ export type ResolvedBox<T extends ArchGroup | ArchNode> = T & {
 export function resolveBox<T extends ArchGroup | ArchNode>(
   box: T,
   patches: Record<string, BoxPatch>,
-  closed: Set<string>,
+  closed: ReadonlySet<string>,
 ): ResolvedBox<T> {
   return {
     ...box,
@@ -49,7 +57,7 @@ export function resolveBox<T extends ArchGroup | ArchNode>(
 /** An edge as it looks at a phase, or null if it does not exist then. */
 export function resolveEdge(
   edge: ArchEdge,
-  closed: Set<string>,
+  closed: ReadonlySet<string>,
 ): ArchEdge | null {
   if (edge.closedBy && closed.has(edge.closedBy)) return null;
   if (edge.opensWith && !closed.has(edge.opensWith)) return null;

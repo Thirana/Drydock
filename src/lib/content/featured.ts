@@ -12,8 +12,16 @@ import type {
   Severity,
   Side,
 } from "@/lib/architecture/types";
-import { allTracks, labHref, trackHref, viewHref } from "./registry";
-import { trackStats, type TrackStats } from "./stats";
+import {
+  defectHref,
+  defectsHref,
+  harbour,
+  harbourHref,
+  journeysHref,
+  platformHref,
+  sections,
+} from "./harbour";
+import { caseStats, type CaseStats } from "./stats";
 import type { IconName } from "./types";
 
 export interface FeaturedDefect {
@@ -44,17 +52,17 @@ export interface FollowedDefect extends FeaturedDefect {
   remediation: string;
 }
 
-/** Serializable snapshot of one track, for marketing previews. */
+/** Serializable snapshot of the case study, for marketing previews. */
 export interface FeaturedTrack {
-  provider: string;
-  lab: string;
-  track: string;
+  /** The case study's name. */
+  name: string;
   href: string;
-  /** The lab's own page, where the long walkthrough lives. */
-  labHref: string;
   mapHref: string;
+  journeysHref: string;
   defectsHref: string;
-  totals: TrackStats;
+  /** The followed defect's own page. */
+  followedHref: string;
+  totals: CaseStats;
   phases: {
     number: number;
     name: string;
@@ -96,12 +104,12 @@ export interface FeaturedTrack {
   blocked?: { defect: FeaturedDefect; blockers: FeaturedDefect[] };
   /** The first phase where the wrong order causes an outage. */
   riskiest?: { number: number; name: string; verify: string };
-  views: {
-    slug: string;
+  /** The case study's parts after the overview. */
+  sections: {
     href: string;
-    title: string;
+    label: string;
     description: string;
-    icon?: IconName;
+    icon: IconName;
   }[];
 }
 
@@ -112,12 +120,11 @@ const SIDE: Record<FeaturedCallout["placement"], Side> = {
   right: "r",
 };
 
-/** The first architecture track in the registry. */
+/** The case study, condensed for the home page. */
 export function getFeaturedTrack(): FeaturedTrack | undefined {
-  const ctx = allTracks().find((c) => c.track.architecture);
-  const model = ctx?.track.architecture;
-  const totals = ctx && trackStats(ctx.track);
-  if (!ctx || !model || !totals || !model.defects.length) return undefined;
+  const model = harbour.architecture;
+  const totals = caseStats(model);
+  if (!model.defects.length) return undefined;
 
   const boxes = boxIndex(model);
   const defectById = new Map(model.defects.map((d) => [d.id, d]));
@@ -134,11 +141,6 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
     before: d.before,
     after: d.after,
   });
-  const hrefFor = (slug: string) =>
-    ctx.track.views.some((v) => v.slug === slug)
-      ? viewHref(ctx, slug)
-      : trackHref(ctx);
-
   const sortedPhases = [...model.phases].sort((a, b) => a.number - b.number);
   let closedSoFar = 0;
   const phases = sortedPhases.map((p) => {
@@ -182,13 +184,12 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
   );
 
   return {
-    provider: ctx.provider.name,
-    lab: ctx.lab.title,
-    track: ctx.track.title,
-    href: trackHref(ctx),
-    labHref: labHref(ctx),
-    mapHref: hrefFor("map"),
-    defectsHref: hrefFor("defects"),
+    name: harbour.title,
+    href: harbourHref,
+    mapHref: platformHref,
+    journeysHref,
+    defectsHref,
+    followedHref: defectHref(followedSource.id),
     totals,
     phases,
     trims: model.defects.map((d) => ({
@@ -252,13 +253,7 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
       name: riskiest.name,
       verify: riskiest.verify,
     },
-    views: ctx.track.views.slice(1).map((v) => ({
-      slug: v.slug,
-      href: viewHref(ctx, v.slug),
-      title: v.title,
-      description: v.description,
-      icon: v.icon,
-    })),
+    sections: sections.slice(1),
   };
 }
 

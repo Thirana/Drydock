@@ -25,12 +25,10 @@ import {
   courseHref,
   getCourse,
 } from "@/lib/content/learn";
+import { PUSH_BACK_ANCHOR } from "@/lib/content/harbour-routes";
 
 /** Distinct interactive figures across both courses. */
 const WIDGETS = 158;
-
-/** The About section where the standard advice gets argued with. */
-const PUSH_BACK_ANCHOR = "where-i-would-push-back-on-the-textbook-answer";
 
 export default function HomePage() {
   const featured = getFeaturedTrack();
@@ -59,9 +57,10 @@ function Hero() {
             Learn how networks work. Then fix one that doesn’t.
           </h1>
           <p className="text-ink-body mt-6 max-w-[44ch] text-[19px] leading-[1.5] text-pretty sm:text-[20px]">
-            Two courses and a lab, in order. Follow one request from a laptop to
-            a server, see how Google Cloud does the same job, then fix a
-            platform I built wrong on purpose. Free, with no sign-up.
+            Two courses and a case study, in order. Follow one request from a
+            laptop to a server, see how Google Cloud does the same job, then
+            take apart a platform I built wrong on purpose. Free, with no
+            sign-up.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-3">
             {first && (
@@ -213,9 +212,9 @@ function Path() {
       <FadeIn className="max-w-[720px]">
         <Intro id="path-title" title="Three stages, in this order.">
           <p>
-            The courses teach and the lab tests. Each stage uses what the one
-            before it taught, and the lab’s defects link back to the chapter
-            that explains them.
+            The courses teach and the case study puts it to work. Each stage
+            uses what the one before it taught, and every defect in the case
+            study links back to the chapter that explains it.
           </p>
         </Intro>
       </FadeIn>
@@ -326,7 +325,7 @@ function KadeMaps() {
   return <MapSwitch views={views} />;
 }
 
-/** The lab, condensed: one defect followed from finding to fix, in the same frame as the five steps. */
+/** The case study, condensed: one defect followed from finding to fix, in the same frame as the five steps. */
 function Harbour({ featured }: { featured: FeaturedTrack }) {
   const d = featured.followed.defect;
   const { blockers } = featured.followed;
@@ -353,21 +352,25 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
             id="harbour-title"
             className="dd-head text-ink text-[28px] sm:text-[32px]"
           >
-            Then prove it on {featured.lab}.
+            Then see it in a real platform.
           </h2>
           <p className="text-ink-body mt-4 text-[18px] leading-[1.6] text-pretty">
-            {featured.lab} is a marketplace platform on Google Cloud with{" "}
-            {featured.totals.defects} defects planted on purpose. Knowing each
-            fix is the easy half: the fixes block each other, so the order is
-            the argument.
+            {featured.name} is a marketplace on Google Cloud with{" "}
+            {featured.totals.defects} defects planted on purpose. Follow its
+            traffic through {featured.totals.journeys} packet journeys, as found
+            and fixed, then take each defect apart. Knowing each fix is the easy
+            half: the fixes block each other, so the order is the argument.
           </p>
           <p className="text-ink-body mt-3 text-[18px] leading-[1.6] text-pretty">
-            Here is one of them, {d.id}, followed the way the lab follows all{" "}
-            {featured.totals.defects}.
+            Here is one of them,{" "}
+            <Link href={featured.followedHref} className="dd-link">
+              {d.id}
+            </Link>
+            , followed from finding to fix.
           </p>
           <HarbourPhone defect={d} order={order} />
           <p className="text-ink-muted mt-5 text-[16px] leading-[1.55] text-pretty">
-            I’m Thirana. I broke {featured.lab} on purpose, and{" "}
+            I’m Thirana. I broke {featured.name} on purpose, and{" "}
             <Link
               href={`${featured.href}#${PUSH_BACK_ANCHOR}`}
               className="dd-link"
@@ -378,14 +381,14 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
             <ButtonLink
-              href={featured.labHref}
+              href={featured.href}
               size="lg"
               trailing={<IconArrow size={14} />}
             >
-              Open {featured.lab}
+              Open the case study
             </ButtonLink>
-            <ButtonLink href={featured.defectsHref} variant="ghost" size="lg">
-              Read the defect register
+            <ButtonLink href={featured.journeysHref} variant="ghost" size="lg">
+              Follow a packet
             </ButtonLink>
           </div>
         </FadeIn>

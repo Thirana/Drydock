@@ -24,8 +24,7 @@ const CHIP_OFFSET: Record<FeaturedCallout["placement"], string> = {
 
 type HeroMapProps = Pick<
   FeaturedTrack,
-  | "lab"
-  | "track"
+  | "name"
   | "mapHref"
   | "map"
   | "phases"
@@ -40,8 +39,7 @@ type HeroMapProps = Pick<
  * healthy, crossing off defects, and the map beneath it changes in step.
  */
 export function HeroMap({
-  lab,
-  track,
+  name,
   mapHref,
   map,
   phases,
@@ -93,7 +91,7 @@ export function HeroMap({
           setPlaying(false);
           setIndex(phases.findIndex((p) => p.number === n));
         }}
-        label={`${lab} · ${track}`}
+        label={name}
         controls={
           reduced ? undefined : (
             <button
@@ -118,7 +116,7 @@ export function HeroMap({
             className="flex min-w-0 flex-wrap items-baseline gap-x-4"
           >
             <span className="text-ink text-[16px] font-bold">
-              {lab} after move {current.number}
+              {name} after move {current.number}
             </span>
             <span className="text-ink-muted text-[15px]">
               {current.number === 0 ? "As found" : current.name}

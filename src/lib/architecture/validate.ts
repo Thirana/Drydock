@@ -63,8 +63,13 @@ export function validateArchitecture(name: string, model: ArchitectureModel) {
     Object.keys(d.applies).forEach((id) => box(id, `defect ${d.id} applies`));
   }
 
+  const slugs = new Set<string>();
   for (const j of model.journeys) {
     const where = `journey "${j.shortTitle}"`;
+    if (!/^[a-z0-9-]+$/.test(j.slug))
+      errors.push(`${where}: slug "${j.slug}" is not URL-safe`);
+    if (slugs.has(j.slug)) errors.push(`${where}: duplicate slug "${j.slug}"`);
+    slugs.add(j.slug);
     [
       ...j.path,
       ...(j.context ?? []),

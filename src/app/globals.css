@@ -745,6 +745,35 @@
     opacity: 0.4;
   }
 
+  /* A drawing shown at a third of its size as a locator: no words, only
+     boxes, wires, route numbers and crosses, with strokes that survive the
+     shrink. */
+  .dd-fig.dd-mini svg {
+    min-width: 0;
+  }
+  .dd-mini text:not(.bn):not(.x) {
+    display: none;
+  }
+  .dd-mini text.x {
+    font-size: 44px;
+  }
+  .dd-mini .n,
+  .dd-mini .zone {
+    stroke-width: 3;
+  }
+  .dd-mini .zone {
+    stroke-dasharray: 12 10;
+  }
+  .dd-mini .n.cur {
+    stroke-width: 8;
+  }
+  .dd-mini .w {
+    stroke-width: 4;
+  }
+  .dd-mini circle.badge {
+    stroke-width: 3;
+  }
+
   /* Arrowhead fills, used by the markers in <DiagramDefs />. */
   .dd-mk-muted {
     fill: var(--dd-ink-faint);

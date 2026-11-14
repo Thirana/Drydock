@@ -6,19 +6,23 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface ViewStripProps {
-  slate: { href: string; lab: string; track: string; provider: string };
-  frames: { href: string; label: string }[];
+  slate: { href: string; title: string; sub: string };
+  /** A frame is current on its own URL and every URL below it, unless `exact`. */
+  frames: { href: string; label: string; exact?: boolean }[];
 }
 
-/** A track's views written as one line of numbered moves; the current one is blue. */
+/** Some static hosts serve "/harbour" as "/harbour.html", or add a slash. */
+const clean = (path: string) => path.replace(/(\.html|\/)$/, "") || "/";
+
+/** A section's parts written as one line of numbered moves; the current one is blue. */
 export function ViewStrip({ slate, frames }: ViewStripProps) {
-  const pathname = usePathname();
+  const pathname = clean(usePathname());
   const listRef = useRef<HTMLOListElement>(null);
 
-  // Keep the current view in sight on narrow screens.
+  // Keep the current part in sight on narrow screens.
   useEffect(() => {
     listRef.current
-      ?.querySelector<HTMLElement>("[aria-current=page]")
+      ?.querySelector<HTMLElement>("[aria-current]")
       ?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [pathname]);
 
@@ -29,21 +33,24 @@ export function ViewStrip({ slate, frames }: ViewStripProps) {
           href={slate.href}
           className="text-ink-muted hover:text-ink hidden shrink-0 py-3 text-[15px] transition-colors lg:block"
         >
-          <span className="text-ink font-semibold">{slate.lab}</span> ·{" "}
-          {slate.track}
+          <span className="text-ink font-semibold">{slate.title}</span> ·{" "}
+          {slate.sub}
         </Link>
-        <nav aria-label="Track views" className="min-w-0 flex-1">
+        <nav aria-label={`${slate.title} sections`} className="min-w-0 flex-1">
           <ol
             ref={listRef}
             className="no-scrollbar flex gap-x-6 overflow-x-auto lg:justify-end"
           >
             {frames.map((frame, i) => {
-              const active = pathname === frame.href;
+              const exact = pathname === frame.href;
+              const active =
+                exact ||
+                (!frame.exact && pathname.startsWith(`${frame.href}/`));
               return (
                 <li key={frame.href} className="shrink-0">
                   <Link
                     href={frame.href}
-                    aria-current={active ? "page" : undefined}
+                    aria-current={exact ? "page" : active ? "true" : undefined}
                     className={cn(
                       "flex min-h-12 items-center gap-1.5 border-b-2 text-[15px] whitespace-nowrap transition-colors",
                       active

@@ -5,11 +5,9 @@ import { DefectLink } from "./defect-link";
 export function PhaseCard({
   model,
   phase,
-  defectsHref,
 }: {
   model: ArchitectureModel;
   phase: number;
-  defectsHref: string;
 }) {
   const p = model.phases.find((x) => x.number === phase);
   if (!p) return null;
@@ -41,7 +39,7 @@ export function PhaseCard({
             {closes.map((d, i) => (
               <span key={d.id}>
                 {i > 0 && (i === closes.length - 1 ? " and " : ", ")}
-                <DefectLink id={d.id} defectsHref={defectsHref} />
+                <DefectLink id={d.id} />
               </span>
             ))}
             .

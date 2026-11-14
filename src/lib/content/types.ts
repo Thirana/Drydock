@@ -2,59 +2,46 @@ import type { MDXContent } from "mdx/types";
 import type { ArchitectureModel } from "@/lib/architecture/types";
 
 /**
- * Content hierarchy: provider → lab → track → view.
+ * The case study: one fictional platform, read in three parts.
  *
- *   /gcp                        provider (Google Cloud)
- *   /gcp/harbour                lab      (one fictional platform)
- *   /gcp/harbour/network        track    (one concern: network, later IAM, …)
- *   /gcp/harbour/network/map    view     (one page of a track)
+ *   /harbour                        overview: the business and how it got this way
+ *   /harbour/platform               the map; /harbour/platform/<page> for the rest
+ *   /harbour/journeys/<journey>     one packet journey, as found or fixed
+ *   /harbour/defects/<defect>       one defect: what it is, what it breaks, the fix
  */
 
-/** Icons a view can use in navigation (see src/components/ui/icons.tsx). */
+/** Icons a page can use in navigation (see src/components/ui/icons.tsx). */
 export type IconName =
   "book" | "map" | "grid" | "server" | "layers" | "route" | "alert";
 
-export interface TrackView {
+/** One page of the platform section, written in MDX. */
+export interface PlatformPage {
   slug: string;
   title: string;
-  /** Used for page metadata and view cards. */
+  /** Used for page metadata and section lists. */
   description: string;
-  /** Opening paragraph under the view's title. Falls back to `description`. */
+  /** Opening paragraph under the page's title. Falls back to `description`. */
   lead?: string;
   icon?: IconName;
   Content: MDXContent;
 }
 
-export interface Track {
-  slug: string;
-  /** Short name, e.g. "Network". */
+export interface CaseStudy {
   title: string;
-  /** Page heading, e.g. "Harbour - GCP network reference architecture". */
+  /** What it is, in a few words. */
+  kind: string;
+  /** The overview's heading. */
   heading: string;
   summary: string;
+  /** Said once, at the foot of every page. */
+  disclaimer: string;
   meta: { label: string; value: string }[];
-  /** The first view is the track's index page. */
-  views: [TrackView, ...TrackView[]];
-  /**
-   * Data behind the interactive map, journeys and defect register. Tracks
-   * with a different shape (e.g. IAM) add their own optional model here.
-   */
-  architecture?: ArchitectureModel;
-}
-
-export interface Lab {
-  slug: string;
-  title: string;
-  summary: string;
-  disclaimer?: string;
-  tracks: Track[];
-}
-
-export interface Provider {
-  slug: string;
-  name: string;
-  summary: string;
-  labs: Lab[];
+  /** The overview, after its header. */
+  Overview: MDXContent;
+  /** The first page is the platform section's index. */
+  platform: [PlatformPage, ...PlatformPage[]];
+  /** Data behind the map, the journeys and the defects. */
+  architecture: ArchitectureModel;
 }
 
 /**
