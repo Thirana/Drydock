@@ -1,7 +1,7 @@
 import { ScrollX } from "@/components/learn/scroll-x";
 
 /** A red numbered dot: one of the problems GCP chapter 0 lists. */
-function Bad({ n, x, y }: { n: number; x: number; y: number }) {
+export function Bad({ n, x, y }: { n: number; x: number; y: number }) {
   return (
     <>
       <circle className="bad" cx={x} cy={y} r="8" />
@@ -20,7 +20,7 @@ const RULES: { name: string; ports: string; from: string; bad?: number }[] = [
 ];
 
 /** A box with a title and up to two sub-lines, spaced like the course drawings. */
-function Box({
+export function Box({
   x,
   y,
   w,
@@ -64,7 +64,7 @@ function Box({
  * course vocabulary: real addresses, the firewall table, and the problems
  * chapter 0 numbers.
  */
-function KadeAsFound() {
+export function KadeAsFound() {
   return (
     <svg
       viewBox="0 0 660 560"

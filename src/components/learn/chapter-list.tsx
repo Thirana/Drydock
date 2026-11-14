@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { chapterHref, isPublished } from "@/lib/content/learn";
 import type { Course } from "@/lib/content/types";
+import { OpenedMark } from "./opened-mark";
 
 /** A course's chapters grouped by part, each a numbered move with its lead. */
 export function ChapterList({ course }: { course: Course }) {
@@ -9,9 +10,14 @@ export function ChapterList({ course }: { course: Course }) {
       {course.parts.map((part) => {
         const chapters = course.chapters.filter((c) => c.part === part.id);
         return (
-          <section key={part.id} aria-labelledby={`part-${part.id}`}>
+          <section
+            key={part.id}
+            id={`part-${part.id}`}
+            aria-labelledby={`part-${part.id}-title`}
+            className="scroll-mt-8"
+          >
             <h2
-              id={`part-${part.id}`}
+              id={`part-${part.id}-title`}
               className="text-ink border-ink border-b pb-3 text-[22px] leading-[1.25] font-bold"
             >
               {part.title}
@@ -49,11 +55,24 @@ export function ChapterList({ course }: { course: Course }) {
                       >
                         {chapter.lead}
                       </span>
-                      <span className="text-ink-muted mt-1.5 block text-[14px]">
-                        {published
-                          ? `${chapter.minutes} min read`
-                          : "Not published yet"}
-                      </span>
+                      {!published && (
+                        <span className="text-ink-muted mt-1.5 block text-[14px]">
+                          Not published yet
+                        </span>
+                      )}
+                    </span>
+                    <span className="col-start-2 mt-1.5 flex items-center gap-x-3 sm:col-start-3 sm:mt-0 sm:block sm:text-right">
+                      {published && (
+                        <>
+                          <span className="text-ink-muted font-mono text-[13.5px] whitespace-nowrap sm:block">
+                            {chapter.minutes} min
+                          </span>
+                          <OpenedMark
+                            course={course.slug}
+                            chapter={chapter.slug}
+                          />
+                        </>
+                      )}
                     </span>
                   </>
                 );
@@ -62,12 +81,12 @@ export function ChapterList({ course }: { course: Course }) {
                     {published ? (
                       <Link
                         href={chapterHref({ course, chapter })}
-                        className="group grid grid-cols-[48px_minmax(0,1fr)] items-baseline gap-x-2 py-5"
+                        className="group grid grid-cols-[40px_minmax(0,1fr)] items-baseline gap-x-2 py-5 sm:grid-cols-[48px_minmax(0,1fr)_64px]"
                       >
                         {body}
                       </Link>
                     ) : (
-                      <div className="grid grid-cols-[48px_minmax(0,1fr)] items-baseline gap-x-2 py-5">
+                      <div className="grid grid-cols-[40px_minmax(0,1fr)] items-baseline gap-x-2 py-5 sm:grid-cols-[48px_minmax(0,1fr)_64px]">
                         {body}
                       </div>
                     )}
