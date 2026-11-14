@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /** A track's views as numbered moves, each with the question it answers. */
@@ -29,12 +29,15 @@ export function ViewGuideItem({
   href,
   title,
   frame,
+  icon: Icon,
   children,
 }: {
   href: string;
   title: string;
   /** Position of the view in its track, from 1. */
   frame?: number;
+  /** The view's icon, as its tab shows it. */
+  icon?: ComponentType<{ size?: number; className?: string }>;
   children: ReactNode;
 }) {
   return (
@@ -47,8 +50,16 @@ export function ViewGuideItem({
           {frame !== undefined ? `${frame}.` : ""}
         </span>
         <span className="min-w-0">
-          <span className="text-accent decoration-accent/40 block text-[19px] font-bold underline decoration-[1.5px] underline-offset-4 transition-colors group-hover:decoration-current">
-            {title}
+          <span className="flex items-center gap-2.5">
+            {Icon && (
+              <Icon
+                size={16}
+                className="text-ink-muted group-hover:text-accent shrink-0 transition-colors"
+              />
+            )}
+            <span className="text-accent decoration-accent/40 text-[19px] font-bold underline decoration-[1.5px] underline-offset-4 transition-colors group-hover:decoration-current">
+              {title}
+            </span>
           </span>
           <span className="text-ink-body mt-1 block text-[16px] leading-[1.55] text-pretty">
             {children}

@@ -2,13 +2,18 @@ import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { architectureMdxComponents } from "@/components/architecture/mdx-components";
+import { DiagramDefs } from "@/components/learn/diagram-defs";
+import { PageRoute } from "@/components/layout/page-route";
 import { ViewGuide, ViewGuideItem } from "@/components/layout/view-guide";
+import { HarbourPhases } from "@/components/site/landing/harbour-phases";
+import { ICONS } from "@/components/ui/icons";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
 import { SearchMeta } from "@/components/site/search-meta";
 import { lessonsByDefect } from "@/lib/content/crosslinks";
 import { courseHref, getCourse } from "@/lib/content/learn";
 import { viewHref, type TrackContext } from "@/lib/content/registry";
 import type { TrackView as TrackViewData } from "@/lib/content/types";
+import { cn } from "@/lib/utils";
 
 /** One view: header, then its MDX with the components its track's data supports, then the next view. */
 export function TrackView({
@@ -44,6 +49,7 @@ export function TrackView({
           href={viewHref(ctx, target.slug)}
           title={target.title}
           frame={at + 1}
+          icon={target.icon && ICONS[target.icon]}
         >
           {children}
         </ViewGuideItem>
@@ -53,11 +59,14 @@ export function TrackView({
   const { Content } = view;
   // A provider's labs are taught by the course of the same name.
   const course = getCourse(ctx.provider.slug);
+  const model = ctx.track.architecture;
+  // The phase-stepped drawing is Harbour's own front door.
+  const drawing = isIndex && model && ctx.lab.slug === "harbour";
 
   return (
     <main className="relative flex min-w-0 flex-1 flex-col">
-      <header className="mx-auto w-full max-w-[1200px] px-5 pt-12 sm:px-8 sm:pt-16">
-        <div className="max-w-[760px]">
+      <header className="mx-auto grid w-full max-w-[1200px] items-center gap-x-12 gap-y-12 px-5 pt-12 sm:px-8 sm:pt-16 lg:grid-cols-12">
+        <div className={cn("max-w-[760px]", drawing && "lg:col-span-6")}>
           <h1 className="dd-head animate-rise text-ink text-[38px] sm:text-[48px]">
             {isIndex ? ctx.track.heading : view.title}
           </h1>
@@ -89,6 +98,22 @@ export function TrackView({
             </dl>
           )}
         </div>
+        {drawing && <DiagramDefs />}
+        {drawing && (
+          <figure className="hidden min-w-0 md:block lg:col-span-6 lg:w-full lg:max-w-[600px] lg:justify-self-end">
+            <HarbourPhases
+              phases={model.phases.map(({ number, name }) => ({
+                number,
+                name,
+              }))}
+              trims={model.defects.map(({ id, phase }) => ({ id, phase }))}
+            />
+            <figcaption className="text-ink-muted mt-3 max-w-[60ch] text-[15px] leading-[1.5] text-pretty">
+              {ctx.lab.title}’s front door, phase by phase. The Map tab draws
+              the whole platform.
+            </figcaption>
+          </figure>
+        )}
       </header>
 
       <article
@@ -99,7 +124,20 @@ export function TrackView({
           title={isIndex ? ctx.track.heading : view.title}
           where={`${ctx.lab.title} · ${ctx.track.title}`}
         />
-        <Content components={components} />
+        {isIndex ? (
+          <div className="grid gap-x-16 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div id="track-body" className="min-w-0">
+              <Content components={components} />
+            </div>
+            <aside className="not-prose hidden lg:block">
+              <div className="sticky top-24">
+                <PageRoute container="track-body" />
+              </div>
+            </aside>
+          </div>
+        ) : (
+          <Content components={components} />
+        )}
       </article>
 
       <Pager

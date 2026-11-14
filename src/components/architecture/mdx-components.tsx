@@ -36,7 +36,9 @@ export function architectureMdxComponents(
     ComponentSheets: () => (
       <ComponentSheets model={model} defectsHref={hrefs.defects} />
     ),
-    PhaseSequence: () => <PhaseSequence model={model} />,
+    PhaseSequence: () => (
+      <PhaseSequence model={model} defectsHref={hrefs.defects} />
+    ),
     DefectTag: ({ id, children }: { id: string; children?: ReactNode }) => (
       <DefectLink id={id} defectsHref={hrefs.defects}>
         {children}

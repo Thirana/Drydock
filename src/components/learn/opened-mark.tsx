@@ -13,8 +13,8 @@ export function OpenedMark({
   const progress = useProgress();
   if (!progress?.[course]?.opened?.includes(chapter)) return null;
   return (
-    <span className="text-ink-muted inline-flex items-center gap-1.5 text-[13px] sm:mt-1">
-      <span aria-hidden="true" className="bg-ink-muted size-1.5 rounded-full" />
+    <span className="text-green inline-flex items-center gap-1.5 text-[13px] font-semibold sm:mt-1">
+      <span aria-hidden="true" className="bg-green size-1.5 rounded-full" />
       opened
     </span>
   );
