@@ -11,6 +11,7 @@ import {
 import { SameNet } from "@/components/learn/widgets/lazy";
 import { IconArrowRight } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
+import { withTransition } from "@/lib/view-transition";
 import { DnsStep, FwStep, LbStep, NatStep } from "./steps";
 
 export type TryKey = "dns" | "nat" | "lb" | "firewall" | "same-net";
@@ -49,7 +50,11 @@ export function TryStage({ moves }: { moves: TryMove[] }) {
   }, [moves.length]);
 
   const go = (next: number) => {
-    setAt(next);
+    if (next === at) return;
+    withTransition(() => setAt(next), {
+      kind: "try",
+      dir: next > at ? "fwd" : "back",
+    });
     window.history.replaceState(null, "", `#try-${next + 1}`);
   };
 
@@ -76,7 +81,8 @@ export function TryStage({ moves }: { moves: TryMove[] }) {
       >
         <span
           aria-hidden="true"
-          className="bg-accent absolute -top-px left-0 h-[3px] w-[calc(100%/var(--moves))] translate-x-[calc(100%*var(--at))] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+          style={{ viewTransitionName: "try-marker" }}
+          className="dd-vt-marker bg-accent absolute -top-px left-0 h-[3px] w-[calc(100%/var(--moves))] translate-x-[calc(100%*var(--at))] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
         />
         {moves.map((m, i) => {
           const current = i === at;
@@ -124,9 +130,9 @@ export function TryStage({ moves }: { moves: TryMove[] }) {
       >
         <div
           key={move.key}
-          className="dd-stage-in grid items-start gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]"
+          className="dd-stage-in grid items-start gap-x-10 gap-y-6 lg:min-h-[528px] lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]"
         >
-          <div>
+          <div style={{ viewTransitionName: "try-copy" }}>
             <h3 className="dd-head text-ink text-[24px] sm:text-[30px]">
               {move.title}
             </h3>
@@ -144,7 +150,10 @@ export function TryStage({ moves }: { moves: TryMove[] }) {
               <IconArrowRight size={12} />
             </Link>
           </div>
-          <div className="min-w-0 [&>figure]:my-0">
+          <div
+            style={{ viewTransitionName: "try-figure" }}
+            className="min-w-0 [&>figure]:my-0"
+          >
             <Figure move={move.key} />
           </div>
         </div>

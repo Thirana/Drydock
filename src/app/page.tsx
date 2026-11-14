@@ -6,6 +6,7 @@ import { FigTarget, FigToday } from "@content/learn/gcp/figures/00-kade-on-gcp";
 import { DiagramDefs } from "@/components/learn/diagram-defs";
 import { Figure } from "@/components/learn/figure";
 import { MapSwitch, type MapView } from "@/components/site/landing/map-switch";
+import { HarbourFollow } from "@/components/site/landing/harbour-follow";
 import { RequestDrawing } from "@/components/site/landing/request-drawing";
 import { TryStage, type TryMove } from "@/components/site/landing/try-stage";
 import { PageShell } from "@/components/site/page-shell";
@@ -301,29 +302,20 @@ function KadeMaps() {
   return <MapSwitch views={views} />;
 }
 
-/** The lab, condensed: the score, and one defect's three steps pointing into the lab page. */
+/** The lab, condensed: one defect followed from finding to fix, in the same frame as the five steps. */
 function Harbour({ featured }: { featured: FeaturedTrack }) {
   const d = featured.followed.defect;
   const { blockers } = featured.followed;
-  const steps = [
-    {
-      title: "Find it with a real command",
-      body: d.symptom,
-      href: `${featured.labHref}#follow`,
-    },
-    {
-      title: "Put it in order",
-      body: `${d.id} closes in phase ${d.phase}, ${d.phaseName}${
-        blockers.length ? `, after ${blockers.map((b) => b.id).join(", ")}` : ""
-      }.`,
-      href: `${featured.labHref}#follow`,
-    },
-    {
-      title: "Make the change that closes it",
-      body: "The before, the after, and the command that gets you there.",
-      href: `${featured.defectsHref}#${d.id}`,
-    },
-  ];
+  const alongside = featured.trims
+    .filter((t) => t.phase === d.phase && t.id !== d.id)
+    .map((t) => t.id);
+  const order = `${d.id} closes in phase ${d.phase}, ${d.phaseName}${
+    alongside.length ? `, together with ${alongside.join(", ")}` : ""
+  }. ${
+    blockers.length
+      ? `${blockers.map((b) => b.id).join(", ")} has to close first.`
+      : "Nothing has to close before it."
+  }`;
 
   return (
     <section
@@ -331,68 +323,58 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
       aria-labelledby="harbour-title"
       className="border-rule scroll-mt-8 border-t py-16 sm:py-20"
     >
-      <FadeIn className="mb-12 max-w-[720px]">
-        <Intro id="harbour-title" title={`Then prove it on ${featured.lab}.`}>
-          <p>
+      <div className="grid items-start gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        <FadeIn>
+          <h2
+            id="harbour-title"
+            className="dd-head text-ink text-[28px] sm:text-[32px]"
+          >
+            Then prove it on {featured.lab}.
+          </h2>
+          <p className="text-ink-body mt-4 text-[18px] leading-[1.6] text-pretty">
             {featured.lab} is a marketplace platform on Google Cloud with{" "}
             {featured.totals.defects} defects planted on purpose. Knowing each
             fix is the easy half: the fixes block each other, so the order is
-            the argument. Move 0 is as found, and every phase closes a few more.
+            the argument.
           </p>
-        </Intro>
-        <p className="text-ink-muted mt-4 max-w-[60ch] text-[17px] leading-[1.55] text-pretty">
-          I’m Thirana. I broke {featured.lab} on purpose, and{" "}
-          <Link
-            href={`${featured.href}#${PUSH_BACK_ANCHOR}`}
-            className="dd-link"
-          >
-            in a few places I’d argue with the textbook fix
-          </Link>
-          .
-        </p>
-      </FadeIn>
-
-      <FadeIn delay={130} className="max-w-[860px]">
-        <h3 className="text-ink text-[22px] leading-[1.3] font-bold">
-          <span className="text-fault font-mono">{d.id}</span>, followed from
-          finding to fix
-        </h3>
-        <ol className="border-rule mt-5 border-t">
-          {steps.map((s, i) => (
-            <li key={s.title} className="border-rule border-b">
-              <Link
-                href={s.href}
-                className="group grid grid-cols-[40px_minmax(0,1fr)] items-baseline gap-x-2 py-5"
-              >
-                <span className="text-ink-faint group-hover:text-accent font-mono text-[16px] font-bold transition-colors">
-                  {i + 1}.
-                </span>
-                <span>
-                  <span className="text-accent decoration-accent/40 text-[19px] font-bold underline decoration-[1.5px] underline-offset-4 transition-colors group-hover:decoration-current">
-                    {s.title}
-                  </span>
-                  <span className="text-ink-body mt-1 block max-w-[64ch] text-[16.5px] leading-[1.55] text-pretty">
-                    {s.body}
-                  </span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-        <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
-          <ButtonLink
-            href={featured.labHref}
-            variant="secondary"
-            size="lg"
-            trailing={<IconArrow size={14} />}
-          >
-            Open {featured.lab}
-          </ButtonLink>
-          <ButtonLink href={featured.defectsHref} variant="ghost" size="lg">
-            Read the defect register
-          </ButtonLink>
-        </div>
-      </FadeIn>
+          <p className="text-ink-body mt-3 text-[18px] leading-[1.6] text-pretty">
+            Here is one of them, {d.id}, followed the way the lab follows all{" "}
+            {featured.totals.defects}.
+          </p>
+          <p className="text-ink-muted mt-5 text-[16px] leading-[1.55] text-pretty">
+            I’m Thirana. I broke {featured.lab} on purpose, and{" "}
+            <Link
+              href={`${featured.href}#${PUSH_BACK_ANCHOR}`}
+              className="dd-link"
+            >
+              in a few places I’d argue with the textbook fix
+            </Link>
+            .
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
+            <ButtonLink
+              href={featured.labHref}
+              size="lg"
+              trailing={<IconArrow size={14} />}
+            >
+              Open {featured.lab}
+            </ButtonLink>
+            <ButtonLink href={featured.defectsHref} variant="ghost" size="lg">
+              Read the defect register
+            </ButtonLink>
+          </div>
+        </FadeIn>
+        <FadeIn delay={130} className="min-w-0 [&_figure]:my-0">
+          <HarbourFollow
+            defect={d}
+            order={order}
+            phases={featured.phases.map(({ number, name }) => ({
+              number,
+              name,
+            }))}
+          />
+        </FadeIn>
+      </div>
     </section>
   );
 }

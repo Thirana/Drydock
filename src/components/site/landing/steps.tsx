@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { WidgetFrame } from "@/components/learn/widgets/widget-frame";
 import { SegmentedControl } from "@/components/ui/controls";
 import { cn } from "@/lib/utils";
+import { withTransition } from "@/lib/view-transition";
 
 /*
  * Four small figures for the home page, one per step of Kadé's request.
@@ -17,7 +18,7 @@ const MUTED = "url(#dd-ah-muted)";
 const FAULT = "url(#dd-ah-fault)";
 
 /** A box with a title and sub-lines; `role` marks it as source, destination or the hop in use. */
-function Box({
+export function Box({
   x,
   y,
   w,
@@ -25,6 +26,7 @@ function Box({
   title,
   lines = [],
   role,
+  hue,
   dim,
 }: {
   x: number;
@@ -34,6 +36,8 @@ function Box({
   title: string;
   lines?: string[];
   role?: "src" | "dst" | "via";
+  /** A course drawing hue: what the legend says it is. */
+  hue?: "plum" | "teal" | "green" | "amber";
   dim?: boolean;
 }) {
   return (
@@ -41,7 +45,14 @@ function Box({
       style={{ opacity: dim ? 0.4 : 1 }}
       className="transition-opacity duration-300"
     >
-      <rect className={cn("n", role)} x={x} y={y} width={w} height={h} rx="2" />
+      <rect
+        className={cn("n", hue, role)}
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx="2"
+      />
       <text className="t" x={x + 14} y={y + 26}>
         {title}
       </text>
@@ -69,7 +80,7 @@ function Mark({ x, y, w }: { x: number; y: number; w: number }) {
 }
 
 /** The frame, the switch, the drawing and the verdict under it. */
-function Step<T extends string>({
+export function Step<T extends string>({
   label,
   options,
   value,
@@ -78,6 +89,7 @@ function Step<T extends string>({
   children,
   verdict,
   broken,
+  extra,
 }: {
   label: string;
   options: { value: T; label: string }[];
@@ -88,34 +100,45 @@ function Step<T extends string>({
   verdict: ReactNode;
   /** The verdict names something broken. */
   broken?: boolean;
+  /** Anything under the verdict: a command, a line of moves. */
+  extra?: ReactNode;
 }) {
+  const root = useRef<HTMLDivElement>(null);
+  const change = (v: T) => {
+    if (v === value) return;
+    withTransition(() => onChange(v), { kind: "step", scope: root.current });
+  };
+
   return (
     <WidgetFrame wide label={label}>
-      <SegmentedControl
-        label={label}
-        options={options}
-        value={value}
-        onChange={onChange}
-      />
-      <div className="dd-fig mt-5">
-        <svg
-          viewBox={viewBox}
-          className="min-w-[600px] lg:min-w-0"
-          role="img"
-          aria-label={label}
+      <div ref={root}>
+        <SegmentedControl
+          label={label}
+          options={options}
+          value={value}
+          onChange={change}
+        />
+        <div className="dd-fig dd-vt-fig mt-5">
+          <svg
+            viewBox={viewBox}
+            className="min-w-[600px] lg:min-w-0"
+            role="img"
+            aria-label={label}
+          >
+            {children}
+          </svg>
+        </div>
+        <p
+          aria-live="polite"
+          className={cn(
+            "dd-vt-verdict border-rule mt-4 max-w-[64ch] border-t pt-4 text-[16px] leading-[1.55] font-semibold text-pretty",
+            broken ? "text-fault" : "text-ink",
+          )}
         >
-          {children}
-        </svg>
+          {verdict}
+        </p>
+        {extra && <div className="dd-vt-extra mt-4">{extra}</div>}
       </div>
-      <p
-        aria-live="polite"
-        className={cn(
-          "border-rule mt-4 max-w-[64ch] border-t pt-4 text-[16px] leading-[1.55] font-semibold text-pretty",
-          broken ? "text-fault" : "text-ink",
-        )}
-      >
-        {verdict}
-      </p>
     </WidgetFrame>
   );
 }

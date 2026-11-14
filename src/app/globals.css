@@ -1034,3 +1034,156 @@
     stroke-dashoffset: 1;
   }
 }
+
+/*
+ * View transitions on the home page (src/lib/view-transition.ts).
+ * Content changes inside a widget leave and arrive instead of swapping in
+ * place. Each widget names its transition on html[data-vt], so these rules
+ * never touch a page navigation. Browsers without view transitions keep
+ * .dd-stage-in as the fallback.
+ */
+@supports (view-transition-name: none) {
+  .dd-stage-in {
+    animation: none;
+  }
+  /* The view transition moves the marker; a CSS transition would fight it. */
+  .dd-vt-marker {
+    transition: none;
+  }
+}
+
+html {
+  --dd-vt-dx: 0px;
+}
+html[data-vt-dir="fwd"] {
+  --dd-vt-dx: 24px;
+}
+html[data-vt-dir="back"] {
+  --dd-vt-dx: -24px;
+}
+
+/* The rest of the page holds still while one widget changes. */
+html[data-vt]::view-transition-old(root),
+html[data-vt]::view-transition-new(root) {
+  animation: none;
+}
+
+/* The five steps: copy and figure step aside, the next move steps in. */
+html[data-vt="try"]::view-transition-group(try-copy),
+html[data-vt="try"]::view-transition-group(try-figure) {
+  animation-duration: 690ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-vt="try"]::view-transition-old(try-copy),
+html[data-vt="try"]::view-transition-old(try-figure) {
+  animation: dd-vt-out 150ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+html[data-vt="try"]::view-transition-new(try-copy) {
+  animation: dd-vt-in 460ms cubic-bezier(0.16, 1, 0.3, 1) 130ms both;
+}
+html[data-vt="try"]::view-transition-new(try-figure) {
+  animation: dd-vt-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 190ms both;
+}
+html[data-vt="try"]::view-transition-old(try-copy),
+html[data-vt="try"]::view-transition-new(try-copy),
+html[data-vt="try"]::view-transition-old(try-figure),
+html[data-vt="try"]::view-transition-new(try-figure) {
+  mix-blend-mode: normal;
+  height: 100%;
+  object-fit: none;
+  object-position: top left;
+}
+html[data-vt="try"]::view-transition-group(try-marker) {
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* One drawing, three states: the drawing crossfades in place, the verdict settles. */
+[data-vt-active] .dd-vt-fig {
+  view-transition-name: step-fig;
+}
+[data-vt-active] .dd-vt-verdict {
+  view-transition-name: step-verdict;
+}
+[data-vt-active] .dd-vt-extra {
+  view-transition-name: step-extra;
+}
+html[data-vt="step"]::view-transition-group(*) {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-vt="step"]::view-transition-old(step-fig) {
+  animation: dd-fade-out 220ms ease both;
+}
+html[data-vt="step"]::view-transition-new(step-fig) {
+  animation: dd-fade 320ms ease 40ms both;
+}
+html[data-vt="step"]::view-transition-old(step-verdict),
+html[data-vt="step"]::view-transition-old(step-extra) {
+  animation: dd-fade-out 140ms ease both;
+}
+html[data-vt="step"]::view-transition-new(step-verdict),
+html[data-vt="step"]::view-transition-new(step-extra) {
+  animation: dd-vt-rise 380ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+html[data-vt="step"]::view-transition-old(step-verdict),
+html[data-vt="step"]::view-transition-new(step-verdict),
+html[data-vt="step"]::view-transition-old(step-extra),
+html[data-vt="step"]::view-transition-new(step-extra) {
+  mix-blend-mode: normal;
+  height: 100%;
+  object-fit: none;
+  object-position: top left;
+}
+
+/* Kadé's three maps crossfade, so what changed between them stands out. */
+html[data-vt="map"]::view-transition-group(kade-map) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-vt="map"]::view-transition-old(kade-map) {
+  animation: dd-fade-out 260ms ease both;
+}
+html[data-vt="map"]::view-transition-new(kade-map) {
+  animation: dd-fade 380ms ease 60ms both;
+}
+html[data-vt="map"]::view-transition-old(kade-map),
+html[data-vt="map"]::view-transition-new(kade-map) {
+  height: 100%;
+  object-fit: none;
+  object-position: top left;
+}
+
+@keyframes dd-vt-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--dd-vt-dx) * -0.5));
+    filter: blur(2px);
+  }
+}
+@keyframes dd-vt-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--dd-vt-dx));
+    filter: blur(3px);
+  }
+}
+@keyframes dd-vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes dd-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

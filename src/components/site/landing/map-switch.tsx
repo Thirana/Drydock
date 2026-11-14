@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { SegmentedControl } from "@/components/ui/controls";
 import { IconArrowRight } from "@/components/ui/icons";
+import { withTransition } from "@/lib/view-transition";
 
 export interface MapView {
   value: string;
@@ -25,7 +26,10 @@ export function MapSwitch({ views }: { views: MapView[] }) {
           label="Which map of Kadé to show"
           options={views.map(({ value, label }) => ({ value, label }))}
           value={view.value}
-          onChange={setValue}
+          onChange={(v) => {
+            if (v !== view.value)
+              withTransition(() => setValue(v), { kind: "map" });
+          }}
         />
         <Link
           href={view.source.href}
@@ -35,7 +39,11 @@ export function MapSwitch({ views }: { views: MapView[] }) {
           <IconArrowRight size={12} />
         </Link>
       </div>
-      <div key={view.value} className="dd-stage-in mt-5 [&>figure]:my-0">
+      <div
+        key={view.value}
+        style={{ viewTransitionName: "kade-map" }}
+        className="dd-stage-in mt-5 [&>figure]:my-0"
+      >
         {view.figure}
       </div>
     </div>
