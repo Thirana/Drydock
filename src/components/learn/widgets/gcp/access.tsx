@@ -8,6 +8,7 @@ import { WidgetFrame } from "../widget-frame";
 import { CaseExplorer, Result, type Case, type Tone } from "./case-explorer";
 import { Box, Caps, Drawing, Mark, T, Wire, Zone } from "./draw";
 import { Table } from "./kit";
+import { Dropdown } from "@/components/ui/inputs";
 
 /* Part 2 · Controlling access (chapters 5.1-6.2). */
 
@@ -1231,20 +1232,18 @@ export function LayerWalk() {
               <span className="text-ink-faint mr-2 font-mono text-[13px]">{i + 1}.</span>
               {WALK_NAMES[key]}
             </span>
-            <label className="sr-only" htmlFor={`lw-${key}`}>
-              {WALK_NAMES[key]}
-            </label>
-            <select
-              id={`lw-${key}`}
+            <Dropdown
+              label={WALK_NAMES[key]}
               value={rules[key]}
-              onChange={(e) => setRules((r) => ({ ...r, [key]: e.target.value }))}
-              className="border-rule-strong bg-ground text-ink hover:border-ink-faint h-10 w-[200px] rounded-[2px] border px-2.5 text-[14.5px] transition-colors"
-            >
-              <option value="none">no rule matches</option>
-              <option value="allow">allow</option>
-              <option value="deny">deny</option>
-              {key !== "vpc" && <option value="goto">goto_next</option>}
-            </select>
+              onChange={(v) => setRules((r) => ({ ...r, [key]: v }))}
+              options={[
+                { value: "none", label: "no rule matches" },
+                { value: "allow", label: "allow" },
+                { value: "deny", label: "deny" },
+                ...(key !== "vpc" ? [{ value: "goto", label: "goto_next" }] : []),
+              ]}
+              className="h-10 w-[200px] min-w-0 px-2.5 text-[14.5px]"
+            />
           </li>
         ))}
       </ol>
@@ -1344,7 +1343,7 @@ function ObjDrawing({ c }: { c: Case }) {
               <Box x={500} y={y} w={170} h={64} c="orange" />
               <T x={514} y={y + 26} k="t" size={12.5}>{rule}</T>
               <T x={514} y={y + 46} size={11}>src: kade-trusted-ips</T>
-              <path className="w" d={`M670 ${y + 32} C 690 ${y + 32}, 680 185, 697 185`} markerEnd="url(#dd-ah-muted)" />
+              <path className="w" d={`M670 ${y + 32} H685 V185 H697`} markerEnd="url(#dd-ah-muted)" />
             </g>
           );
         })}
@@ -1392,7 +1391,7 @@ function ObjDrawing({ c }: { c: Case }) {
               <T x={928} y={y + 30} k={ok ? "s" : "s c-red"} end bold size={11.5}>
                 {verdict}
               </T>
-              <path className={`w ${hue}`} d={`M604 ${128 + 54 * i} C 640 ${128 + 54 * i}, 650 ${y + 38}, 677 ${y + 38}`} markerEnd={`url(#dd-ah-${hue})`} />
+              <path className={`w ${hue}`} d={`M604 ${128 + 54 * i} H642 V${y + 38} H677`} markerEnd={`url(#dd-ah-${hue})`} />
             </g>
           );
         })}
@@ -1419,7 +1418,7 @@ function ObjDrawing({ c }: { c: Case }) {
               <T x={30} y={y + 66} k={s === "no" ? "s c-red" : "s"} bold size={11.5}>
                 {verdict}
               </T>
-              <path className={`w ${hue}`} d={`M316 ${y + 40} C 344 ${y + 40}, 344 186, 371 186`} markerEnd={`url(#dd-ah-${hue})`} />
+              <path className={`w ${hue}`} d={`M316 ${y + 40} H344 V${156 + 40 * i} H371`} markerEnd={`url(#dd-ah-${hue})`} />
             </g>
           );
         })}
@@ -1464,7 +1463,7 @@ function ObjDrawing({ c }: { c: Case }) {
           <g key={name}>
             <Box x={16} y={y} w={170} h={64} c={ok ? undefined : "red"} />
             <T x={30} y={y + 38} k="t" size={12.5}>{name}</T>
-            <path className={`w ${hue}`} d={`M186 ${y + 32} C 205 ${y + 32}, 205 ${112 + 58 * i}, 225 ${112 + 58 * i}`} markerEnd={`url(#dd-ah-${hue})`} />
+            <path className={`w ${hue}`} d={`M186 ${y + 32} H205 V${112 + 58 * i} H225`} markerEnd={`url(#dd-ah-${hue})`} />
           </g>
         );
       })}
@@ -1489,7 +1488,13 @@ function ObjDrawing({ c }: { c: Case }) {
             <Box x={744} y={y} w={200} h={70} c={ok ? undefined : "red"} />
             <T x={758} y={y + 28} k="t" size={12}>{name}</T>
             <T x={758} y={y + 50} k={ok ? "s" : "s c-red"} size={11}>{sub}</T>
-            <path className={`w ${hue}`} d={`M700 160 C 720 160, 720 ${y + 35}, 741 ${y + 35}`} markerEnd={`url(#dd-ah-${hue})`} />
+            {/* Each verdict on its own wire: separate exits from kade-worker,
+                turned where none of them crosses another. */}
+            <path
+              className={`w ${hue}`}
+              d={`M700 ${140 + 20 * i} H${[720, 728, 712][i]} V${y + 35} H741`}
+              markerEnd={`url(#dd-ah-${hue})`}
+            />
           </g>
         );
       })}

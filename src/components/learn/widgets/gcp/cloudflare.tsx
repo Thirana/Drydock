@@ -154,7 +154,7 @@ function RecordView({ c, what }: { c: Case; what: string }) {
   const target = c.k === "MX" ? ["mail provider", "SMTP, not proxied"] : c.k === "_acme-challenge" ? ["Certificate Manager", "reads the CNAME"] : ["status page provider", "its own TLS"];
   return (
     <div className="space-y-3">
-      <Drawing h={226} label={`The ${rec[1]} record for ${rec[0]} and where a visitor ends up`}>
+      <Drawing h={240} label={`The ${rec[1]} record for ${rec[0]} and where a visitor ends up`}>
         <Caps x={16} y={22}>THE RECORD IN CLOUDFLARE</Caps>
         <Box x={16} y={34} w={928} h={52} />
         <T x={32} y={66} k="t" size={13}>{rec[0]}</T>
@@ -200,7 +200,7 @@ function RecordView({ c, what }: { c: Case; what: string }) {
             <Box x={744} y={134} w={200} h={74} c="red" />
             <T x={758} y={162} k="t" size={13}>GCP load balancer</T>
             <T x={758} y={184} size={11}>34.120.88.10, public</T>
-            <path className="w fault" d="M456 180 C 520 262, 690 262, 741 186" markerEnd="url(#dd-ah-fault)" />
+            <path className="w fault" d="M456 180 H478 V226 H844 V211" markerEnd="url(#dd-ah-fault)" />
           </>
         )}
       </Drawing>
@@ -327,9 +327,9 @@ function ModeView({ c, what }: { c: ModeCase; what: string }) {
         {leg(572, 744, what === "expired" ? ["https", "check"] : m.o, "origin leg")}
         {what === "loop" && (
           <>
-            <path className="w fault" d="M844 124 C 844 222, 470 222, 470 128" markerEnd="url(#dd-ah-fault)" />
+            <path className="w fault" d="M844 127 V196 H470 V127" markerEnd="url(#dd-ah-fault)" />
             <T x={657} y={214} k="s mid c-red" size={11}>301 → https:// (from the origin)</T>
-            <path className="w fault" d="M400 124 C 400 222, 116 222, 116 128" markerEnd="url(#dd-ah-fault)" />
+            <path className="w fault" d="M400 127 V196 H116 V127" markerEnd="url(#dd-ah-fault)" />
             <T x={258} y={214} k="s mid c-red" size={11}>passed to the browser… repeat</T>
           </>
         )}
@@ -458,9 +458,9 @@ function LockView({ c, what }: { c: LockCase; what: string }) {
         </g>
         {c.path === "run" ? (
           <>
-            <path className="w fault" d={`M216 130 C 300 330, 660 330, ${stop ? 748 : 757} 162`} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
-            <T x={470} y={312} k="s mid" size={11}>skips the load balancer entirely</T>
-            {stop && <Mark cx={752} cy={168} ok={false} />}
+            <path className="w fault" d={`M116 170 V262 H852 V${stop ? 182 : 173}`} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
+            <T x={484} y={284} k="s mid" size={11}>skips the load balancer entirely</T>
+            {stop && <Mark cx={852} cy={188} ok={false} />}
           </>
         ) : (
           <>
@@ -470,10 +470,10 @@ function LockView({ c, what }: { c: LockCase; what: string }) {
                 <T x={248} y={126} k="t" size={11.5}>Cloudflare edge</T>
                 <T x={248} y={146} size={10}>{c.path === "good" ? "adds x-kade-edge" : "no Kadé header"}</T>
                 <Wire x1={216} y1={130} x2={233} y2={130} />
-                <line className={cn("w", stop && "fault")} x1={376} y1={130} x2={stop ? 430 : 417} y2={stop ? hitY : 130} markerEnd={stop ? undefined : "url(#dd-ah-muted)"} />
+                <path className={cn("w", stop && "fault")} d={stop ? `M376 130 H404 V${hitY} H430` : "M376 130 H417"} markerEnd={stop ? undefined : "url(#dd-ah-muted)"} />
               </>
             ) : (
-              <line className="w fault" x1={216} y1={130} x2={stop ? 430 : 417} y2={stop ? hitY : 130} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
+              <path className="w fault" d={stop ? `M216 130 H404 V${hitY} H430` : "M216 130 H417"} markerEnd={stop ? undefined : "url(#dd-ah-fault)"} />
             )}
             {stop ? (
               <Mark cx={432} cy={hitY} ok={false} />

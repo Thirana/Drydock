@@ -9,6 +9,7 @@ import data from "./data/fundamentals.json";
 import { Field, FieldError } from "./field";
 import { Choices, KeyValues, Outcome, Select, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Checkbox } from "@/components/ui/inputs";
 
 /*
  * Chapters 27 to 29: how a device gets an address and keeps it, how clocks
@@ -343,10 +344,9 @@ export function CorsSim({ wide }: { wide?: boolean }) {
   }
 
   const check = (label: string, value: boolean, set: (v: boolean) => void) => (
-    <label className="text-ink-body flex cursor-pointer items-center gap-2.5 text-[15px]">
-      <input type="checkbox" checked={value} onChange={(e) => set(e.target.checked)} className="accent-ink size-4" />
+    <Checkbox checked={value} onChange={set}>
       {label}
-    </label>
+    </Checkbox>
   );
 
   return (

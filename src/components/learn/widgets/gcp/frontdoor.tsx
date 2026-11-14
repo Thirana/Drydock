@@ -1169,7 +1169,7 @@ export function MigOverview() {
             </g>
           );
         })}
-        <Wire x1={206} y1={90} x2={263} y2={100} c="orange" />
+        <Wire x1={206} y1={100} x2={263} y2={100} c="orange" />
         <T x={30} y={174} k="f" size={10.5}>every new VM is built</T>
         <T x={30} y={190} k="f" size={10.5}>from this recipe</T>
         <Box x={266} y={196} w={214} h={58} />

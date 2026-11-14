@@ -7,6 +7,7 @@ import { Field, FieldError } from "./field";
 import { ByteDump, HeaderLayout } from "./headers";
 import { Action, Choices, Outcome, Select, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Checkbox } from "@/components/ui/inputs";
 
 /*
  * Chapters 24 to 26: loading a page over HTTP/1.1, 2 and 3; agreeing a key
@@ -99,10 +100,9 @@ export function Waterfall({ wide }: { wide?: boolean }) {
     <WidgetFrame wide={wide} label="Page load waterfall">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <Choices label="HTTP version" value={v} onChange={setV} options={(Object.keys(VERSIONS) as Version[]).map((k) => ({ value: k, label: VERSIONS[k] }))} />
-        <label className="text-ink-body flex cursor-pointer items-center gap-2.5 text-[15px]">
-          <input type="checkbox" checked={loss} onChange={(e) => setLoss(e.target.checked)} className="accent-ink size-4" />
+        <Checkbox checked={loss} onChange={setLoss}>
           lose one packet (during milk.jpg)
-        </label>
+        </Checkbox>
       </div>
       <div className="mt-4 overflow-x-auto" aria-live="polite">
         <div className="min-w-[680px]">

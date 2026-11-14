@@ -19,11 +19,11 @@ export function FigTree() {
       <text className="s mid" x="230" y="251">the real records (authoritative)</text>
       <rect className="n" x="700" y="210" width="140" height="50" rx="2" />
       <text className="t mid" x="770" y="239">example.com</text>
-      <line className="w" x1="440" y1="60" x2="250" y2="108" />
-      <line className="w" x1="460" y1="60" x2="460" y2="108" />
-      <line className="w" x1="480" y1="60" x2="670" y2="108" />
-      <line className="w" x1="230" y1="160" x2="230" y2="208" />
-      <line className="w" x1="480" y1="160" x2="760" y2="208" />
+      <path className="w" d="M460 60 V84 H230 V110" />
+      <path className="w" d="M460 60 V110" />
+      <path className="w" d="M460 60 V84 H690 V110" />
+      <path className="w" d="M230 160 V210" />
+      <path className="w" d="M460 160 V184 H770 V210" />
       <text className="s" x="392" y="222">api.kade.lk → 34.87.120.15</text>
       <text className="s" x="392" y="240">www.kade.lk → …</text>
       <text className="s" x="392" y="258">MX → mail servers (chapter 23)</text>

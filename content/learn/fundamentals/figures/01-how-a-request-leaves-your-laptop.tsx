@@ -58,17 +58,17 @@ export function FigDns() {
       <text className="s" x="656" y="297">reply: 34.87.120.15</text>
       <line className="w plum" x1="196" y1="150" x2="298" y2="150" markerEnd="url(#dd-ah-plum)" />
       <line className="w green" x1="300" y1="184" x2="198" y2="184" markerEnd="url(#dd-ah-green)" />
-      <line className="w" x1="492" y1="146" x2="638" y2="54" markerStart="url(#dd-ah-muted)" markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d="M492 146 H540 V50 H638" markerStart="url(#dd-ah-muted)" markerEnd="url(#dd-ah-muted)" />
       <line className="w" x1="492" y1="166" x2="638" y2="166" markerStart="url(#dd-ah-muted)" markerEnd="url(#dd-ah-muted)" />
-      <line className="w" x1="492" y1="186" x2="638" y2="280" markerStart="url(#dd-ah-muted)" markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d="M492 186 H540 V282 H638" markerStart="url(#dd-ah-muted)" markerEnd="url(#dd-ah-muted)" />
       <circle className="badge" cx="247" cy="132" r="11" />
       <text className="mid" x="247" y="137">1</text>
-      <circle className="badge" cx="565" cy="100" r="11" />
-      <text className="mid" x="565" y="105">2</text>
+      <circle className="badge" cx="590" cy="50" r="11" />
+      <text className="mid" x="590" y="55">2</text>
       <circle className="badge" cx="565" cy="166" r="11" />
       <text className="mid" x="565" y="171">3</text>
-      <circle className="badge" cx="565" cy="233" r="11" />
-      <text className="mid" x="565" y="238">4</text>
+      <circle className="badge" cx="590" cy="282" r="11" />
+      <text className="mid" x="590" y="287">4</text>
       <circle className="badge" cx="247" cy="205" r="11" />
       <text className="mid" x="247" y="210">5</text>
     </svg>
@@ -164,7 +164,7 @@ export function FigChunks2() {
 
 export function FigArp() {
   return (
-    <svg viewBox="0 0 920 320" role="img" aria-label="ARP: laptop broadcasts who has 192.168.1.1 to phone, TV and router; phone and TV ignore; router replies with its MAC.">
+    <svg viewBox="0 0 920 345" role="img" aria-label="ARP: laptop broadcasts who has 192.168.1.1 to phone, TV and router; phone and TV ignore; router replies with its MAC.">
       <rect className="n plum" x="20" y="118" width="192" height="82" rx="2" />
       <text className="t" x="36" y="144">Your laptop</text>
       <text className="s" x="36" y="165">192.168.1.23</text>
@@ -178,14 +178,14 @@ export function FigArp() {
       <rect className="n teal" x="640" y="238" width="262" height="64" rx="2" />
       <text className="t" x="656" y="264">Home router</text>
       <text className="s" x="656" y="285">{"192.168.1.1 · that's me"}</text>
-      <line className="w amber dash" x1="212" y1="140" x2="638" y2="52" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber dash" x1="212" y1="152" x2="638" y2="160" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber dash" x1="212" y1="164" x2="638" y2="258" markerEnd="url(#dd-ah-amber)" />
-      <line className="w green" x1="638" y1="290" x2="214" y2="192" markerEnd="url(#dd-ah-green)" />
+      <path className="w amber dash" d="M212 160 H420 V70 H638" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber dash" d="M212 160 H638" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber dash" d="M212 160 H420 V254 H638" markerEnd="url(#dd-ah-amber)" />
+      <path className="w green" d="M640 290 H116 V202" markerEnd="url(#dd-ah-green)" />
       <text className="l" x="232" y="30">1 · broadcast to ff:ff:ff:ff:ff:ff (everyone)</text>
       <text className="s" x="232" y="50">{"\"who has 192.168.1.1? tell 192.168.1.23\""}</text>
-      <text className="l" x="232" y="288">2 · reply only to the laptop</text>
-      <text className="s" x="232" y="308">{"\"192.168.1.1 is at 3c:84:6a:10:ee:01\""}</text>
+      <text className="l" x="232" y="316">2 · reply only to the laptop</text>
+      <text className="s" x="232" y="336">{"\"192.168.1.1 is at 3c:84:6a:10:ee:01\""}</text>
     </svg>
   );
 }

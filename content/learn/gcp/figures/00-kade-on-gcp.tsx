@@ -26,7 +26,7 @@ export function FigToday() {
       <text className="s" x="258" y="191">Google front ends</text>
       <text className="s" x="258" y="226">HTTP :8080 to both VMs</text>
       <line className="w dash" x1="216" y1="68" x2="241" y2="68" markerEnd="url(#dd-ah-muted)" />
-      <path className="w teal" d="M216 88 C 228 88, 230 160, 241 160" markerEnd="url(#dd-ah-teal)" />
+      <path className="w teal" d="M216 88 H230 V150 H241" markerEnd="url(#dd-ah-teal)" />
       <rect className="zone" x="460" y="10" width="484" height="582" rx="2" />
       <text className="s" x="476" y="30">project kade-prod · region asia-southeast1</text>
       <rect className="zone teal" x="476" y="40" width="452" height="424" rx="2" />
@@ -58,7 +58,7 @@ export function FigToday() {
       <text className="s" x="772" y="226">SQL to hardcoded IP</text>
       <circle className="bad" cx="746" cy="222" r="8" />
       <text className="bn" x="746" y="226">6</text>
-      <path className="w plum" d="M434 160 C 470 160, 470 150, 503 150" markerEnd="url(#dd-ah-plum)" />
+      <path className="w plum" d="M434 155 H503" markerEnd="url(#dd-ah-plum)" />
       <text className="s" x="506" y="326">firewall rules (priority 1000; names start with kade-)</text>
       <text className="f" x="520" y="346" style={{"fontSize": "12.5px"}}>name</text>
       <text className="f" x="652" y="346" style={{"fontSize": "12.5px"}}>ports</text>
@@ -93,10 +93,12 @@ export function FigToday() {
       <text className="s" x="492" y="520">a /20 subnet in every region · no VMs today</text>
       <text className="s" x="492" y="540">rules open ssh, rdp and icmp to 0.0.0.0/0,</text>
       <text className="s" x="492" y="560">and allow everything from 10.128.0.0/9</text>
-      <path className="w fault dash" d="M216 176 C 330 300, 420 272, 503 272" markerEnd="url(#dd-ah-fault)" />
       <text className="s" x="244" y="300">SSH via a temporary</text>
       <text className="s" x="244" y="316">external IP</text>
+      {/* The SSH wire, drawn after, crosses this one; this one breaks behind it. */}
       <path className="w fault dash" d="M506 176 H468 V501 H219" markerEnd="url(#dd-ah-fault)" />
+      <path d="M468 265 V279" style={{ stroke: "var(--dd-ground)", strokeWidth: 7 }} />
+      <path className="w fault dash" d="M216 180 H236 V272 H503" markerEnd="url(#dd-ah-fault)" />
       <text className="x" x="340" y="506">✕</text>
       <circle className="bad" cx="258" cy="444" r="8" />
       <text className="bn" x="258" y="448">5</text>
@@ -142,7 +144,7 @@ export function FigTarget() {
       <line className="w dash" x1="434" y1="493" x2="473" y2="493" />
       <line className="w" x1="216" y1="71" x2="241" y2="71" markerEnd="url(#dd-ah-muted)" />
       <line className="w" x1="339" y1="102" x2="339" y2="125" markerEnd="url(#dd-ah-muted)" />
-      <path className="w green" d="M216 166 C 232 166, 228 263, 241 263" markerEnd="url(#dd-ah-green)" />
+      <path className="w green" d="M216 166 H230 V263 H241" markerEnd="url(#dd-ah-green)" />
       <rect className="zone" x="460" y="10" width="484" height="620" rx="2" />
       <text className="s" x="476" y="30">project kade-prod · org policies on (ch 17)</text>
       <rect className="n plum" x="710" y="40" width="218" height="78" rx="2" />
@@ -150,7 +152,7 @@ export function FigTarget() {
       <text className="s" x="724" y="84">ingress: internal + LB</text>
       <text className="s" x="724" y="103">egress: into sn-run</text>
       <text className="ch" x="920" y="110">ch 10</text>
-      <path className="w plum" d="M434 150 C 500 150, 540 79, 707 79" markerEnd="url(#dd-ah-plum)" />
+      <path className="w plum" d="M434 150 H468 V79 H707" markerEnd="url(#dd-ah-plum)" />
       <rect className="zone teal" x="476" y="140" width="452" height="476" rx="2" />
       <text className="s" x="492" y="160">kade-vpc · custom mode · plan 10.10.0.0/16</text>
       <rect className="zone" x="492" y="172" width="206" height="92" rx="2" />
@@ -164,13 +166,13 @@ export function FigTarget() {
       <text className="s" x="724" y="240">traffic uses IPs here</text>
       <text className="ch" x="904" y="256">ch 10</text>
       <line className="w plum" x1="819" y1="118" x2="819" y2="170" markerEnd="url(#dd-ah-plum)" />
-      <path className="w green" d="M434 263 C 466 263, 474 227, 503 227" markerEnd="url(#dd-ah-green)" />
+      <path className="w green" d="M434 240 H503" markerEnd="url(#dd-ah-green)" />
       <rect className="n teal" x="492" y="282" width="206" height="62" rx="2" />
       <text className="t" x="506" y="306">Cloud NAT</text>
       <text className="s" x="506" y="326">fixed IP 34.87.200.7</text>
       <text className="ch" x="690" y="300">ch 7</text>
       <line className="w teal" x1="595" y1="254" x2="595" y2="279" markerEnd="url(#dd-ah-teal)" />
-      <path className="w teal" d="M732 264 C 722 272, 708 276, 694 280" markerEnd="url(#dd-ah-teal)" />
+      <path className="w teal" d="M724 264 V271 H595 V279" markerEnd="url(#dd-ah-teal)" />
       <path className="w teal" d="M492 313 H472 V411 H219" markerEnd="url(#dd-ah-teal)" />
       <rect className="n teal" x="710" y="282" width="202" height="62" rx="2" />
       <text className="t" x="724" y="306">Private DNS zone</text>

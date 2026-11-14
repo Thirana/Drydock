@@ -9,10 +9,10 @@ export function FigNetwork() {
       <rect className="n teal" x="370" y="52" width="180" height="62" rx="2" />
       <text className="t" x="386" y="78">Home router</text>
       <text className="s" x="386" y="99">192.168.1.1</text>
-      <line className="w" x1="460" y1="114" x2="135" y2="188" />
-      <line className="w" x1="460" y1="114" x2="350" y2="188" />
-      <line className="w" x1="460" y1="114" x2="565" y2="188" />
-      <line className="w" x1="460" y1="114" x2="780" y2="188" />
+      <path className="w" d="M460 114 V152 H135 V190" />
+      <path className="w" d="M460 114 V152 H350 V190" />
+      <path className="w" d="M460 114 V152 H565 V190" />
+      <path className="w" d="M460 114 V152 H780 V190" />
       <rect className="n plum" x="40" y="190" width="190" height="62" rx="2" />
       <text className="t" x="56" y="216">Laptop</text>
       <text className="s" x="56" y="237">192.168.1.23</text>

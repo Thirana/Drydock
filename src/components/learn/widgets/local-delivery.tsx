@@ -9,6 +9,7 @@ import { ExpandDrawing } from "../expand-drawing";
 import { FitText } from "../fit-text";
 import { cn } from "@/lib/utils";
 import { Swatch } from "../swatch";
+import { Checkbox } from "@/components/ui/inputs";
 
 /*
  * Chapters 8 to 10: what changes on each hop, how ARP finds a MAC, and how
@@ -950,15 +951,9 @@ export function NatLookup({ wide }: { wide?: boolean }) {
           label: t < 1024 || t === 8443 ? `New request to port ${t}` : `Reply to port ${t}`,
         }))}
       />
-      <label className="text-ink-body mt-4 flex cursor-pointer items-center gap-2.5 text-[15px]">
-        <input
-          type="checkbox"
-          checked={forward}
-          onChange={(e) => setForward(e.target.checked)}
-          className="accent-ink size-4"
-        />
+      <Checkbox checked={forward} onChange={setForward} className="mt-4">
         Add a port forwarding rule: 8443 → laptop port 3000 (section 6)
-      </label>
+      </Checkbox>
       <table className="mt-5 w-full min-w-[560px] border-collapse text-left">
         <thead>
           <tr className="border-ink border-b">

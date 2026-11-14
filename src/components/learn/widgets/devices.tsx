@@ -95,17 +95,36 @@ export function NetSim({ wide }: { wide?: boolean }) {
     setLast({ log, lit, cls });
   }
 
-  const line = (a: Node, b: Node) => {
-    const state = last?.lit[`${a}-${b}`] ?? last?.lit[`${b}-${a}`];
+  const litState = (a: Node, b: Node) => last?.lit[`${a}-${b}`] ?? last?.lit[`${b}-${a}`];
+  const rank = (a: Node, b: Node) => {
+    const state = litState(a, b);
+    return state === "go" ? 2 : state === "fl" ? 1 : 0;
+  };
+  /**
+   * Square bends (DESIGN.md "The Bend Arrow Rule"): the router's sides run out
+   * and drop onto the switch and the hub; each device rises to a bus under its
+   * switch or hub.
+   */
+  const wire = (a: Node, b: Node) => {
+    const A = NET[a];
+    const B = NET[b];
+    if (a === "R") return `M${B.x < A.x ? A.x - 75 : A.x + 75} ${A.y} H${B.x} V${B.y - 22}`;
+    return `M${A.x} ${A.y + 22} V${A.y + 56} H${B.x} V${B.y - 24}`;
+  };
+  const LINKS: [Node, Node][] = [
+    ["R", "S"],
+    ["R", "H"],
+    ...(["FD", "PR", "LT"] as Node[]).map((h): [Node, Node] => ["S", h]),
+    ...(["SC", "PP", "LP"] as Node[]).map((h): [Node, Node] => ["H", h]),
+  ];
+  const line = ([a, b]: [Node, Node]) => {
+    const state = litState(a, b);
     return (
-      <line
+      <path
         key={`${a}-${b}`}
         className={cn("w", state === "go" && "hl", state === "fl" && "amber dash")}
         strokeWidth={state === "fl" ? 2.5 : undefined}
-        x1={NET[a].x}
-        y1={NET[a].y}
-        x2={NET[b].x}
-        y2={NET[b].y}
+        d={wire(a, b)}
       />
     );
   };
@@ -122,10 +141,8 @@ export function NetSim({ wide }: { wide?: boolean }) {
       </div>
       <div className="dd-fig mt-4">
         <svg viewBox="0 0 920 300" role="img" aria-label="Office network: router connected to a staff switch and a warehouse hub, each with three devices">
-          {line("R", "S")}
-          {line("R", "H")}
-          {(["FD", "PR", "LT"] as Node[]).map((h) => line("S", h))}
-          {(["SC", "PP", "LP"] as Node[]).map((h) => line("H", h))}
+          {/* Lit wires last - forwarded over flooded - so a shared bus shows the path taken. */}
+          {[...LINKS].sort(([a, b], [c, d]) => rank(a, b) - rank(c, d)).map(line)}
           {(["R", "S", "H"] as Node[]).map((k) => {
             const n = NET[k];
             const acc = last?.cls[k] === "acc";

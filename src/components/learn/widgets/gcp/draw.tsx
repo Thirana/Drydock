@@ -145,6 +145,15 @@ export function Wire({
 }
 
 /** A tick or a cross in a dot: ink when it passes, red when it is stopped. */
+/**
+ * A wire with square bends, given as a path of H and V runs (DESIGN.md "The
+ * Bend Arrow Rule"); coloured and tipped like `Wire`.
+ */
+export function Bend({ d, c, dash, plain }: { d: string; c?: string; dash?: boolean; plain?: boolean }) {
+  const hue = wireHue(c);
+  return <path className={cn("w", hue !== "muted" && hue, dash && "dash")} d={d} markerEnd={plain ? undefined : arrowHead(hue)} />;
+}
+
 export function Mark({ cx, cy, ok, r = 11 }: { cx: number; cy: number; ok: boolean; r?: number }) {
   return (
     <>

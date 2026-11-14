@@ -920,3 +920,81 @@
 :root figure.dd-expanded.dd-actual .dd-fig svg {
   min-width: var(--dd-x-svg);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Slider (`Slider` in components/ui/inputs.tsx): a ruled track filled in ink
+   up to a square ink handle; the handle turns blue while pressed or hovered.
+   `--dd-fill` is the filled share, set by the component.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  .dd-range {
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+    height: 24px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .dd-range:focus-visible {
+    outline: none;
+  }
+  .dd-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      var(--dd-ink) var(--dd-fill, 0%),
+      var(--dd-rule-strong) var(--dd-fill, 0%)
+    );
+  }
+  .dd-range::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--dd-rule-strong);
+  }
+  .dd-range::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--dd-ink);
+  }
+  .dd-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    margin-top: -7px;
+    border: 3px solid var(--dd-ground);
+    border-radius: 2px;
+    background: var(--dd-ink);
+    transition: background-color 120ms ease-out;
+  }
+  .dd-range::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--dd-ground);
+    border-radius: 2px;
+    background: var(--dd-ink);
+    transition: background-color 120ms ease-out;
+  }
+  .dd-range:hover::-webkit-slider-thumb,
+  .dd-range:active::-webkit-slider-thumb {
+    background: var(--dd-accent);
+  }
+  .dd-range:hover::-moz-range-thumb,
+  .dd-range:active::-moz-range-thumb {
+    background: var(--dd-accent);
+  }
+  .dd-range:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--dd-accent);
+    outline-offset: 1px;
+  }
+  .dd-range:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--dd-accent);
+    outline-offset: 1px;
+  }
+}

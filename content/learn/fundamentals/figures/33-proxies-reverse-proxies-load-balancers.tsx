@@ -39,14 +39,14 @@ export function FigFwd() {
       <rect className="n teal" x="160" y="100" width="112" height="60" rx="2" />
       <text className="t mid" x="216" y="126" style={{"fontSize": "14.5px"}}>Forward</text>
       <text className="t mid" x="216" y="145" style={{"fontSize": "14.5px"}}>proxy</text>
-      <line className="w" x1="134" y1="80" x2="158" y2="116" markerEnd="url(#dd-ah-muted)" />
-      <line className="w" x1="134" y1="180" x2="158" y2="146" markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d="M134 78 H216 V98" markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d="M134 182 H216 V162" markerEnd="url(#dd-ah-muted)" />
       <rect className="n" x="330" y="56" width="110" height="44" rx="2" />
       <text className="s mid" x="385" y="83">google.com</text>
       <rect className="n" x="330" y="160" width="110" height="44" rx="2" />
       <text className="s mid" x="385" y="187">other sites</text>
-      <line className="w teal" x1="272" y1="116" x2="328" y2="84" markerEnd="url(#dd-ah-teal)" />
-      <line className="w teal" x1="272" y1="146" x2="328" y2="178" markerEnd="url(#dd-ah-teal)" />
+      <path className="w teal" d="M272 130 H300 V78 H328" markerEnd="url(#dd-ah-teal)" />
+      <path className="w teal" d="M272 130 H300 V182 H328" markerEnd="url(#dd-ah-teal)" />
       <line className="w dash" x1="460" y1="20" x2="460" y2="232" />
       <rect className="n" x="480" y="56" width="110" height="44" rx="2" />
       <text className="s mid" x="535" y="83">Shopper 1</text>
@@ -54,17 +54,17 @@ export function FigFwd() {
       <text className="s mid" x="535" y="187">Shopper 2</text>
       <rect className="zone" x="620" y="16" width="290" height="220" rx="2" />
       <text className="s" x="634" y="36">{"Kadé: the servers' side"}</text>
-      <rect className="n teal" x="636" y="100" width="112" height="60" rx="2" />
-      <text className="t mid" x="692" y="126" style={{"fontSize": "14.5px"}}>Reverse</text>
-      <text className="t mid" x="692" y="145" style={{"fontSize": "14.5px"}}>proxy</text>
-      <line className="w" x1="590" y1="80" x2="634" y2="116" markerEnd="url(#dd-ah-muted)" />
-      <line className="w" x1="590" y1="180" x2="634" y2="146" markerEnd="url(#dd-ah-muted)" />
+      <rect className="n teal" x="632" y="100" width="104" height="60" rx="2" />
+      <text className="t mid" x="684" y="126" style={{"fontSize": "14.5px"}}>Reverse</text>
+      <text className="t mid" x="684" y="145" style={{"fontSize": "14.5px"}}>proxy</text>
+      <path className="w" d="M590 78 H684 V98" markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d="M590 182 H684 V162" markerEnd="url(#dd-ah-muted)" />
       <rect className="n amber" x="784" y="56" width="112" height="44" rx="2" />
       <text className="s mid" x="840" y="83">kade-api-1</text>
       <rect className="n amber" x="784" y="160" width="112" height="44" rx="2" />
       <text className="s mid" x="840" y="187">kade-api-2</text>
-      <line className="w teal" x1="748" y1="116" x2="782" y2="84" markerEnd="url(#dd-ah-teal)" />
-      <line className="w teal" x1="748" y1="146" x2="782" y2="178" markerEnd="url(#dd-ah-teal)" />
+      <path className="w teal" d="M736 130 H758 V78 H782" markerEnd="url(#dd-ah-teal)" />
+      <path className="w teal" d="M736 130 H758 V182 H782" markerEnd="url(#dd-ah-teal)" />
     </svg>
   );
 }
@@ -96,19 +96,21 @@ export function FigLb() {
       <rect className="n amber" x="514" y="146" width="170" height="56" rx="2" />
       <text className="t mid" x="599" y="170" style={{"fontSize": "15px"}}>kade-api-2</text>
       <text className="s mid" x="599" y="190">10.10.1.11:8080</text>
-      <line className="w amber" x1="466" y1="125" x2="512" y2="102" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber" x1="466" y1="170" x2="512" y2="174" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M466 100 H512" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M466 174 H512" markerEnd="url(#dd-ah-amber)" />
       <rect className="n" x="738" y="46" width="152" height="76" rx="2" />
       <text className="s mid" x="814" y="70">Health checks</text>
       <text className="s mid" x="814" y="90">35.191.0.0/16</text>
       <text className="s mid" x="814" y="108">130.211.0.0/22</text>
-      <line className="w dash" x1="738" y1="84" x2="686" y2="96" markerEnd="url(#dd-ah-muted)" />
-      <line className="w dash" x1="760" y1="122" x2="686" y2="166" markerEnd="url(#dd-ah-muted)" />
+      <path className="w dash" d="M738 96 H686" markerEnd="url(#dd-ah-muted)" />
       <rect className="n green" x="738" y="160" width="152" height="56" rx="2" />
       <text className="t mid" x="814" y="184" style={{"fontSize": "15px"}}>kade-db</text>
       <text className="s mid" x="814" y="204">10.10.2.5:5432</text>
-      <line className="w green" x1="684" y1="120" x2="736" y2="176" markerEnd="url(#dd-ah-green)" />
-      <line className="w green" x1="684" y1="180" x2="736" y2="188" markerEnd="url(#dd-ah-green)" />
+      <path className="w green" d="M684 120 H722 V188 H736" markerEnd="url(#dd-ah-green)" />
+      <path className="w green" d="M684 188 H736" markerEnd="url(#dd-ah-green)" />
+      {/* The health check to kade-api-2 crosses the database wire; it breaks behind. */}
+      <path d="M699 120 H709" style={{ stroke: "var(--dd-ground)", strokeWidth: 7 }} />
+      <path className="w dash" d="M738 110 H704 V160 H686" markerEnd="url(#dd-ah-muted)" />
       <rect className="n" x="514" y="240" width="170" height="56" rx="2" />
       <text className="s mid" x="599" y="264">Cloud NAT</text>
       <text className="s mid" x="599" y="282">→ PayGate (outgoing)</text>

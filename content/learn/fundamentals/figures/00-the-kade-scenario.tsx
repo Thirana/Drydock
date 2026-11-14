@@ -25,7 +25,7 @@ export function FigMap() {
       <text className="s" x="48" y="262">LAN side  192.168.1.1</text>
       <text className="s" x="48" y="282">WAN side  203.0.113.45 (public)</text>
       <line className="w green" x1="312" y1="250" x2="368" y2="250" markerEnd="url(#dd-ah-green)" />
-      <text className="s" x="370" y="172">api.kade.lk → 34.87.120.15</text>
+      <text className="s" x="356" y="172">api.kade.lk → 34.87.120.15</text>
       <rect className="zone" x="370" y="186" width="170" height="80" rx="2" />
       <text className="t" x="386" y="218">Internet</text>
       <text className="s" x="386" y="240">ISP + many routers</text>
@@ -42,7 +42,7 @@ export function FigMap() {
       <rect className="n" x="630" y="224" width="284" height="74" rx="2" />
       <text className="t" x="646" y="248">kade-db (VM, PostgreSQL)</text>
       <text className="s" x="646" y="270">10.10.2.5 · port 5432</text>
-      <path className="w green" d="M540 214 C 575 214, 590 131, 628 131" markerEnd="url(#dd-ah-green)" />
+      <path className="w green" d="M540 214 H586 V131 H628" markerEnd="url(#dd-ah-green)" />
       <line className="w dash" x1="772" y1="170" x2="772" y2="222" markerEnd="url(#dd-ah-muted)" />
       <text className="s" x="782" y="191">SQL queries</text>
       <rect className="zone" x="16" y="344" width="310" height="112" rx="2" />

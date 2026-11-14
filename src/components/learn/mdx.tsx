@@ -26,7 +26,7 @@ import {
   Tags,
 } from "./blocks";
 import { Caption, Note } from "@/components/mdx/primitives";
-import { IconCheck, IconX } from "@/components/ui/icons";
+import { IconCheck, IconChevronDown, IconX } from "@/components/ui/icons";
 import { headingId } from "@/lib/content/heading-id";
 import { chapterByNum, chapterHref, isPublished } from "@/lib/content/learn";
 import type { Course, Hue } from "@/lib/content/types";
@@ -204,9 +204,10 @@ function Box({
 }
 
 /**
- * One thing to try at the end of a chapter: what it shows as the title, a few
- * plain bullets (steps, what to look for, where it runs, which section it goes
- * with), then the command to run. Numbered in the gutter like the sections.
+ * One thing to try at the end of a chapter, folded to its title so a long run
+ * of them stays short: open it for a few plain bullets (what it shows, what to
+ * look for, where it runs) and the command. Numbered in the gutter like the
+ * sections.
  */
 function TryIt({
   n,
@@ -218,20 +219,26 @@ function TryIt({
   children: ReactNode;
 }) {
   return (
-    <section className="border-rule my-8 grid max-w-[760px] grid-cols-[28px_minmax(0,1fr)] gap-x-2 border-t pt-5">
-      <span
-        aria-hidden="true"
-        className="text-ink-faint pt-[3px] font-mono text-[14px] font-bold"
-      >
-        {n}.
-      </span>
-      <div className="min-w-0 [&_li]:mt-1 [&_li]:text-[16.5px] [&_li]:leading-[1.55] [&_ul]:my-0 [&_ul]:pl-5 [&>div]:mt-4 [&>div]:mb-0">
-        <h3 className="not-prose text-ink mb-2 text-[17px] leading-[1.35] font-bold">
+    <details className="group border-rule max-w-[760px] border-t first-of-type:mt-8 [&:last-of-type]:mb-8 [&:last-of-type]:border-b">
+      <summary className="hover:bg-sunk grid cursor-pointer list-none grid-cols-[28px_minmax(0,1fr)_20px] items-baseline gap-x-2 py-3.5 transition-colors duration-150 [&::-webkit-details-marker]:hidden">
+        <span
+          aria-hidden="true"
+          className="text-ink-faint font-mono text-[14px] font-bold"
+        >
+          {n}.
+        </span>
+        <h3 className="not-prose text-ink text-[17px] leading-[1.35] font-bold">
           {title}
         </h3>
+        <IconChevronDown
+          size={14}
+          className="text-ink-muted group-open:text-ink size-4 self-center transition-transform duration-300 group-open:rotate-180"
+        />
+      </summary>
+      <div className="min-w-0 pb-6 pl-[36px] [&_li]:mt-1 [&_li]:text-[16.5px] [&_li]:leading-[1.55] [&_ul]:my-0 [&_ul]:pl-5 [&>*:first-child]:mt-1 [&>div]:mt-4 [&>div]:mb-0">
         {children}
       </div>
-    </section>
+    </details>
   );
 }
 

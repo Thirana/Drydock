@@ -10,9 +10,9 @@ export function FigWhy() {
       <text className="t" x="30" y="120">Video call</text>
       <rect className="n plum" x="16" y="164" width="170" height="46" rx="2" />
       <text className="t" x="30" y="192">Staff browsing</text>
-      <line className="w amber" x1="186" y1="43" x2="318" y2="104" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber" x1="186" y1="115" x2="318" y2="115" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber" x1="186" y1="187" x2="318" y2="126" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M186 43 H252 V115 H318" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M186 115 H318" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M186 187 H252 V115 H318" markerEnd="url(#dd-ah-amber)" />
       <text className="s" x="320" y="48">together: 180 Mbit/s</text>
       <rect className="n teal" x="320" y="60" width="330" height="110" rx="2" />
       <text className="t" x="336" y="84">Office router · queue</text>

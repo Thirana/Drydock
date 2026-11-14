@@ -2,11 +2,12 @@
 
 import { Fragment, useId, type ReactNode } from "react";
 import { ToggleChip } from "@/components/ui/controls";
+import { Dropdown } from "@/components/ui/inputs";
 import { cn } from "@/lib/utils";
 
 /*
  * Small controls and read-outs shared by the course widgets, so every widget
- * speaks the same vocabulary: outlined choices filled in ink, plain selects,
+ * speaks the same vocabulary: outlined choices filled in ink, dropdowns,
  * label/value lists, numbered steps and a one-sentence outcome.
  */
 
@@ -108,7 +109,7 @@ export function Choices<T extends string | number>({
   );
 }
 
-/** A native select, labelled, styled like the text fields. */
+/** A labelled dropdown, styled like the text fields. */
 export function Select<T extends string>({
   label,
   value,
@@ -123,21 +124,10 @@ export function Select<T extends string>({
   const id = useId();
   return (
     <div className="grid gap-1.5">
-      <label htmlFor={id} className="text-ink-muted text-[14px]">
+      <span id={id} className="text-ink-muted text-[14px]">
         {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="border-rule-strong bg-ground text-ink hover:border-ink-faint h-11 min-w-[220px] rounded-[2px] border px-3 text-[15px] transition-colors"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      </span>
+      <Dropdown labelledBy={id} value={value} onChange={onChange} options={options} />
     </div>
   );
 }

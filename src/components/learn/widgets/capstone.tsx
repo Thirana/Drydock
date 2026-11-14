@@ -8,6 +8,7 @@ import data from "./data/fundamentals.json";
 import { MultiSeqDrawing } from "./seq";
 import { Action, Choices, KeyValues, Outcome, Rich, Select, Steps, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Checkbox, Slider } from "@/components/ui/inputs";
 
 /*
  * Chapters 33 and 34: proxies and load balancers, then one request followed
@@ -343,10 +344,9 @@ export function XffSim({ wide }: { wide?: boolean }) {
         <Select label="Path" value={path} onChange={setPath} options={(Object.keys(XFF_PATHS) as XffPath[]).map((k) => ({ value: k, label: XFF_PATHS[k].n }))} />
         <Select label="Express trust proxy" value={trust} onChange={setTrust} options={["false", "true", "1", "2", "3"].map((k) => ({ value: k, label: k }))} />
       </div>
-      <label className="text-ink-body mt-4 flex cursor-pointer items-center gap-2.5 text-[15px]">
-        <input type="checkbox" checked={spoof} onChange={(e) => setSpoof(e.target.checked)} className="accent-ink size-4" />
+      <Checkbox checked={spoof} onChange={setSpoof} className="mt-4">
         the client sends a fake <code className="font-mono text-[0.92em]">X-Forwarded-For: 1.2.3.4</code>
-      </label>
+      </Checkbox>
       <div className="mt-5 overflow-x-auto" aria-live="polite">
         <table className="w-full min-w-[640px] border-collapse text-left">
           <thead>
@@ -457,7 +457,7 @@ export function TimeoutChain({ wide }: { wide?: boolean }) {
         <label htmlFor={rangeId} className="text-ink-muted text-[14px]">
           The report request needs <b className="text-ink">{d} s</b>
         </label>
-        <input id={rangeId} type="range" min={1} max={120} value={d} onChange={(e) => setD(Number(e.target.value))} className="accent-ink" />
+        <Slider id={rangeId} min={1} max={120} value={d} onChange={setD} />
       </div>
       <div className="mt-5 min-w-[560px] overflow-x-auto">
         <div className="relative h-24">
@@ -541,14 +541,24 @@ export function E2eJourney({ wide }: { wide?: boolean }) {
   const active = new Set(S.act ?? S.go.flat());
   const hw = (n: string) => (JN[n].w ?? 124) / 2;
   const hh = 26;
+  /**
+   * A wire between two boxes. Level boxes join straight across; otherwise the
+   * wire rises from the lower box and turns square into the upper one's side
+   * (DESIGN.md "The Bend Arrow Rule").
+   */
   const edge = (a: string, b: string) => {
     const A = JN[a];
     const B = JN[b];
-    const dx = B.x - A.x;
-    const dy = B.y - A.y;
-    const ta = Math.min(dx ? hw(a) / Math.abs(dx) : 1e9, dy ? hh / Math.abs(dy) : 1e9);
-    const tb = Math.min(dx ? hw(b) / Math.abs(dx) : 1e9, dy ? hh / Math.abs(dy) : 1e9);
-    return [A.x + dx * ta, A.y + dy * ta, B.x - dx * tb, B.y - dy * tb];
+    if (A.y === B.y) {
+      const dir = Math.sign(B.x - A.x);
+      return `M${A.x + dir * hw(a)} ${A.y} H${B.x - dir * hw(b)}`;
+    }
+    const [low, high] = A.y > B.y ? [a, b] : [b, a];
+    const L = JN[low];
+    const Hn = JN[high];
+    const side = Hn.x + (L.x < Hn.x ? -hw(high) : hw(high));
+    const up = `M${L.x} ${L.y - hh} V${Hn.y} H${side}`;
+    return low === a ? up : `M${side} ${Hn.y} H${L.x} V${L.y - hh}`;
   };
   return (
     <WidgetFrame wide={wide} label="One request, end to end">
@@ -570,12 +580,10 @@ export function E2eJourney({ wide }: { wide?: boolean }) {
             <rect className="zone" x="648" y="110" width="268" height="120" rx="2" />
             <text className="s" x="660" y="128">kade-vpc</text>
             {JLINKS.map(([a, b]) => {
-              const e = edge(a, b);
-              return <line key={`${a}${b}`} className="w" x1={e[0]} y1={e[1]} x2={e[2]} y2={e[3]} opacity={0.5} />;
+              return <path key={`${a}${b}`} className="w" d={edge(a, b)} opacity={0.5} />;
             })}
             {S.go.map(([a, b]) => {
-              const e = edge(a, b);
-              return <line key={`g${a}${b}`} className={`w ${hue}`} x1={e[0]} y1={e[1]} x2={e[2]} y2={e[3]} strokeWidth={3} markerEnd={arrowHead(hue)} />;
+              return <path key={`g${a}${b}`} className={`w ${hue}`} d={edge(a, b)} strokeWidth={3} markerEnd={arrowHead(hue)} />;
             })}
             {Object.entries(JN).map(([n, N]) => {
               const on = active.has(n);
@@ -692,11 +700,11 @@ export function E2eModel({ wide }: { wide?: boolean }) {
       <div className="flex flex-wrap gap-x-8 gap-y-3">
         <div className="grid min-w-[220px] gap-1.5">
           <label htmlFor={rttId} className="text-ink-muted text-[14px]">Round trip to the server: <b className="text-ink">{rtt} ms</b></label>
-          <input id={rttId} type="range" min={5} max={250} value={rtt} onChange={(e) => setRtt(Number(e.target.value))} className="accent-ink" />
+          <Slider id={rttId} min={5} max={250} value={rtt} onChange={setRtt} />
         </div>
         <div className="grid min-w-[200px] gap-1.5">
           <label htmlFor={srvId} className="text-ink-muted text-[14px]">Server work: <b className="text-ink">{srv} ms</b></label>
-          <input id={srvId} type="range" min={1} max={500} value={srv} onChange={(e) => setSrv(Number(e.target.value))} className="accent-ink" />
+          <Slider id={srvId} min={1} max={500} value={srv} onChange={setSrv} />
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-3">

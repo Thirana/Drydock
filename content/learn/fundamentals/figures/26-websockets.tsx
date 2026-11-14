@@ -20,10 +20,10 @@ export function FigScale() {
       <text className="t" x="606" y="120">{"Pub/sub channel \"order:1042\""}</text>
       <text className="s" x="606" y="140">Redis, or GCP Pub/Sub</text>
       <line className="w plum" x1="186" y1="58" x2="278" y2="58" markerEnd="url(#dd-ah-plum)" />
-      <line className="w amber" x1="516" y1="58" x2="588" y2="104" markerEnd="url(#dd-ah-amber)" />
-      <text className="s" x="524" y="54">publish</text>
-      <line className="w amber" x1="588" y1="148" x2="518" y2="192" markerEnd="url(#dd-ah-amber)" />
-      <text className="s" x="524" y="204">deliver</text>
+      <path className="w amber" d="M516 58 H740 V94" markerEnd="url(#dd-ah-amber)" />
+      <text className="s" x="526" y="50">publish</text>
+      <path className="w amber" d="M740 156 V192 H518" markerEnd="url(#dd-ah-amber)" />
+      <text className="s" x="526" y="210">deliver</text>
       <line className="w green" x1="278" y1="192" x2="188" y2="192" markerEnd="url(#dd-ah-green)" />
       <text className="s" x="196" y="182">push</text>
     </svg>

@@ -66,7 +66,7 @@ export function VpcOptions() {
         <Box x={220} y={384} w={160} h={32} />
         <T x={230} y={405} size={11}>project staging</T>
         <Wire x1={108} y1={384} x2={108} y2={357} dash />
-        <Wire x1={276} y1={384} x2={244} y2={357} dash />
+        <Wire x1={262} y1={384} x2={262} y2={357} dash />
         {vpc(508, 294, "staging-vpc")}
         {vpc(728, 294, "kade-vpc")}
         <Box x={516} y={332} w={166} h={34} c="orange" />
@@ -221,11 +221,11 @@ function PeeringView({ c, what }: { c: Case; what: string }) {
         <line className="w green" x1={595} y1={145} x2={714} y2={145} strokeWidth={6} />
         <T x={655} y={132} k="s mid" bold size={10.5}>peering</T>
         {vm ? (
-          <path className="w green" d="M130 200 C 160 260, 440 260, 470 192" markerEnd="url(#dd-ah-green)" />
+          <path className="w green" d="M130 184 V236 H479 V187" markerEnd="url(#dd-ah-green)" />
         ) : (
           <>
-            <path className="w fault dash" d="M130 200 C 200 290, 760 290, 820 210" />
-            <Mark cx={480} cy={268} ok={false} r={13} />
+            <path className="w fault dash" d="M130 184 V266 H828 V188" />
+            <Mark cx={480} cy={266} ok={false} r={13} />
           </>
         )}
       </Drawing>
@@ -273,10 +273,10 @@ export function SharedVpc() {
         <T x={536} y={290} k="t" size={12.5}>SERVICE project kade-staging</T>
         <T x={536} y={312} size={11}>networkUser on sn-staging-* only</T>
         <T x={536} y={330} k="f" size={11}>its own billing and IAM</T>
-        <path className="w dash" d="M260 262 C 260 230, 200 210, 170 190" markerEnd="url(#dd-ah-muted)" />
-        <path className="w dash" d="M320 262 C 330 230, 360 210, 370 190" markerEnd="url(#dd-ah-muted)" />
-        <path className="w dash" d="M640 262 C 640 230, 600 210, 595 190" markerEnd="url(#dd-ah-muted)" />
-        <path className="w dash" d="M700 262 C 720 230, 800 210, 820 190" markerEnd="url(#dd-ah-muted)" />
+        <path className="w dash" d="M290 262 V239 H135 V189" markerEnd="url(#dd-ah-muted)" />
+        <path className="w dash" d="M290 262 V239 H365 V189" markerEnd="url(#dd-ah-muted)" />
+        <path className="w dash" d="M670 262 V239 H595 V189" markerEnd="url(#dd-ah-muted)" />
+        <path className="w dash" d="M670 262 V239 H825 V189" markerEnd="url(#dd-ah-muted)" />
         <T x={480} y={370} k="s mid" size={11.5}>
           Service projects put their VMs and Cloud Run services into the subnets they may use: one network, one plan, one rule set.
         </T>
@@ -403,10 +403,10 @@ function PartView({ c }: { c: PartCase }) {
         <T x={698} y={116} k="t" size={12.5}>Office router</T>
         <T x={698} y={136} size={11}>198.51.100.20 · ASN 65010</T>
         <T x={698} y={154} k="f" size={10.5}>IPsec + BGP + MSS clamp</T>
-        <path className={cn("w", tunnels && "cur")} d="M240 90 C 420 66, 560 66, 683 118" />
-        <path className={cn("w", tunnels && "cur")} d="M240 128 C 420 150, 560 150, 683 152" />
-        <T x={460} y={62} k="s mid" bold={tunnels} size={11}>tunnel 0 · 169.254.0.1 ↔ .0.2</T>
-        <T x={460} y={166} k="s mid" bold={tunnels} size={11}>tunnel 1 · 169.254.1.1 ↔ .1.2</T>
+        <path className={cn("w", tunnels && "cur")} d="M240 100 H683" />
+        <path className={cn("w", tunnels && "cur")} d="M240 140 H683" />
+        <T x={460} y={91} k="s mid" bold={tunnels} size={11}>tunnel 0 · 169.254.0.1 ↔ .0.2</T>
+        <T x={460} y={159} k="s mid" bold={tunnels} size={11}>tunnel 1 · 169.254.1.1 ↔ .1.2</T>
         <T x={460} y={262} k="f mid" size={10.5}>both tunnels: IPsec over the public internet</T>
       </Drawing>
       <div className="border-rule border-t pt-3">
@@ -511,7 +511,7 @@ function BgpView({ c, what }: { c: Case; what: string }) {
         <Box x={502} y={86} w={220} h={60} c={global ? "green" : "red"} />
         <T x={514} y={110} k="t" size={12}>a VM here</T>
         <T x={514} y={128} k={global ? "s" : "s c-red"} size={10.5}>{global ? "✓ route to the office" : "✕ no route to the office"}</T>
-        <path className={cn("w", global ? "green" : "fault dash")} d="M236 150 C 300 200, 560 200, 600 150" markerEnd={global ? "url(#dd-ah-green)" : undefined} />
+        <path className={cn("w", global ? "green" : "fault dash")} d="M141 146 V180 H612 V149" markerEnd={global ? "url(#dd-ah-green)" : undefined} />
         <T x={420} y={206} k={global ? "s mid" : "s mid c-red"} bold size={11}>
           {global ? "learned routes shared with every region" : "learned routes stay in the router's region"}
         </T>
@@ -572,13 +572,13 @@ function FailoverView({ c, what }: { c: Case; what: string }) {
         <Box x={744} y={70} w={200} h={90} />
         <T x={758} y={98} k="t" size={13}>office</T>
         <T x={758} y={120} size={11}>scanners, file server</T>
-        <path className={cn("w", down ? "fault dash" : "green")} d="M216 100 C 360 40, 600 40, 741 100" strokeWidth={down ? 2 : 3} />
-        <T x={480} y={26} k={down ? "s mid c-red" : "s mid"} bold size={11}>
+        <path className={cn("w", down ? "fault dash" : "green")} d="M216 95 H741" strokeWidth={down ? 2 : 3} />
+        <T x={480} y={84} k={down ? "s mid c-red" : "s mid"} bold size={11}>
           {`tunnel 0 · priority 100 · ${down ? "DOWN: route withdrawn" : "carrying traffic"}`}
         </T>
-        {down && <Mark cx={480} cy={56} ok={false} />}
-        <path className={cn("w", t1Busy && "green")} d="M216 130 C 360 190, 600 190, 741 130" strokeWidth={t1Busy ? 3 : 2} />
-        <T x={480} y={200} k={t1Busy ? "s mid" : "f mid"} bold={t1Busy} size={11}>
+        {down && <Mark cx={300} cy={95} ok={false} />}
+        <path className={cn("w", t1Busy && "green")} d="M216 135 H741" strokeWidth={t1Busy ? 3 : 2} />
+        <T x={480} y={156} k={t1Busy ? "s mid" : "f mid"} bold={t1Busy} size={11}>
           {`tunnel 1 · priority ${both ? 100 : 200} · ${t1Busy ? "carrying traffic" : "standing by"}`}
         </T>
       </Drawing>

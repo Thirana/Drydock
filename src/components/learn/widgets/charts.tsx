@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { Select } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Checkbox, Slider } from "@/components/ui/inputs";
 
 /*
  * Chapter 20's charts: congestion windows over time. One line chart, drawn
@@ -399,7 +400,7 @@ export function CwndSim({ wide }: { wide?: boolean }) {
           <label htmlFor={capId} className="text-ink-muted text-[14px]">
             Path capacity: <b className="text-ink">{cap}</b> segments per round trip
           </label>
-          <input id={capId} type="range" min={15} max={80} value={cap} onChange={(e) => setCap(Number(e.target.value))} className="accent-ink" />
+          <Slider id={capId} min={15} max={80} value={cap} onChange={setCap} />
         </div>
         <Select
           label="Algorithm"
@@ -420,10 +421,9 @@ export function CwndSim({ wide }: { wide?: boolean }) {
             { value: "1", label: "1 segment (textbook)" },
           ]}
         />
-        <label className="text-ink-body flex min-h-11 cursor-pointer items-center gap-2.5 text-[15px]">
-          <input type="checkbox" checked={timeout} onChange={(e) => setWithTimeout(e.target.checked)} className="accent-ink size-4" />
+        <Checkbox checked={timeout} onChange={setWithTimeout} className="min-h-11">
           Timeout at round trip 45
-        </label>
+        </Checkbox>
       </div>
       <div className="dd-fig mt-4" aria-live="polite">
         <LineChart

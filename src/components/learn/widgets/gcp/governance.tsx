@@ -6,7 +6,7 @@ import data from "../data/gcp.json";
 import { Choices, WidgetNote } from "../ui";
 import { WidgetFrame } from "../widget-frame";
 import { CaseExplorer, Result, type Case, type Tone } from "./case-explorer";
-import { Box, Caps, Drawing, Mark, T, Wire } from "./draw";
+import { Bend, Box, Caps, Drawing, Mark, T, Wire } from "./draw";
 import { Phases, Table } from "./kit";
 
 /* Part 6 · Running it: governance (chapter 17). */
@@ -30,7 +30,7 @@ export function DriftModel() {
             <Box x={16} y={y} w={190} h={70} c="red" />
             <T x={30} y={y + 28} k="t" size={12.5}>{t}</T>
             <T x={30} y={y + 48} size={11}>{s}</T>
-            <path className="w fault" d={`M206 ${y + 35} C 228 ${y + 35}, 228 220, 247 220`} markerEnd="url(#dd-ah-fault)" />
+            <path className="w fault" d={`M206 ${y + 35} H228 V220 H247`} markerEnd="url(#dd-ah-fault)" />
           </g>
         ))}
         <Box x={250} y={150} w={132} h={140} c="orange" />
@@ -40,8 +40,9 @@ export function DriftModel() {
         <T x={262} y={230} size={10.5}>IAM roles</T>
         <T x={262} y={246} size={10.5}>VPC-SC</T>
         <T x={262} y={272} bold size={10.5}>refused</T>
-        <path className="w dash" d="M382 220 C 520 220, 580 170, 640 123" markerEnd="url(#dd-ah-muted)" />
-        <T x={396} y={262} bold size={10.5}>what gets past prevention</T>
+        {/* What gets past prevention joins the drift into the drifted network. */}
+        <path className="w dash" d="M382 220 H600 V75 H617" markerEnd="url(#dd-ah-muted)" />
+        <T x={396} y={210} bold size={10.5}>what gets past prevention</T>
         <Box x={620} y={30} w={200} h={90} c="yellow" />
         <T x={634} y={58} k="t" size={13}>Drifted network</T>
         <T x={634} y={80} size={11}>a rule opened, an IP</T>
@@ -54,8 +55,8 @@ export function DriftModel() {
         <T x={634} y={250} size={10.5}>Asset Inventory · drift plan</T>
         <T x={634} y={274} bold size={10.5}>found in minutes</T>
         <Wire x1={720} y1={120} x2={720} y2={167} c="blue" />
-        <path className="w green" d="M836 230 C 904 230, 904 20, 600 20 L 585 30" markerEnd="url(#dd-ah-green)" />
-        <T x={866} y={40} bold size={10.5}>fixed again</T>
+        <path className="w green" d="M836 230 H904 V14 H480 V27" markerEnd="url(#dd-ah-green)" />
+        <T x={896} y={150} end bold size={10.5}>fixed again</T>
       </Drawing>
     </WidgetFrame>
   );
@@ -90,10 +91,10 @@ export function GovHier() {
         <Box x={560} y={230} w={200} h={64} />
         <T x={574} y={256} k="t" size={12.5}>Project dev-tests</T>
         <T x={574} y={276} size={10.5}>inherits org + sandbox</T>
-        <Wire x1={440} y1={80} x2={320} y2={117} />
-        <Wire x1={520} y1={80} x2={640} y2={117} />
-        <Wire x1={250} y1={184} x2={150} y2={227} />
-        <Wire x1={330} y1={184} x2={350} y2={227} />
+        <Bend d="M480 80 V100 H300 V117" />
+        <Bend d="M480 80 V100 H660 V117" />
+        <Bend d="M300 184 V206 H140 V227" />
+        <Bend d="M300 184 V206 H350 V227" />
         <Wire x1={660} y1={184} x2={660} y2={227} />
         <line className="w" x1={900} y1={30} x2={900} y2={280} strokeWidth={3} markerEnd="url(#dd-ah-muted)" />
         <T x={850} y={40} end bold size={11}>inherited</T>
@@ -189,10 +190,10 @@ function OrgPolView({ c }: { c: Case }) {
           effect={exception ? "✓ vpn-probe may; others refused" : dry ? "! would be refused: logged" : "✕ inherited: refused"}
           c={exception ? "yellow" : "blue"}
         />
-        <Wire x1={420} y1={102} x2={260} y2={167} c="orange" />
-        <Wire x1={540} y1={102} x2={700} y2={167} c={exception ? undefined : "orange"} dash={exception} />
+        <Bend d="M480 102 V136 H220 V167" c="orange" />
+        <Bend d="M480 102 V136 H740 V167" c={exception ? undefined : "orange"} dash={exception} />
         {exception && (
-          <T x={640} y={140} bold size={10.5}>
+          <T x={752} y={156} bold size={10.5}>
             replaces the inherited policy
           </T>
         )}
@@ -392,7 +393,7 @@ function VpcScView({ c, what }: { c: Case; what: string }) {
         {outside(16, 80, "Attacker's laptop", "valid stolen token", "red")}
         {dry ? (
           <>
-            <path className="w dash" d="M236 115 C 330 150, 470 160, 560 136" markerEnd="url(#dd-ah-muted)" />
+            <path className="w dash" d="M236 115 H270 V147 H595 V137" markerEnd="url(#dd-ah-muted)" />
             <T x={332} y={190} bold size={10.5}>allowed + logged</T>
           </>
         ) : (
@@ -408,8 +409,8 @@ function VpcScView({ c, what }: { c: Case; what: string }) {
     extra = (
       <>
         {outside(740, 120, "personal-project", "outside the perimeter", "red")}
-        <path className="w fault" d="M680 99 C 720 99, 700 155, 728 155" />
-        <Mark cx={700} cy={130} ok={false} r={12} />
+        <path className="w fault" d="M680 99 H712 V155 H728" />
+        <Mark cx={712} cy={127} ok={false} r={12} />
       </>
     );
   } else {
@@ -418,10 +419,10 @@ function VpcScView({ c, what }: { c: Case; what: string }) {
       <>
         {outside(16, 170, "Office PC", "198.51.100.20")}
         {outside(16, 40, "Same token, elsewhere", "203.0.113.99", "red")}
-        <path className="w green" d="M236 205 C 380 205, 420 195, 507 195" markerEnd="url(#dd-ah-green)" />
+        <path className="w green" d="M236 200 H507" markerEnd="url(#dd-ah-green)" />
         <T x={260} y={232} bold size={10.5}>access level kade-office</T>
-        <path className="w fault" d="M236 75 C 270 75, 280 60, 296 60" />
-        <Mark cx={300} cy={60} ok={false} />
+        <path className="w fault" d="M236 75 H288" />
+        <Mark cx={300} cy={75} ok={false} />
       </>
     );
   }
@@ -479,11 +480,11 @@ export function IacFlow() {
         <Box x={560} y={150} w={200} h={70} c="red" />
         <T x={574} y={178} k="t" size={12}>Console change</T>
         <T x={574} y={198} size={10.5}>someone opens port 22</T>
-        <Wire x1={760} y1={185} x2={840} y2={104} c="red" />
+        <Bend d="M760 185 H850 V103" c="red" />
         <Box x={190} y={150} w={300} h={70} c="yellow" />
         <T x={204} y={178} k="t" size={12}>Daily drift plan</T>
         <T x={204} y={198} size={10.5}>&quot;firewall rule differs from code&quot;</T>
-        <path className="w dash" d="M850 100 C 850 250, 400 260, 340 222" markerEnd="url(#dd-ah-muted)" />
+        <path className="w dash" d="M904 100 V240 H340 V223" markerEnd="url(#dd-ah-muted)" />
         <T x={600} y={256} k="s mid" bold size={11}>detected next morning, or by the audit log alert in minutes</T>
       </Drawing>
     </WidgetFrame>

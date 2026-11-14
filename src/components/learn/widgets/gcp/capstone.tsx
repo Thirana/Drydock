@@ -51,13 +51,68 @@ function Journey({ data: j, label }: { data: JourneyData; label: string }) {
   const path = mode === "ret" ? j.ret : j.req;
   const at = mode === "brk" ? brk.at : Math.min(k, path.length - 1);
   const centre = (n: string): [number, number] => [j.nodes[n][0] + w / 2, j.nodes[n][1] + 32];
-  const clip = (a: string, b: string) => {
-    const [x1, y1] = centre(a);
-    const [x2, y2] = centre(b);
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const t = Math.min(dx ? (w / 2 + 3) / Math.abs(dx) : 9, dy ? 35 / Math.abs(dy) : 9);
-    return [x1 + dx * t, y1 + dy * t, x2 - dx * t, y2 - dy * t];
+  const box = (n: string) => {
+    const [x, y] = j.nodes[n];
+    return { x, y, r: x + w, b: y + 64 };
+  };
+  /** Does a straight run from (x1, y1) to (x2, y2) pass through a box other than `skip`? */
+  const blocked = (x1: number, y1: number, x2: number, y2: number, skip: string[]) =>
+    Object.keys(j.nodes).some((n) => {
+      if (skip.includes(n)) return false;
+      const B = box(n);
+      return Math.max(x1, x2) > B.x && Math.min(x1, x2) < B.r && Math.max(y1, y2) > B.y && Math.min(y1, y2) < B.b;
+    });
+  /**
+   * The corners of a wire from a to b, square bends only (DESIGN.md "The Bend
+   * Arrow Rule"): straight when the boxes share a band; otherwise across and
+   * then up or down into the target, or up or down first when going across
+   * would run through another box. Ends 3 units short, where the arrowhead's
+   * tip meets the box.
+   */
+  const route = (a: string, b: string): [number, number][] => {
+    const A = box(a);
+    const B = box(b);
+    const top = Math.max(A.y, B.y);
+    const bottom = Math.min(A.b, B.b);
+    if (top < bottom) {
+      const y = (top + bottom) / 2;
+      return B.x >= A.r ? [[A.r + 3, y], [B.x - 3, y]] : [[A.x - 3, y], [B.r + 3, y]];
+    }
+    const left = Math.max(A.x, B.x);
+    const right = Math.min(A.r, B.r);
+    if (left < right) {
+      const x = (left + right) / 2;
+      return B.y >= A.b ? [[x, A.b + 3], [x, B.y - 3]] : [[x, A.y - 3], [x, B.b + 3]];
+    }
+    const [ax, ay] = centre(a);
+    const [bx, by] = centre(b);
+    const sx = bx > ax ? A.r + 3 : A.x - 3;
+    // Leave a little toward the target, so a wire going up and one going down
+    // from the same side are two elbows, not one shared trunk.
+    const ey = ay + (by > ay ? 8 : -8);
+    if (!blocked(sx, ey, bx, ey, [a, b])) return [[sx, ey], [bx, ey], [bx, by > ay ? B.y - 3 : B.b + 3]];
+    return [[ax, by > ay ? A.b + 3 : A.y - 3], [ax, by], [bx > ax ? B.x - 3 : B.r + 3, by]];
+  };
+  /** The same route whichever way the packet travels; returns run it backwards. */
+  const wire = (a: string, b: string) => {
+    const listed = j.edges.some(([p, q]) => p === a && q === b);
+    return listed ? route(a, b) : route(b, a).reverse();
+  };
+  const d = (points: [number, number][]) => points.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" ");
+  /** The middle of a wire's longest run, where a break is marked. */
+  const middle = (points: [number, number][]): [number, number] => {
+    let best: [number, number] = points[0];
+    let longest = -1;
+    for (let i = 1; i < points.length; i++) {
+      const [x1, y1] = points[i - 1];
+      const [x2, y2] = points[i];
+      const length = Math.abs(x2 - x1) + Math.abs(y2 - y1);
+      if (length > longest) {
+        longest = length;
+        best = [(x1 + x2) / 2, (y1 + y2) / 2];
+      }
+    }
+    return best;
   };
   const hop = path[at];
   const active = new Set(hop.e);
@@ -89,27 +144,24 @@ function Journey({ data: j, label }: { data: JourneyData; label: string }) {
           </g>
         ))}
         {j.edges.map(([a, b]) => {
-          const [x1, y1, x2, y2] = clip(a, b);
-          return <line key={`${a}${b}`} className="w" x1={x1} y1={y1} x2={x2} y2={y2} opacity={0.5} />;
+          return <path key={`${a}${b}`} className="w" d={d(wire(a, b))} opacity={0.5} />;
         })}
         {path.map((step, i) => {
           if (i > at || step.e[0] === step.e[1]) return null;
-          const [x1, y1, x2, y2] = clip(step.e[0], step.e[1]);
+          const points = wire(step.e[0], step.e[1]);
+          const [mx, my] = middle(points);
           const current = i === at;
           const broken = mode === "brk" && current;
           const hue = broken ? "fault" : current ? "accent" : "green";
           return (
             <g key={i}>
-              <line
+              <path
                 className={cn("w", broken ? "fault" : current ? "cur" : "green")}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
+                d={d(points)}
                 strokeWidth={current ? 3.5 : 2.2}
                 markerEnd={`url(#dd-ah-${hue})`}
               />
-              {broken && <Mark cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} ok={false} r={13} />}
+              {broken && <Mark cx={mx} cy={my} ok={false} r={13} />}
             </g>
           );
         })}
@@ -392,7 +444,7 @@ export function FinalMap() {
           <text className="s" x="472" y="620" style={{"fontSize": "12px"}}>8 alerts · uptime check via Cloudflare</text>
           <text className="s" x="472" y="636" style={{"fontSize": "12px"}}>saved Connectivity Tests · Ops Agent on VMs</text>
           <path className="w" d="M105 102 L 105 115" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
-          <path className="w" d="M194 150 C 206 150, 208 84, 221 82" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
+          <path className="w" d="M194 150 H207 V82 H221" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
           <path className="w" d="M330 118 L 330 129" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
           <path className="w" d="M330 206 L 330 217" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />
           <path className="w" d="M330 294 L 330 305" markerEnd="url(#dd-ah-muted)" style={{"opacity": ".85"}} />

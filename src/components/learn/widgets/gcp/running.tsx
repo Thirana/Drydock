@@ -26,6 +26,22 @@ const OBS_NODES: Record<string, [x: number, y: number, t: string, s: string, c: 
   worker: [526, 190, "kade-worker", "VM in sn-app", "blue"],
   dns: [356, 190, "Cloud DNS", "private zones", "purple"],
 };
+/**
+ * Each link's wire, square bends only (DESIGN.md "The Bend Arrow Rule"):
+ * straight where the boxes share a band, Cloud Run forking up to Cloud SQL,
+ * and the DNS lookups kept clear of the load balancer's wire.
+ */
+const OBS_ROUTES: Record<string, string> = {
+  "shop-cf": "M156 104 H183",
+  "cf-lb": "M326 104 H353",
+  "lb-run": "M496 104 H523",
+  "run-sql": "M666 90 H700 V46 H757",
+  "run-nat": "M666 116 H757",
+  "worker-sql": "M666 204 H730 V60 H757",
+  "worker-vpn": "M666 222 H757",
+  "run-dns": "M526 122 H511 V212 H499",
+  "worker-dns": "M526 230 H499",
+};
 const OBS_LINKS: [string, string, boolean?][] = [
   ["shop", "cf"],
   ["cf", "lb"],
@@ -128,25 +144,32 @@ function ObsView({ c }: { c: ObsCase }) {
   return (
     <div className="space-y-4">
       <Drawing h={262} label={`What ${src.k} can see in Kadé's platform; the parts it covers are marked`}>
-        {OBS_LINKS.map(([a, b, dash]) => {
-          const [ax, ay] = OBS_NODES[a];
-          const [bx, by] = OBS_NODES[b];
-          const on = seen(a, b);
-          const back = bx < ax;
-          const x1 = back ? ax : ax + 140;
-          const y1 = ay + 30;
-          const x2 = back ? bx + 140 : bx;
-          const y2 = by + 30;
-          return (
-            <path
-              key={`${a}${b}`}
-              className={cn("w", on && "green", dash && "dash", !on && "off")}
-              d={`M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${back ? x2 + 3 : x2 - 3} ${y2}`}
-              strokeWidth={on ? 3 : undefined}
-              markerEnd={on ? "url(#dd-ah-green)" : undefined}
-            />
-          );
-        })}
+        {/* Lit wires go on top. kade-worker's wire up to Cloud SQL crosses
+            Cloud Run's wire to NAT; the one underneath breaks behind the other. */}
+        {[...OBS_LINKS]
+          .sort(([a1, b1], [a2, b2]) => Number(seen(a1, b1)) - Number(seen(a2, b2)))
+          .map(([a, b, dash]) => {
+            const on = seen(a, b);
+            const key = `${a}-${b}`;
+            const natOnTop = seen("run", "nat") && !seen("worker", "sql");
+            const crossing = key === (natOnTop ? "run-nat" : "worker-sql");
+            return (
+              <g key={key}>
+                {crossing && (
+                  <path
+                    d={natOnTop ? "M730 109 V123" : "M723 116 H737"}
+                    style={{ stroke: "var(--dd-ground)", strokeWidth: 7 }}
+                  />
+                )}
+                <path
+                  className={cn("w", on && "green", dash && "dash", !on && "off")}
+                  d={OBS_ROUTES[key]}
+                  strokeWidth={on ? 3 : undefined}
+                  markerEnd={on ? "url(#dd-ah-green)" : undefined}
+                />
+              </g>
+            );
+          })}
         {Object.entries(OBS_NODES).map(([key, [x, y, t, s, col]]) => {
           const on = src.on.includes(key);
           return (
@@ -307,20 +330,14 @@ export function FlowCover() {
         <T x={794} y={140} k="t" size={12}>PayGate (via NAT)</T>
         <Box x={780} y={180} w={164} h={52} />
         <T x={794} y={210} k="t" size={12}>Office (via VPN)</T>
-        <path className="w fault dash" d="M216 72 C 260 72, 250 88, 313 88" />
-        <Mark cx={262} cy={78} ok={false} r={10} />
+        <path className="w fault dash" d="M216 80 H313" />
+        <Mark cx={262} cy={80} ok={false} r={10} />
         <T x={30} y={130} k="s c-red" size={11}>LB → Cloud Run does not</T>
         <T x={30} y={146} k="s c-red" size={11}>enter the VPC: not in</T>
         <T x={30} y={162} k="s c-red" size={11}>flow logs. Use LB logs.</T>
-        {(
-          [
-            [506, 88, 780, 66],
-            [506, 92, 780, 136],
-            [506, 172, 780, 136],
-            [506, 176, 780, 206],
-          ] as const
-        ).map(([x1, y1, x2, y2]) => (
-          <path key={`${y1}${y2}`} className="w green" d={`M${x1} ${y1} C ${x1 + 120} ${y1}, ${x2 - 120} ${y2}, ${x2 - 3} ${y2}`} markerEnd="url(#dd-ah-green)" />
+        {/* kade-api forks to Cloud SQL and PayGate; kade-worker to PayGate and the office. */}
+        {["M506 88 H620 V66 H777", "M506 88 H620 V136 H777", "M506 172 H680 V136 H777", "M506 172 H680 V206 H777"].map((d) => (
+          <path key={d} className="w green" d={d} markerEnd="url(#dd-ah-green)" />
         ))}
         <T x={316} y={252} bold size={11}>✓ recorded: connections leaving or entering these subnets</T>
         <Box x={16} y={286} w={928} h={60} />

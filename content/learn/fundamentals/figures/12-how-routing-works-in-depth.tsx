@@ -95,13 +95,13 @@ export function FigDynamic() {
       <text className="t" x="716" y="188">Transit · AS 64510</text>
       <text className="s" x="716" y="208">reaches everywhere</text>
       <line className="w" x1="221" y1="125" x2="298" y2="125" markerEnd="url(#dd-ah-muted)" />
-      <line className="w green" x1="698" y1="50" x2="512" y2="102" markerEnd="url(#dd-ah-green)" />
-      <text className="s" x="540" y="54">{"\"34.87.0.0/16 via me\""}</text>
-      <line className="w green" x1="698" y1="195" x2="512" y2="148" markerEnd="url(#dd-ah-green)" />
-      <text className="s" x="432" y="214">{"\"0.0.0.0/0 and 34.0.0.0/8 via me\""}</text>
-      <line className="w amber dash" x1="512" y1="115" x2="698" y2="70" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber dash" x1="512" y1="138" x2="698" y2="180" markerEnd="url(#dd-ah-amber)" />
-      <text className="s" x="540" y="120">{"\"198.51.100.0/24 via me\""}</text>
+      <path className="w green" d="M700 40 H590 V100 H512" markerEnd="url(#dd-ah-green)" />
+      <text className="s" x="580" y="44" textAnchor="end">{"\"34.87.0.0/16 via me\""}</text>
+      <path className="w green" d="M700 210 H590 V150 H512" markerEnd="url(#dd-ah-green)" />
+      <text className="s" x="580" y="214" textAnchor="end">{"\"0.0.0.0/0 and 34.0.0.0/8 via me\""}</text>
+      <path className="w amber dash" d="M510 114 H610 V70 H698" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber dash" d="M510 136 H610 V180 H698" markerEnd="url(#dd-ah-amber)" />
+      <text className="s" x="622" y="130">{"\"198.51.100.0/24 via me\""}</text>
     </svg>
   );
 }
@@ -130,8 +130,8 @@ export function FigAnycast() {
       <rect className="n" x="700" y="110" width="190" height="62" rx="2" />
       <text className="t" x="716" y="136">kade-api</text>
       <text className="s" x="716" y="156">Singapore</text>
-      <line className="w green" x1="536" y1="68" x2="698" y2="130" markerEnd="url(#dd-ah-green)" />
-      <line className="w green" x1="536" y1="212" x2="698" y2="154" markerEnd="url(#dd-ah-green)" />
+      <path className="w green" d="M536 68 H618 V141 H698" markerEnd="url(#dd-ah-green)" />
+      <path className="w green" d="M536 212 H618 V141 H698" markerEnd="url(#dd-ah-green)" />
     </svg>
   );
 }

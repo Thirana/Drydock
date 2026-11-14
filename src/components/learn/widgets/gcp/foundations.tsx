@@ -898,7 +898,7 @@ function RouteDrawing({ c, sel }: { c: RouteCase; sel: RouteSel }) {
               <g key={label}>
                 <Box x={2} y={y} w={300} h={28} c="blue" />
                 <T x={12} y={y + 19}>{label}</T>
-                <path className="w green" d={`M302 ${y + 14} C 400 ${y + 14}, 420 ${ty + 16}, 497 ${ty + 16}`} markerEnd="url(#dd-ah-green)" />
+                <path className="w green" d={`M302 ${y + 14} H${via === "a" ? 400 : 440} V${ty + 16} H497`} markerEnd="url(#dd-ah-green)" />
               </g>
             );
           })}

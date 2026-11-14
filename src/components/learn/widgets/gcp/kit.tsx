@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { IconCheck, IconX } from "@/components/ui/icons";
+import { Checkbox } from "@/components/ui/inputs";
 import { cn } from "@/lib/utils";
 import { Action } from "../ui";
 
@@ -57,10 +58,9 @@ export function Check({
   children: ReactNode;
 }) {
   return (
-    <label className="text-ink-body flex cursor-pointer items-center gap-2.5 text-[15px]">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-ink size-4 shrink-0" />
-      <span>{children}</span>
-    </label>
+    <Checkbox checked={checked} onChange={onChange}>
+      {children}
+    </Checkbox>
   );
 }
 

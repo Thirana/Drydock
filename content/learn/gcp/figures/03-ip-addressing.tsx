@@ -48,14 +48,13 @@ export function FigTiers() {
       <text className="t" x="808" y="116">asia-</text>
       <text className="t" x="808" y="136">southeast1</text>
       <text className="s" x="190" y="30">Premium tier (default)</text>
-      <path className="w" d="M166 110 C 200 70, 220 60, 250 60" markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d="M91 92 V60 H250" markerEnd="url(#dd-ah-muted)" />
       <rect className="n plum" x="252" y="42" width="164" height="36" rx="2" />
       <text className="s" x="264" y="65">nearest Google edge</text>
-      <line className="w plum" x1="416" y1="60" x2="760" y2="60" />
-      <path className="w plum" d="M760 60 C 780 60, 790 80, 800 90" markerEnd="url(#dd-ah-plum)" />
+      <path className="w plum" d="M416 60 H869 V90" markerEnd="url(#dd-ah-plum)" />
       <text className="s" x="450" y="50">{"Google's own backbone for most of the trip"}</text>
       <text className="s" x="190" y="232">Standard tier</text>
-      <path className="w dash" d="M166 138 C 200 190, 230 196, 270 196" />
+      <path className="w dash" d="M91 154 V196 H280" />
       <circle className="badge" cx="290" cy="196" r="10" />
       <circle className="badge" cx="380" cy="196" r="10" />
       <circle className="badge" cx="470" cy="196" r="10" />
@@ -67,7 +66,7 @@ export function FigTiers() {
       <text className="s" x="300" y="222">{"public internet: other providers' routers"}</text>
       <rect className="n plum" x="640" y="178" width="118" height="36" rx="2" />
       <text className="s" x="652" y="201">Google edge</text>
-      <path className="w plum" d="M758 196 C 780 196, 790 170, 806 157" markerEnd="url(#dd-ah-plum)" />
+      <path className="w plum" d="M758 196 H869 V157" markerEnd="url(#dd-ah-plum)" />
     </svg>
   );
 }
