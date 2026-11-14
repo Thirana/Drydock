@@ -64,6 +64,8 @@ export interface Chapter {
   title: string;
   /** The paragraph under the title; also the page description. */
   lead: string;
+  /** One line for the course's chapter list: what the chapter gives you. */
+  gist: string;
   /** Id of the part it belongs to. */
   part: string;
   /** Reading time in minutes. */

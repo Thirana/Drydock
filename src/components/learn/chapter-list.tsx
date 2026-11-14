@@ -53,7 +53,7 @@ export function ChapterList({ course }: { course: Course }) {
                             : "text-ink-faint mt-1 block max-w-[64ch] text-[16px] leading-[1.55] text-pretty"
                         }
                       >
-                        {chapter.lead}
+                        {chapter.gist}
                       </span>
                       {!published && (
                         <span className="text-ink-muted mt-1.5 block text-[14px]">
