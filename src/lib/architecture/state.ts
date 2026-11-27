@@ -62,7 +62,7 @@ export function resolveEdge(
   if (edge.closedBy && closed.has(edge.closedBy)) return null;
   if (edge.opensWith && !closed.has(edge.opensWith)) return null;
   if (edge.changedBy && closed.has(edge.changedBy.defect)) {
-    return { ...edge, ...edge.changedBy.set };
+    return { ...edge, state: edge.changedBy.state };
   }
   return edge;
 }

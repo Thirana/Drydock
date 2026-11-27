@@ -25,7 +25,6 @@ import {
   courseHref,
   getCourse,
 } from "@/lib/content/learn";
-import { PUSH_BACK_ANCHOR } from "@/lib/content/harbour-routes";
 
 /** Distinct interactive figures across both courses. */
 const WIDGETS = 158;
@@ -370,14 +369,7 @@ function Harbour({ featured }: { featured: FeaturedTrack }) {
           </p>
           <HarbourPhone defect={d} order={order} />
           <p className="text-ink-muted mt-5 text-[16px] leading-[1.55] text-pretty">
-            I’m Thirana. I broke {featured.name} on purpose, and{" "}
-            <Link
-              href={`${featured.href}#${PUSH_BACK_ANCHOR}`}
-              className="dd-link"
-            >
-              in a few places I’d argue with the textbook fix
-            </Link>
-            .
+            I’m Thirana, and I broke {featured.name} on purpose.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
             <ButtonLink

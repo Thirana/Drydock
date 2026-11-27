@@ -1,17 +1,16 @@
-// Harbour network track data. Positions are in SVG viewBox units (1580 × 1064 for the map).
+// Harbour network track data. Positions are in SVG viewBox units (1440 × 1132 for the map).
 import type { ArchEdge } from "@/lib/architecture/types";
 
-// Long runs use dedicated lanes so nothing overlaps:
-// left gutter 412 (health checks) · 438 (run.app bypass)
-// right gutter 1084 · 1106 · 1128 · 1150 · 1172 · 1188
-// bottom lanes 990 · 1014
+// Boxes are placed so most wires run straight across. The long runs to the
+// right band use their own lanes so nothing overlaps:
+// x 486 (run.app bypass) · 1052 (to harbour-pg) · 1076 (PGA) · 1100 (PayGate)
+// · 1124 (to harbour-cache), and y 1096 / 1114 under the VPC.
 export const edges: ArchEdge[] = [
   {
     from: "USERS",
     to: "CF",
     fromSide: "b",
     toSide: "t",
-    tone: "edge",
     layers: ["ingress", "lb"],
   },
   {
@@ -19,7 +18,6 @@ export const edges: ArchEdge[] = [
     to: "CF",
     fromSide: "t",
     toSide: "b",
-    tone: "edge",
     layers: ["ingress"],
   },
   {
@@ -28,7 +26,6 @@ export const edges: ArchEdge[] = [
     fromSide: "r",
     toSide: "l",
     label: "origin fetch",
-    tone: "edge",
     layers: ["ingress", "lb"],
   },
   {
@@ -37,7 +34,6 @@ export const edges: ArchEdge[] = [
     fromSide: "r",
     toSide: "l",
     label: "serverless NEG",
-    tone: "edge",
     layers: ["ingress", "lb"],
   },
   {
@@ -45,10 +41,8 @@ export const edges: ArchEdge[] = [
     to: "DIRECT",
     fromSide: "r",
     toSide: "l",
-    tone: "danger",
-    dashed: true,
+    state: "broken",
     layers: ["ingress", "defects"],
-    defect: true,
     closedBy: "D6",
   },
   {
@@ -56,29 +50,22 @@ export const edges: ArchEdge[] = [
     to: "API",
     fromSide: "r",
     toSide: "l",
-    toOffset: 8,
+    toOffset: 18,
     via: [
-      { x: 438, y: 214 },
-      { x: 438, y: 268 },
+      { x: 486, y: 190 },
+      { x: 486, y: 262 },
     ],
-    tone: "danger",
-    dashed: true,
+    state: "broken",
     layers: ["ingress", "defects"],
-    defect: true,
     closedBy: "D6",
   },
   {
     from: "HC",
     to: "G_APP",
     fromSide: "r",
-    toSide: "t",
-    via: [
-      { x: 412, y: 644 },
-      { x: 412, y: 192 },
-      { x: 756, y: 192 },
-    ],
+    toSide: "l",
+    toOffset: 282,
     label: "probes · needs a firewall rule",
-    tone: "edge",
     layers: ["lb", "firewall"],
   },
   {
@@ -86,7 +73,6 @@ export const edges: ArchEdge[] = [
     to: "JOBS",
     fromSide: "r",
     toSide: "l",
-    tone: "edge",
     layers: ["ingress"],
   },
   {
@@ -95,37 +81,26 @@ export const edges: ArchEdge[] = [
     fromSide: "r",
     toSide: "l",
     label: "tunnelled SSH",
-    tone: "edge",
-    dashed: true,
-    dim: true,
+    state: "idle",
     layers: ["ingress", "access"],
-    changedBy: {
-      defect: "D2",
-      set: { tone: "compute", dim: false, dashed: false },
-    },
+    changedBy: { defect: "D2", state: "ok" },
   },
   {
     from: "ILB",
     to: "LEGACY",
     fromSide: "t",
     toSide: "b",
-    tone: "edge",
-    dim: true,
+    state: "idle",
     layers: ["ingress", "lb"],
-    changedBy: { defect: "D12", set: { dim: false } },
+    changedBy: { defect: "D12", state: "ok" },
   },
   {
     from: "WORKER",
     to: "RABBIT",
     fromSide: "b",
     toSide: "t",
-    toOffset: 200,
-    via: [
-      { x: 759, y: 404 },
-      { x: 974, y: 404 },
-    ],
+    fromOffset: 114,
     label: "consume",
-    tone: "compute",
     layers: ["firewall"],
   },
   {
@@ -133,15 +108,15 @@ export const edges: ArchEdge[] = [
     to: "SQL",
     fromSide: "r",
     toSide: "l",
+    toOffset: 40,
     via: [
-      { x: 1084, y: 288 },
-      { x: 1084, y: 225 },
+      { x: 1052, y: 274 },
+      { x: 1052, y: 192 },
     ],
     label: "public internet",
-    tone: "danger",
-    dashed: true,
+    labelAt: { x: 1116, y: 192 },
+    state: "broken",
     layers: ["private", "defects"],
-    defect: true,
     closedBy: "D5",
   },
   {
@@ -149,12 +124,13 @@ export const edges: ArchEdge[] = [
     to: "GCS",
     fromSide: "r",
     toSide: "l",
+    fromOffset: 290,
     via: [
-      { x: 1106, y: 315 },
-      { x: 1106, y: 461 },
+      { x: 1076, y: 470 },
+      { x: 1076, y: 530 },
     ],
     label: "PGA",
-    tone: "private",
+    labelAt: { x: 1100, y: 530 },
     layers: ["private"],
   },
   {
@@ -162,13 +138,15 @@ export const edges: ArchEdge[] = [
     to: "REDIS",
     fromSide: "b",
     toSide: "l",
+    fromOffset: 98,
+    toOffset: 40,
     via: [
-      { x: 606, y: 1014 },
-      { x: 1172, y: 1014 },
-      { x: 1172, y: 288 },
+      { x: 620, y: 1114 },
+      { x: 1124, y: 1114 },
+      { x: 1124, y: 292 },
     ],
     label: "peering · private IP",
-    tone: "private",
+    labelAt: { x: 830, y: 1114 },
     layers: ["private"],
   },
   {
@@ -176,13 +154,15 @@ export const edges: ArchEdge[] = [
     to: "SQL",
     fromSide: "b",
     toSide: "l",
+    fromOffset: 138,
+    toOffset: 40,
     via: [
-      { x: 606, y: 990 },
-      { x: 1084, y: 990 },
-      { x: 1084, y: 225 },
+      { x: 660, y: 1096 },
+      { x: 1052, y: 1096 },
+      { x: 1052, y: 192 },
     ],
     label: "private IP via PSA",
-    tone: "private",
+    labelAt: { x: 960, y: 1096 },
     layers: ["private"],
     opensWith: "D5",
   },
@@ -191,13 +171,9 @@ export const edges: ArchEdge[] = [
     to: "SAAS",
     fromSide: "r",
     toSide: "l",
-    toOffset: 44,
-    via: [
-      { x: 1120, y: 952 },
-      { x: 1120, y: 842 },
-    ],
+    fromOffset: 30,
+    toOffset: 36,
     label: "endpoint",
-    tone: "private",
     layers: ["private"],
   },
   {
@@ -205,12 +181,12 @@ export const edges: ArchEdge[] = [
     to: "PAY",
     fromSide: "r",
     toSide: "l",
+    fromOffset: 18,
     via: [
-      { x: 1128, y: 880 },
-      { x: 1128, y: 598 },
+      { x: 1100, y: 902 },
+      { x: 1100, y: 754 },
     ],
     label: "stable IP",
-    tone: "edge",
     layers: ["egress"],
   },
   {
@@ -218,11 +194,8 @@ export const edges: ArchEdge[] = [
     to: "FCM",
     fromSide: "r",
     toSide: "l",
-    via: [
-      { x: 1150, y: 880 },
-      { x: 1150, y: 725 },
-    ],
-    tone: "edge",
+    fromOffset: 46,
+    toOffset: 46,
     layers: ["egress"],
   },
   {
@@ -230,8 +203,7 @@ export const edges: ArchEdge[] = [
     to: "VPN",
     fromSide: "r",
     toSide: "l",
-    tone: "data",
-    dim: true,
+    state: "idle",
     layers: ["routing"],
   },
   {
@@ -239,9 +211,7 @@ export const edges: ArchEdge[] = [
     to: "SNB",
     fromSide: "r",
     toSide: "l",
-    tone: "data",
-    dashed: true,
-    dim: true,
+    state: "idle",
     layers: ["routing"],
   },
   {
@@ -249,7 +219,6 @@ export const edges: ArchEdge[] = [
     to: "PEER",
     fromSide: "r",
     toSide: "l",
-    tone: "data",
     layers: ["routing"],
   },
   {
@@ -257,10 +226,8 @@ export const edges: ArchEdge[] = [
     to: "PSA",
     fromSide: "r",
     toSide: "l",
-    tone: "danger",
-    dashed: true,
+    state: "broken",
     layers: ["routing", "defects"],
-    defect: true,
     closedBy: "D11",
   },
 ];

@@ -56,7 +56,6 @@ content/                         everything an author touches
           nodes.ts groups.ts edges.ts overlays.ts
           phases.ts defects.ts journeys.ts
           components.ts load-balancer.ts
-          showcase.ts            landing page pins, reveals, mobile crop (optional)
           index.ts               assembles + validates the model
         views/*.mdx              the prose of each page
 
@@ -91,8 +90,8 @@ Views are MDX. Track-bound components are injected by the page, so an MDX file n
 <JourneyExplorer />
 ```
 
-Available everywhere: `Hero`, `Lede`, `Note`, `Caption`, `Columns`/`Column`, `AddressBlocks`/`AddressBlock`, `Status`, `PhaseTag`, `SeverityBadge`, and GitHub-flavoured tables.
-Available in architecture tracks: `MapExplorer`, `JourneyExplorer`, `DefectRegister`, `LoadBalancerExplorer`, `ComponentSheets`, `PhaseSequence`, `DefectTag`.
+Available everywhere: `Hero`, `Lede`, `Note`, `Caption`, `Columns`/`Column`, `Folds`/`Fold` (a toggle list), `Status`, `PhaseTag`, `SeverityBadge`, and GitHub-flavoured tables.
+Available in architecture tracks: `MapExplorer`, `JourneyExplorer`, `DefectRegister`, `LoadBalancerExplorer`, `LoadBalancerSymptoms`, `ComponentAtlas`, `ComponentSheets`, `PhaseSequence`, `AddressPlan`, `DefectTag`.
 
 ### Courses and labs link to each other
 
@@ -103,7 +102,7 @@ Each Harbour defect lists the course sections that teach it (`learn` in `defects
 The design system is `DESIGN.md` ("The Annotated Score": off-white page, ink, one blue for current and followable, red only for faults, Atkinson Hyperlegible, hairlines, no cards), implemented with Tailwind CSS v4. Product context is in `PRODUCT.md`.
 
 - **Tokens** live in `src/app/globals.css` (`--dd-*`, exposed as Tailwind colours such as `text-ink-muted`, `bg-sunk`, `text-fault`). Don't hardcode hex colours in components.
-- **Course drawings and widgets** may use the four drawing hues (plum, teal, green, amber), named by each course's `legend`; chrome never does. Lab diagrams stay in ink tones (`--tone-*`), with red for defects.
+- **Course drawings and widgets** may use the four drawing hues (plum, teal, green, amber), named by each course's `legend`; chrome never does. Harbour's drawings - the map and load balancer chain included - use the GCP course's legend (`DrawingKey`), with red for defects.
 - **Long-form MDX** is styled by `.gl-prose`. Interactive components opt out with `not-prose` and style themselves.
 - **Shared UI** is in `src/components/ui` (buttons, icons, logo, controls, typography, `FadeIn`). Marketing pages use `src/components/site/page-shell.tsx`, and track pages use the app shell in `src/app/[provider]/[lab]/[track]/layout.tsx`.
 - Motion honours `prefers-reduced-motion`, in CSS and in the JS-driven preview loops.

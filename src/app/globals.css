@@ -102,24 +102,11 @@
   --gl-danger-soft: var(--dd-fault-soft);
   --gl-danger-ink: #ffffff;
 
-  /* Diagram tones: a monochrome drawing; only a fault takes colour. */
-  --tone-edge: var(--dd-ink);
-  --tone-compute: var(--dd-ink-muted);
-  --tone-data: var(--dd-ink-muted);
-  --tone-private: var(--dd-ink);
-  --tone-danger: var(--dd-fault);
-  --tone-external: var(--dd-ink-faint);
-  --tone-line: var(--dd-rule);
-  --tone-lineStrong: var(--dd-ink-faint);
   /* Hue fills: a tenth of the hue mixed into the page, per theme. */
   --dd-plum-soft: color-mix(in oklab, var(--dd-plum) 10%, var(--dd-ground));
   --dd-teal-soft: color-mix(in oklab, var(--dd-teal) 10%, var(--dd-ground));
   --dd-green-soft: color-mix(in oklab, var(--dd-green) 10%, var(--dd-ground));
   --dd-amber-soft: color-mix(in oklab, var(--dd-amber) 10%, var(--dd-ground));
-
-  --diagram-group-wash: color-mix(in srgb, var(--dd-ink) 1.5%, transparent);
-  --diagram-selection-wash: var(--dd-accent-soft);
-  --dd-sel: var(--dd-accent);
 
   --background: var(--dd-ground);
   --foreground: var(--dd-ink);
@@ -597,6 +584,9 @@
   .dd-fig .zone.plum {
     stroke: var(--dd-plum);
   }
+  .dd-fig .zone.amber {
+    stroke: var(--dd-amber);
+  }
   .dd-fig .zone.fault {
     stroke: var(--dd-fault);
   }
@@ -639,6 +629,12 @@
     fill: var(--dd-mark);
     stroke: var(--dd-ink-faint);
     stroke-dasharray: 4 3;
+  }
+  /* A range the plan needs that does not exist yet: a defect. */
+  .dd-fig .blk.gone {
+    fill: var(--dd-fault-soft);
+    stroke: var(--dd-fault);
+    stroke-dasharray: 3 2;
   }
 
   /* Status dots and marks: ink for fine, red for broken - never green. */
@@ -743,6 +739,18 @@
   /* A step that is not reached, in a chain that stopped earlier. */
   .dd-fig .off {
     opacity: 0.4;
+  }
+
+  /* Boxes and zones you can open (the case study's map and load balancer
+     chain): a heavier outline on hover, blue once opened. */
+  .dd-fig [role="button"]:hover > rect.n,
+  .dd-fig [role="button"]:hover > rect.zone {
+    stroke-width: 2.25;
+  }
+  .dd-fig [role="button"] > rect.sel {
+    stroke: var(--dd-accent);
+    stroke-width: 2.5;
+    stroke-dasharray: none;
   }
 
   /* A drawing shown at a third of its size as a locator: no words, only

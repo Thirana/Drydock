@@ -79,7 +79,7 @@ export const defects: Defect[] = [
     after: "allow INGRESS · tcp:22 · source 35.235.240.0/20 · priority 900",
     remediation:
       '# ORDER MATTERS. You are changing how you reach the box while using that\n# same access to make the change. Add and verify before deleting anything.\n\n# 1. Additive. Opens nothing new - that range is only reachable after\n#    IAP has already checked your identity.\ngcloud compute firewall-rules create allow-ssh-from-iap \\\n  --network=harbour-vpc --direction=INGRESS --action=allow \\\n  --rules=tcp:22 --source-ranges=35.235.240.0/20 --priority=900\n\n# 2. VERIFY on every VM. Not optional - this is what stands between\n#    "SSH is now secure" and "nobody can SSH to production".\ngcloud compute ssh bastion --zone=asia-southeast1-b \\\n  --tunnel-through-iap --command="echo ok"\n\n# when it fails, this checks all three requirements at once:\ngcloud compute ssh bastion --zone=asia-southeast1-b \\\n  --tunnel-through-iap --troubleshoot\n\n# 3. ONLY after every VM verifies.\ngcloud compute firewall-rules delete default-allow-ssh',
-    applies: { BASTION: { sub: "SSH via IAP only" } },
+    applies: { BASTION: { sub: "SSH via IAP only" }, IAP: { dim: false } },
   },
   {
     id: "D3a",
@@ -190,7 +190,7 @@ export const defects: Defect[] = [
       "privateIpGoogleAccess: true - Google API hostnames resolve to 199.36.153.8/30 from inside the subnet",
     remediation:
       'gcloud compute networks subnets update sn-a-data \\\n  --region=asia-southeast1 --enable-private-ip-google-access\n\ngcloud compute networks subnets describe sn-a-data \\\n  --region=asia-southeast1 --format="value(privateIpGoogleAccess)"',
-    applies: { G_DATA: { sub: "10.10.17.0/24 · PGA on", tone: "compute" } },
+    applies: { G_DATA: { sub: "10.10.17.0/24 · PGA on", fault: false } },
   },
   {
     id: "D5",
@@ -265,7 +265,7 @@ export const defects: Defect[] = [
       "gcloud run services update harbour-api \\\n  --region=asia-southeast1 \\\n  --ingress=internal-and-cloud-load-balancing",
     applies: {
       API: { sub: "Cloud Run · LB-only ingress" },
-      DIRECT: { sub: "closed - ingress is LB-only", dim: true },
+      DIRECT: { sub: "closed · LB-only ingress", dim: true },
     },
   },
   {
@@ -422,8 +422,8 @@ export const defects: Defect[] = [
     applies: {
       G_POL: {
         sub: "org baseline - no SSH or RDP from the internet",
-        tone: "compute",
-        dashed: false,
+        hue: "amber",
+        fault: false,
       },
     },
   },
@@ -500,10 +500,10 @@ export const defects: Defect[] = [
     applies: {
       G_PROXY: {
         sub: "10.10.250.0/24 · proxy-only · active",
-        tone: "compute",
-        dashed: false,
+        ghost: false,
+        fault: false,
       },
-      ILB: { sub: "internal ALB · active", dim: false },
+      ILB: { sub: "internal ALB · active", ghost: false },
     },
   },
   {

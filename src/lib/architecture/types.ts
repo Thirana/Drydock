@@ -7,20 +7,15 @@
  * closed at or before that phase (see `state.ts`).
  */
 
-/** Semantic colour roles. Resolved to CSS custom properties at render time. */
-export type Tone =
-  | "edge"
-  | "compute"
-  | "data"
-  | "private"
-  | "danger"
-  | "external"
-  | "line"
-  | "lineStrong";
+/**
+ * Who a box on a drawing belongs to, in the case study's key: teal is your
+ * VPC, plum is run by Google, amber is firewall and access rules. No hue is
+ * the outside world.
+ */
+export type Owner = "teal" | "plum" | "amber";
 
 export type Severity = "critical" | "high" | "medium" | "low";
 export type RiskLevel = "high" | "medium" | "low";
-export type NodeKind = "compute" | "data" | "edge" | "ext" | "net";
 
 /** Box side an edge attaches to: left, right, top, bottom. */
 export type Side = "l" | "r" | "t" | "b";
@@ -44,40 +39,44 @@ export interface Box {
 export interface Overlay {
   key: string;
   label: string;
-  tone?: Tone;
+}
+
+/** How a box sits on the map, as a closed defect can change it. */
+interface BoxLook {
+  /** Who it belongs to. */
+  hue?: Owner;
+  /** It is the defect: drawn in red until a patch clears it. */
+  fault?: boolean;
+  /** Not built yet, or cannot exist yet: a dashed outline. */
+  ghost?: boolean;
+  /** Exists but is not in use: faded. */
+  dim?: boolean;
 }
 
 /** A scope drawn as a container: org policy, VPC, region, subnet, tenant. */
-export interface ArchGroup extends Box {
-  tone: Tone;
-  dashed?: boolean;
-  /** Planned or not built yet. */
-  dim?: boolean;
+export interface ArchGroup extends Box, BoxLook {
+  /** A compartment inside a region (a subnet): filled and solid, not dashed. */
+  panel?: boolean;
   layers?: string[];
   defects?: string[];
 }
 
 /** A component drawn as a box. */
-export interface ArchNode extends Box {
-  kind: NodeKind;
-  dim?: boolean;
+export interface ArchNode extends Box, BoxLook {
   layers?: string[];
   defects?: string[];
 }
 
 /** What a closed defect changes about a box. */
-export interface BoxPatch {
+export interface BoxPatch extends BoxLook {
   sub?: string;
-  tone?: Tone;
-  dashed?: boolean;
-  dim?: boolean;
 }
 
-export interface EdgePatch {
-  tone?: Tone;
-  dashed?: boolean;
-  dim?: boolean;
-}
+/**
+ * How a path is drawn: `ok` is traffic that is allowed and arrives, `broken`
+ * a path that should not exist, `idle` one that is not built or not in use.
+ */
+export type EdgeState = "ok" | "broken" | "idle";
 
 export interface ArchEdge {
   from: string;
@@ -89,19 +88,32 @@ export interface ArchEdge {
   toOffset?: number;
   /** Explicit waypoints. Without them the edge is routed orthogonally. */
   via?: Point[];
+  /** What travels the path, as the component sheets list it. */
   label?: string;
-  tone: Tone;
-  dashed?: boolean;
-  dim?: boolean;
+  /** Where the map draws the label, centred; without it the map leaves it off. */
+  labelAt?: Point;
+  /** Defaults to `ok`. */
+  state?: EdgeState;
   layers: string[];
-  /** Drawn as a defective path in the defects overlay. */
-  defect?: boolean;
   /** Removed once this defect is closed. */
   closedBy?: string;
   /** Only exists once this defect is closed. */
   opensWith?: string;
-  /** Restyled once this defect is closed. */
-  changedBy?: { defect: string; set: EdgePatch };
+  /** Redrawn once this defect is closed. */
+  changedBy?: { defect: string; state: EdgeState };
+}
+
+/**
+ * A connection as found that the map does not draw, because it would cross
+ * half the map: the component atlas shows it alongside the map's edges.
+ */
+export interface ArchLink {
+  from: string;
+  to: string;
+  /** What travels it. */
+  label: string;
+  /** Defaults to `ok`. */
+  state?: EdgeState;
 }
 
 export interface Phase {
@@ -212,12 +224,13 @@ export interface LoadBalancerLink {
   id: string;
   label: string;
   sub: string;
+  /** Defaults to plum: the chain's objects are run by Google. */
+  hue?: Owner;
   defects?: string[];
 }
 
 export interface LoadBalancerLane {
   label: string;
-  tone: Tone;
   links: LoadBalancerLink[];
 }
 
@@ -243,18 +256,47 @@ export interface LoadBalancerChain {
   };
   lanes: LoadBalancerLane[];
   /** Free-positioned boxes outside the grid. */
-  extras: (Box & { tone: Tone; defects?: string[] })[];
-  wires: { tone: Tone; points: Point[] }[];
+  extras: (Box & { hue?: Owner; defects?: string[] })[];
+  wires: Point[][];
   annotations: { x: number; y: number; lines: string[] }[];
   initialSelection: string;
   details: Record<string, LoadBalancerDetail>;
+  /** Where to look when something breaks. */
+  symptoms?: LoadBalancerSymptom[];
 }
 
-/** A top-level range in the IP plan. */
-export interface AddressRange {
+export interface LoadBalancerSymptom {
+  symptom: string;
+  /** Where to look, in words. */
+  where: string;
+  /** The link to look at, when it is one on the chain. */
+  link?: string;
+  /** The usual cause; `code` in backticks. */
+  cause: string;
+}
+
+/** A subnet of the region block, drawn as the /24 squares it covers. */
+export interface PlanSubnet {
+  name: string;
+  /** Inside the region's /16, from /16 to /24. */
   cidr: string;
-  tone: Tone;
+  /** Not created yet: drawn as the defect it is. */
+  missing?: boolean;
+  defects?: string[];
+}
+
+/** A range beside the region block, drawn as a box. */
+export interface PlanRange {
+  cidr: string;
   label: string;
+  /** Who it belongs to; none is outside Harbour. */
+  hue?: Owner;
+}
+
+/** The IP plan: one region block in detail, the other ranges in brief. */
+export interface AddressPlan {
+  region: { name: string; cidr: string; subnets: PlanSubnet[] };
+  others: PlanRange[];
 }
 
 export interface ArchitectureModel {
@@ -265,16 +307,15 @@ export interface ArchitectureModel {
   groups: ArchGroup[];
   nodes: ArchNode[];
   edges: ArchEdge[];
+  /** Connections the map leaves off; the component atlas draws them. */
+  links?: ArchLink[];
   phases: Phase[];
   componentSections: readonly string[];
   componentSheets: Record<string, ComponentSheet>;
   defects: Defect[];
   journeys: Journey[];
   loadBalancer: LoadBalancerChain;
-  /** Top-level ranges of the IP plan. */
-  addressPlan?: AddressRange[];
-  /** How marketing pages preview the map. */
-  showcase?: MapShowcase;
+  addressPlan?: AddressPlan;
 }
 
 /** What the map needs to draw itself at any phase - the model without its prose. */
@@ -284,40 +325,3 @@ export type MapModel = Pick<
 > & {
   defects: Pick<Defect, "id" | "phase" | "applies">[];
 };
-
-/** A rectangle in map viewBox units. */
-export interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** A defect pinned to a box on the showcase map. */
-export interface MapCallout {
-  defect: string;
-  /** The box with the defect. It must list the defect. */
-  at: string;
-  /**
-   * A larger box containing `at` to pin the label to instead, when the space
-   * around `at` is crowded. Defaults to `at`.
-   */
-  anchor?: string;
-  /** A few words; defect titles are usually too long for a pin. */
-  label: string;
-  /** Where the label sits relative to the box. Defaults to top. */
-  placement?: "top" | "bottom" | "left" | "right";
-}
-
-export interface MapShowcase {
-  /** Pinned on the landing page map, cleared as their phase is reached. */
-  callouts: MapCallout[];
-  /** Region shown instead of the whole map on narrow screens. */
-  focus: Rect;
-  /**
-   * Boxes the landing page map holds back until a phase, so the platform
-   * visibly grows as it is fixed. Presentation only: the track's own map
-   * always shows every box.
-   */
-  reveals?: { phase: number; boxes: string[] }[];
-}

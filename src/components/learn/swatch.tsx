@@ -1,13 +1,14 @@
 import type { Hue } from "@/lib/content/types";
 import { cn } from "@/lib/utils";
 
-const FILL: Record<Hue | "ink" | "fault", string> = {
+const FILL: Record<Hue | "ink" | "fault" | "ghost", string> = {
   plum: "border-plum bg-plum-soft",
   teal: "border-teal bg-teal-soft",
   green: "border-green bg-green-soft",
   amber: "border-amber bg-amber-soft",
   ink: "border-ink-faint bg-ground",
   fault: "border-fault bg-fault-soft",
+  ghost: "border-rule-strong border-dashed",
 };
 
 /** A key square: the box style a hue gives in a drawing. */
@@ -15,7 +16,7 @@ export function Swatch({
   hue,
   className,
 }: {
-  hue: Hue | "ink" | "fault";
+  hue: Hue | "ink" | "fault" | "ghost";
   className?: string;
 }) {
   return (

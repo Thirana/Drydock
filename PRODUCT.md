@@ -61,7 +61,7 @@ Inside a lab, the order of the fixes is the argument. Drydock does not stop at a
 
 ## Evidence on Hand
 
-- The Harbour network track content in `content/gcp/harbour/network/`: 17 defects with detection and remediation commands, 7 phases (0-6), 6 packet journeys, component sheets, load balancer chains, and the About page's "where I would push back" trade-offs.
+- The Harbour network track content in `content/gcp/harbour/network/`: 17 defects with detection and remediation commands, 7 phases (0-6), 6 packet journeys, component sheets, load balancer chains.
 - The two courses in `content/learn/`: 61 chapters, about 115k words, 63 static diagrams, ~350 tables, ~250 code blocks and 158 distinct interactive widgets, plus a glossary of 166 terms collected from them.
 - No testimonials, user or reader counts, press, ratings, endorsements or case studies exist. Future work must not invent them.
 

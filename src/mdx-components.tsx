@@ -1,11 +1,8 @@
 import type { MDXComponents } from "mdx/types";
 import { isValidElement, type ReactNode } from "react";
 import { SeverityBadge } from "@/components/architecture/severity-badge";
+import { Fold, Folds } from "@/components/mdx/fold";
 import {
-  AddressBlock,
-  AddressBlocks,
-  Argument,
-  Arguments,
   Caption,
   Column,
   Columns,
@@ -30,7 +27,7 @@ function textOf(node: ReactNode): string {
   return "";
 }
 
-/** "Where I would push back" → "where-i-would-push-back". */
+/** "The remediation sequence" → "the-remediation-sequence". */
 function slugOf(node: ReactNode) {
   return textOf(node)
     .toLowerCase()
@@ -55,13 +52,11 @@ const components: MDXComponents = {
       />
     </div>
   ),
-  AddressBlock,
-  AddressBlocks,
-  Argument,
-  Arguments,
   Caption,
   Column,
   Columns,
+  Fold,
+  Folds,
   Hero,
   Lede,
   Note,

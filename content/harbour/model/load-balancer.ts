@@ -1,20 +1,20 @@
 // Harbour network track data. Positions are in chain viewBox units.
 import type { LoadBalancerChain } from "@/lib/architecture/types";
 
+// Every link is plum - Google runs the chain - except the VMs behind it.
 export const loadBalancer: LoadBalancerChain = {
-  viewBox: { width: 1210, height: 520 },
+  viewBox: { width: 1292, height: 432 },
   grid: {
-    x: 40,
-    y: 100,
-    columnStep: 192,
-    rowStep: 150,
-    cellWidth: 172,
-    cellHeight: 76,
+    x: 24,
+    y: 64,
+    columnStep: 212,
+    rowStep: 164,
+    cellWidth: 184,
+    cellHeight: 80,
   },
   lanes: [
     {
       label: "global external Application LB · harbour-api",
-      tone: "edge",
       links: [
         { id: "fr1", label: "Forwarding rule", sub: "34.120.95.195:443" },
         {
@@ -31,7 +31,6 @@ export const loadBalancer: LoadBalancerChain = {
     },
     {
       label: "regional internal Application LB · legacy-api",
-      tone: "compute",
       links: [
         {
           id: "fr2",
@@ -47,50 +46,50 @@ export const loadBalancer: LoadBalancerChain = {
           sub: "no WAF · TCP check",
           defects: ["D13", "D14"],
         },
-        { id: "be2", label: "legacy-api MIG", sub: "3–10 VMs, autohealed" },
+        {
+          id: "be2",
+          label: "legacy-api MIG",
+          sub: "3–10 VMs, autohealed",
+          hue: "teal",
+        },
       ],
     },
   ],
   extras: [
     {
       id: "hc",
-      x: 424,
-      y: 424,
-      w: 364,
-      h: 64,
+      x: 448,
+      y: 348,
+      w: 384,
+      h: 60,
       label: "Google health check probes",
       sub: "35.191.0.0/16 · 130.211.0.0/22",
-      tone: "edge",
+      hue: "plum",
     },
     {
       id: "fw",
-      x: 808,
-      y: 352,
-      w: 172,
-      h: 44,
+      x: 872,
+      y: 348,
+      w: 184,
+      h: 60,
       label: "firewall rule",
       sub: "allow-health-check",
-      tone: "edge",
+      hue: "amber",
     },
   ],
   wires: [
-    {
-      tone: "edge",
-      points: [
-        { x: 788, y: 456 },
-        { x: 808, y: 374 },
-      ],
-    },
-    {
-      tone: "edge",
-      points: [
-        { x: 894, y: 352 },
-        { x: 894, y: 326 },
-      ],
-    },
+    // Each stops 3 short of its box: the arrowhead's tip covers the gap.
+    [
+      { x: 832, y: 378 },
+      { x: 869, y: 378 },
+    ],
+    [
+      { x: 964, y: 348 },
+      { x: 964, y: 311 },
+    ],
   ],
   annotations: [
-    { x: 1000, y: 440, lines: ["no probe path to", "the serverless NEG"] },
+    { x: 1084, y: 372, lines: ["no probe path to", "the serverless NEG"] },
   ],
   initialSelection: "bs1",
   details: {
@@ -309,4 +308,45 @@ export const loadBalancer: LoadBalancerChain = {
       note: "Worth having as its own dedicated rule rather than relying on a broad catch-all. Then removing an overly permissive rule elsewhere cannot accidentally take the health path down with it.",
     },
   },
+  symptoms: [
+    {
+      symptom: "All backends unhealthy, app works fine",
+      where: "Firewall, not the LB",
+      link: "fw",
+      cause:
+        "No rule allowing `35.191.0.0/16` and `130.211.0.0/22` on the probe port.",
+    },
+    {
+      symptom: "Certificate errors",
+      where: "Target proxy",
+      link: "tp1",
+      cause: "Self-managed cert expired, or the domain is not on the cert.",
+    },
+    {
+      symptom: "Requests hitting the wrong service",
+      where: "URL map",
+      link: "um1",
+      cause: "Host or path matcher order, or a missing default service.",
+    },
+    {
+      symptom: "WAF rules never fire",
+      where: "Backend service",
+      link: "bs1",
+      cause:
+        "No policy attached, or traffic is arriving by a path that bypasses the LB entirely.",
+    },
+    {
+      symptom: "App logs the same client IP for everything",
+      where: "Nothing is broken",
+      cause:
+        "Proxy LB, so the app must read `X-Forwarded-For` instead of the TCP source.",
+    },
+    {
+      symptom: "Backend serves errors but stays in rotation",
+      where: "Backend service",
+      link: "bs2",
+      cause:
+        "TCP health check - the port is open, so it passes while the app is broken.",
+    },
+  ],
 };

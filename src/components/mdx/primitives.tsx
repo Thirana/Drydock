@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
-import type { Tone } from "@/lib/architecture/types";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
-import { Fold, Folds } from "./fold";
 
 /**
  * Content building blocks available in every MDX file (see src/mdx-components.tsx).
@@ -78,29 +76,6 @@ export function Column({
   );
 }
 
-/** Positions argued at length: the claim up, the reasoning folded, marked as the author's. */
-export function Arguments({ children }: { children: ReactNode }) {
-  return <Folds>{children}</Folds>;
-}
-
-export function Argument({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <Fold
-      name="arguments"
-      mark={<span aria-hidden="true">!?</span>}
-      title={title}
-    >
-      {children}
-    </Fold>
-  );
-}
-
 /** Short topics as tiles: a title over the things it covers, set as tags. */
 export function Topics({ children }: { children: ReactNode }) {
   return (
@@ -124,40 +99,6 @@ export function Topic({ title, items }: { title: string; items: string[] }) {
           </li>
         ))}
       </ul>
-    </li>
-  );
-}
-
-export function AddressBlocks({ children }: { children: ReactNode }) {
-  return (
-    <ul className="not-prose my-8 grid grid-cols-1 gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
-      {children}
-    </ul>
-  );
-}
-
-export function AddressBlock({
-  cidr,
-  tone,
-  children,
-}: {
-  cidr: string;
-  tone: Tone;
-  children: ReactNode;
-}) {
-  return (
-    <li className="border-rule border-t pt-4 pb-7">
-      <span
-        className={cn(
-          "block font-mono text-[22px] leading-none font-bold",
-          tone === "danger" ? "text-fault" : "text-ink",
-        )}
-      >
-        {cidr}
-      </span>
-      <div className="text-ink-body mt-2 text-[16px] leading-[1.55]">
-        {children}
-      </div>
     </li>
   );
 }

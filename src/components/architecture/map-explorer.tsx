@@ -74,6 +74,7 @@ export function MapExplorer({
       <DiagramFrame
         title="Architecture map"
         meta={`Phase ${phase} · ${phaseName} · ${overlayName}`}
+        keyItems={["teal", "plum", "amber", "green", "fault", "ghost"]}
       >
         <ArchitectureDiagram
           model={model}

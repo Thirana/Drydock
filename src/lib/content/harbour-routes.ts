@@ -29,7 +29,3 @@ export function journeyHref(slug: string) {
 export function defectHref(id: string) {
   return `${defectsHref}/${id.toLowerCase()}`;
 }
-
-/** The overview anchor for the arguments against the textbook answer. */
-export const PUSH_BACK_ANCHOR =
-  "where-i-would-push-back-on-the-textbook-answer";
