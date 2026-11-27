@@ -21,19 +21,23 @@ Courses follow **course → part → chapter → section**:
 
 | URL                                | Level    | Example                            |
 | ---------------------------------- | -------- | ---------------------------------- |
-| `/learn`                           | path     | Both courses, then the labs        |
+| `/learn`                           | path     | Both courses, then the case study  |
 | `/learn/fundamentals`              | course   | Parts and chapters                 |
 | `/learn/fundamentals/subnet-masks` | chapter  | One chapter; `##` are sections     |
 | `/learn/glossary`                  | glossary | Every `<Term>`, collected at build |
 
-Labs follow **provider → lab → track → view** (`/labs` lists them all):
+The case study, Harbour, has four sections:
 
-| URL                        | Level    | Example                                     |
-| -------------------------- | -------- | ------------------------------------------- |
-| `/gcp`                     | provider | Google Cloud                                |
-| `/gcp/harbour`             | lab      | One fictional platform                      |
-| `/gcp/harbour/network`     | track    | One concern of that platform (network, IAM) |
-| `/gcp/harbour/network/map` | view     | One page of a track                         |
+| URL                         | Section         | Example                              |
+| --------------------------- | --------------- | ------------------------------------ |
+| `/harbour`                  | overview        | The platform and how to work through |
+| `/harbour/platform/ip-plan` | platform        | One of the four platform pages       |
+| `/harbour/journeys/<slug>`  | packet journeys | One request, hop by hop              |
+| `/harbour/defects/<id>`     | defects         | One defect and its fix               |
+
+The old `/labs` and `/gcp/harbour/...` URLs redirect permanently in `vercel.json`, except the old defect register, a page that turns its `#D6` anchors into defect pages.
+
+Deploy settings live in `vercel.json` too: the static `out/` folder is served as-is (so the search index ships), with long caching for `/_next/static` and the security headers.
 
 ```
 content/                         everything an author touches

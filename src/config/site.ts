@@ -17,6 +17,8 @@ export const site = {
   url: siteUrl(),
   name: "Drydock",
   tagline: "Learn how networks work. Then fix one that doesn’t.",
+  /** The public source, for "Suggest an edit" links. */
+  repo: { url: "https://github.com/Thirana/Drydock", branch: "main" },
   description:
     "A networking guide in three steps: how networks work, how Google Cloud does it, then a platform built wrong on purpose, to fix in order.",
 };

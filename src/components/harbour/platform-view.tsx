@@ -62,7 +62,13 @@ export function PlatformView({ page }: { page: PlatformPage }) {
         className="gl-prose relative mx-auto w-full max-w-[1200px] flex-1 px-5 pt-10 pb-20 sm:px-8 sm:pt-14"
       >
         <SearchMeta title={page.title} where={`${harbour.title} · Platform`} />
-        <Content components={architectureMdxComponents(harbour.architecture)} />
+        {/* Its own box, so the page's first heading is a first child and
+            drops the rule and space that separate later sections. */}
+        <div>
+          <Content
+            components={architectureMdxComponents(harbour.architecture)}
+          />
+        </div>
       </article>
 
       <Pager
