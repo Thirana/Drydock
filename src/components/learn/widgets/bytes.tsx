@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import { bin32 } from "@/lib/net/ipv4";
 import { bin8, bytesOf, hex, PROFILE_REQUEST } from "@/lib/net/bytes";
 import { parseMac } from "@/lib/net/mac";
 import { cn } from "@/lib/utils";
@@ -193,42 +192,63 @@ export function PlaceValue({ values, wide }: { values: string; wide?: boolean })
   );
 }
 
-function BitLine({ bits }: { bits: string }) {
+/** One address as byte columns: the human-written byte on top, its 8 bits under it, a bar in the address's hue. */
+function ByteColumns({ values, bits, hue }: { values: string[]; bits: string; hue: "green" | "teal" }) {
   return (
-    <span className="flex gap-[1px]" aria-hidden="true">
-      {[...bits].map((bit, i) => (
-        <BitCell key={i} bit={bit} size="sm" className={i % 8 === 7 && i < bits.length - 1 ? "mr-[6px]" : undefined} />
+    <div className="flex" aria-hidden="true">
+      {values.map((v, i) => (
+        <div key={i} className={cn("flex flex-col items-center", i < values.length - 1 && "mr-[6px]")}>
+          <span className="text-ink mb-1.5 font-mono text-[17px] leading-none font-semibold">{v}</span>
+          <span className="flex gap-[1px]">
+            {[...bits.slice(i * 8, i * 8 + 8)].map((bit, k) => (
+              <BitCell key={k} bit={bit} size="sm" />
+            ))}
+          </span>
+          <span className={cn("mt-1.5 h-[3px] w-full rounded-[1px]", hue === "green" ? "bg-green" : "bg-teal")} />
+        </div>
       ))}
-    </span>
+    </div>
   );
 }
 
-/** An IP next to a MAC: 32 bits against 48. */
+/** An IP over a MAC: each byte as written, over its 8 bits. 4 bytes against 6. */
 export function SizeCompare({ wide }: { wide?: boolean }) {
-  const ipBits = bin32(3232235799);
-  const macBits = "a4:83:e7:2b:91:0c"
-    .split(":")
-    .map((x) => bin8(parseInt(x, 16)))
-    .join("");
+  const ip = ["192", "168", "1", "23"];
+  const mac = ["a4", "83", "e7", "2b", "91", "0c"];
+  const ipBits = ip.map((x) => bin8(Number(x))).join("");
+  const macBits = mac.map((x) => bin8(parseInt(x, 16))).join("");
+  const rows = [
+    { name: "IP address", size: "32 bits = 4 bytes", how: "written in decimal, with dots", value: "192.168.1.23", bytes: ip, bits: ipBits, hue: "green" as const },
+    { name: "MAC address", size: "48 bits = 6 bytes", how: "written in hex, with colons", value: "a4:83:e7:2b:91:0c", bytes: mac, bits: macBits, hue: "teal" as const },
+  ];
   return (
-    <WidgetFrame wide={wide} label="An IP address and a MAC address, bit by bit">
-      <div className="min-w-[760px] space-y-3">
-        {[
-          ["IP · 32 bits", "192.168.1.23", ipBits],
-          ["MAC · 48 bits", "a4:83:e7:2b:91:0c", macBits],
-        ].map(([label, value, bits]) => (
-          <div key={label} className="grid grid-cols-[132px_auto] items-center gap-3">
-            <span className="text-ink-muted font-mono text-[12.5px] leading-[1.35]">
-              {label}
-              <br />
-              <span className="text-ink">{value}</span>
-            </span>
-            <BitLine bits={bits} />
+    <WidgetFrame wide={wide} label="An IP address and a MAC address, byte by byte">
+      <div className="min-w-[750px] space-y-7">
+        {rows.map((r) => (
+          <div key={r.name}>
+            <p className="mb-3 text-[15px] leading-[1.5]">
+              <span className="text-ink font-semibold">{r.name}</span>
+              <span className="text-ink-muted">
+                {" "}
+                · {r.size} · {r.how}:{" "}
+              </span>
+              <span className="text-ink font-mono text-[14.5px]">{r.value}</span>
+            </p>
+            <ByteColumns values={r.bytes} bits={r.bits} hue={r.hue} />
           </div>
         ))}
       </div>
+      <ul className="text-ink-muted mt-5 flex flex-wrap gap-x-6 gap-y-1.5 text-[14px]">
+        <li className="inline-flex items-center gap-2">
+          <Swatch hue="green" /> IP: the packet&apos;s address (chapter 1, wrap 2)
+        </li>
+        <li className="inline-flex items-center gap-2">
+          <Swatch hue="teal" /> MAC: the frame&apos;s address (chapter 1, wrap 3)
+        </li>
+      </ul>
       <Caption>
-        4 groups of 8 vs 6 groups of 8. The IP is shown to humans in decimal with dots; the MAC in hex with colons.
+        Every byte is 8 bits, whichever way it is written. The IP is 4 of them, the MAC 6: humans see the IP in decimal
+        with dots and the MAC in hex with colons.
       </Caption>
     </WidgetFrame>
   );
@@ -254,14 +274,24 @@ export function MacBytes({ mac }: { mac: string }) {
           )}
         >
           <span className="text-ink font-mono text-[22px] leading-none font-semibold">{b}</span>
-          <span className="flex gap-[1px]" aria-hidden="true">
-            {[...bin8(parseInt(b, 16))].map((bit, j) => (
-              <BitCell
-                key={j}
-                bit={bit}
-                size="xs"
-                className={i === 0 && j >= 6 ? "border-ink border-[1.5px]" : undefined}
-              />
+          {/* One row of 4 bits per hex digit, so a byte fits its box at a readable size. */}
+          <span className="grid gap-1" aria-hidden="true">
+            {[0, 1].map((half) => (
+              <span key={half} className="flex items-center gap-1.5">
+                <span className="text-ink-muted w-[1ch] font-mono text-[12.5px]">{b[half]}</span>
+                <span className="flex gap-[1px]">
+                  {[...bin8(parseInt(b, 16))].slice(half * 4, half * 4 + 4).map((bit, k) => {
+                    const j = half * 4 + k;
+                    return (
+                      <BitCell
+                        key={j}
+                        bit={bit}
+                        className={i === 0 && j >= 6 ? "border-ink border-[1.5px]" : undefined}
+                      />
+                    );
+                  })}
+                </span>
+              </span>
             ))}
           </span>
         </div>
@@ -275,8 +305,8 @@ export function MacAnatomy({ mac, wide }: { mac: string; wide?: boolean }) {
     <WidgetFrame wide={wide} label={`${mac}, byte by byte`}>
       <MacBytes mac={mac} />
       <Caption>
-        Each byte in hex (large) and in binary. The two outlined bits at the end of the first byte have special
-        meanings (section 6).
+        Each byte in hex (large) and in binary: one row of 4 bits for each hex digit. The two outlined bits at the end
+        of the first byte have special meanings (section 6).
       </Caption>
     </WidgetFrame>
   );

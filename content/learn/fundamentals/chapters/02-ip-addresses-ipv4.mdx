@@ -1,19 +1,74 @@
 import { IpAnatomy, IpConv, PlaceValue } from "@/components/learn/widgets/lazy";
 
-## What an IP address is
+## What a protocol is
 
-IP stands for Internet Protocol, one of the most important protocols on the internet. An <Term>IP address</Term> is the number a device uses to be found on a network. Every device that wants to talk on a network needs one.
+Before two machines can talk, they have to agree on how. A <Term>protocol</Term> is that agreement: a set of rules both sides follow, so that what one sends, the other understands. It says what a message looks like, what order things happen in, and what to do when something goes wrong.
 
-One detail the short definition hides: an IP address belongs to a <Term>network interface</Term>, not to the whole device. An interface is one connection point: the WiFi card, an Ethernet port, or a virtual one made by the OS. Your laptop has several:
+You already follow protocols without calling them that. A letter has one: the recipient's address goes in the middle of the envelope, the sender's in the corner, the stamp at the top right. The post office does not need to know you. It only needs the rules followed, and the letter arrives.
+
+<Ch n="1">Chapter 1</Ch> used several protocols, each with its own job:
 
 <Table>
   <thead>
-    <tr><th>Interface</th><th>Address</th><th>What it is for</th></tr>
+    <tr><th>#</th><th>Protocol</th><th>Its rules cover</th><th>Where you saw it</th></tr>
   </thead>
   <tbody>
-    <tr><td>**lo0 · loopback**</td><td><Mono>127.0.0.1</Mono></td><td>The laptop talking to itself<Sub>what you use when you run the Node app on localhost</Sub></td></tr>
-    <tr><td>**en0 · WiFi**</td><td><Mono>192.168.1.23</Mono></td><td>The home network<Sub>the one we follow in every chapter</Sub></td></tr>
-    <tr><td>**en1 · Ethernet**</td><td><Mono>none</Mono></td><td>No cable plugged in<Sub>no connection, so no address</Sub></td></tr>
+    <tr><td>1</td><td>**HTTP**</td><td>What a request and a response look like</td><td><Mono>GET /profile HTTP/1.1</Mono></td></tr>
+    <tr><td>2</td><td>**TCP**</td><td>Delivering bytes in order, and sending again what is lost</td><td>The segments and their sequence numbers</td></tr>
+    <tr><td>3</td><td>**IP**</td><td>Addressing a packet and getting it from one network to another</td><td>The source and destination addresses</td></tr>
+    <tr><td>4</td><td>**Ethernet, WiFi**</td><td>Getting a frame to the next device on the local network</td><td>The MAC addresses in the frame</td></tr>
+  </tbody>
+</Table>
+
+This chapter is about the third one.
+
+## What an IP address is
+
+IP stands for Internet Protocol. Its rules get a packet from one network to another, across every router on the way. For that to work, one rule comes first: every sender and every receiver needs an address in the same agreed format, so any router can read it, just as the post office reads any envelope. That address is the <Term>IP address</Term>: the number a device uses to be found on a network. Every device that wants to talk on a network needs one.
+
+## Network interfaces
+
+A <Term>network interface</Term> is a point where a device connects to a network: the door packets go in and out of. A WiFi chip is one, an Ethernet port is another.
+
+<Key title="The key idea">
+
+An IP address belongs to an interface, not to the device.
+
+</Key>
+
+We say "my laptop's IP is 192.168.1.23", but that is a shortcut. What is really true is "my laptop's WiFi interface has the IP 192.168.1.23". A device with three interfaces can have three different IPs, on three different networks. The office router in <Ch n="6" section="A router has several interfaces">chapter 6</Ch> is exactly that.
+
+Each interface usually has:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>It has</th><th>Example</th><th>What it means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A name</td><td><Mono>en0</Mono>, <Mono>wlan0</Mono>, <Mono>eth0</Mono></td><td>How the OS refers to it</td></tr>
+    <tr><td>2</td><td>A MAC address</td><td><Mono>a4:83:e7:2b:91:0c</Mono></td><td>Its hardware address, used on the local network (<Ch n="7">chapter 7</Ch>)</td></tr>
+    <tr><td>3</td><td>One or more IP addresses</td><td><Mono>192.168.1.23/24</Mono></td><td>Its address on that network, with the prefix (<Ch n="3">chapter 3</Ch>)</td></tr>
+    <tr><td>4</td><td>A state</td><td><Mono>UP</Mono> or <Mono>DOWN</Mono></td><td>Whether it is active</td></tr>
+  </tbody>
+</Table>
+
+There are two kinds:
+
+- **Physical interfaces** are backed by real hardware, a NIC (Network Interface Card): an Ethernet port, a WiFi chip, a cellular modem. Each has a MAC address set at the factory.
+- **Virtual interfaces** are created by software. They have no hardware of their own, but the OS treats them exactly like real ones: each has a name and an IP, and packets go in and out. Loopback, VPN tunnels, Docker bridges and a VM's network card are all virtual.
+
+To the OS, both kinds look the same. That is what makes Docker, VPNs and cloud VMs possible: kade-api's interface in GCP, `nic0`, is virtual, yet kade-api uses it like any network card.
+
+Your laptop has several interfaces:
+
+<Table>
+  <thead>
+    <tr><th>Interface</th><th>Kind</th><th>Address</th><th>What it is for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>**lo0 · loopback**</td><td>Virtual</td><td><Mono>127.0.0.1</Mono></td><td>The laptop talking to itself<Sub>what you use when you run the Node app on localhost</Sub></td></tr>
+    <tr><td>**en0 · WiFi**</td><td>Physical</td><td><Mono>192.168.1.23</Mono></td><td>The home network<Sub>the one we follow in every chapter</Sub></td></tr>
+    <tr><td>**en1 · Ethernet**</td><td>Physical</td><td><Mono>none</Mono></td><td>No cable plugged in<Sub>state DOWN, so no address</Sub></td></tr>
   </tbody>
 </Table>
 
@@ -116,13 +171,14 @@ The same private address, 192.168.1.23, exists in millions of homes at once. Tha
     <tr><th>#</th><th>Idea</th><th>In one line</th><th>New terms</th></tr>
   </thead>
   <tbody>
-    <tr><td>1</td><td>What an IP is</td><td>The number used to find a device on a network. It belongs to an interface.</td><td>IP address, interface, loopback</td></tr>
-    <tr><td>2</td><td>How it is written</td><td>Four numbers with dots: 192.168.1.23</td><td>dotted-quad, octet</td></tr>
-    <tr><td>3</td><td>How it is stored</td><td>Each octet is 8 bits; place values 128 down to 1</td><td>bit, binary</td></tr>
-    <tr><td>4</td><td>Octet range</td><td>00000000 to 11111111 = 0 to 255</td><td></td></tr>
-    <tr><td>5</td><td>Total size</td><td>32 bits = 4 bytes, so about 4.3 billion addresses</td><td>2<sup>32</sup></td></tr>
-    <tr><td>6</td><td>The shortage</td><td>Fixed with private addresses + NAT, and long-term with IPv6</td><td>IPv6</td></tr>
-    <tr><td>7</td><td>Special ranges</td><td>Private, loopback, link-local, broadcast, documentation, public</td><td>private, public</td></tr>
+    <tr><td>1</td><td>What an IP is</td><td>The number used to find a device on a network</td><td>protocol, IP address</td></tr>
+    <tr><td>2</td><td>Interfaces</td><td>A device's doors to networks, physical or virtual. The IP belongs to the interface, not the device.</td><td>network interface, loopback</td></tr>
+    <tr><td>3</td><td>How it is written</td><td>Four numbers with dots: 192.168.1.23</td><td>dotted-quad, octet</td></tr>
+    <tr><td>4</td><td>How it is stored</td><td>Each octet is 8 bits; place values 128 down to 1</td><td>bit, binary</td></tr>
+    <tr><td>5</td><td>Octet range</td><td>00000000 to 11111111 = 0 to 255</td><td></td></tr>
+    <tr><td>6</td><td>Total size</td><td>32 bits = 4 bytes, so about 4.3 billion addresses</td><td>2<sup>32</sup></td></tr>
+    <tr><td>7</td><td>The shortage</td><td>Fixed with private addresses + NAT, and long-term with IPv6</td><td>IPv6</td></tr>
+    <tr><td>8</td><td>Special ranges</td><td>Private, loopback, link-local, broadcast, documentation, public</td><td>private, public</td></tr>
   </tbody>
 </Table>
 
@@ -132,7 +188,7 @@ The same private address, 192.168.1.23, exists in millions of homes at once. Tha
 
 - **What to look for:** Something like 192.168.x.x: a private address.
 - **Runs on:** macOS · Linux: hostname -I · Windows: ipconfig
-- **From section:** [1. What an IP address is](#what-an-ip-address-is)
+- **From section:** [2. What an IP address is](#what-an-ip-address-is)
 
 ```sh
 ipconfig getifaddr en0
@@ -144,7 +200,7 @@ ipconfig getifaddr en0
 
 - **What to look for:** lo / lo0 with 127.0.0.1, your WiFi with its IP, unplugged ones with no `inet` line.
 - **Runs on:** macOS · Linux: ip -4 addr · Windows: ipconfig /all
-- **From section:** [1. What an IP address is](#what-an-ip-address-is)
+- **From section:** [3. Network interfaces](#network-interfaces)
 
 ```sh
 ifconfig
@@ -156,7 +212,7 @@ ifconfig
 
 - **What to look for:** Replies even with WiFi off. The packet never leaves the laptop.
 - **Runs on:** Windows: ping 127.0.0.1
-- **From section:** [7. Special address ranges](#special-address-ranges)
+- **From section:** [9. Special address ranges](#special-address-ranges)
 
 ```sh
 ping -c 3 127.0.0.1
@@ -167,7 +223,7 @@ ping -c 3 127.0.0.1
 <TryIt n={4} title="Your public IP, as the internet sees it">
 
 - **What to look for:** Different from your local IP. The router swapped it (NAT).
-- **From section:** [7. Special address ranges](#special-address-ranges)
+- **From section:** [9. Special address ranges](#special-address-ranges)
 
 ```sh
 curl ifconfig.me
@@ -179,7 +235,7 @@ curl ifconfig.me
 
 - **What to look for:** `11000000`
 - **Runs on:** macOS / Linux
-- **From section:** [3. Why "octet": binary in two minutes](#why-octet-binary-in-two-minutes)
+- **From section:** [5. Why "octet": binary in two minutes](#why-octet-binary-in-two-minutes)
 
 ```sh
 echo "obase=2; 192" | bc
@@ -191,7 +247,7 @@ echo "obase=2; 192" | bc
 
 - **What to look for:** `C0 A8 01 17`
 - **Runs on:** macOS / Linux
-- **From section:** [5. 32 bits = 4 bytes](#32-bits-4-bytes)
+- **From section:** [7. 32 bits = 4 bytes](#32-bits-4-bytes)
 
 ```sh
 printf '%02X ' 192 168 1 23
@@ -203,7 +259,7 @@ printf '%02X ' 192 168 1 23
 
 - **What to look for:** On kade-api this returns 10.10.1.10.
 - **Runs on:** run on a GCP VM
-- **From section:** [7. Special address ranges](#special-address-ranges)
+- **From section:** [9. Special address ranges](#special-address-ranges)
 
 ```sh
 curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip

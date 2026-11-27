@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { legible } from "../../legible";
 import { arrowHead, type ArrowHue } from "../../diagram-defs";
 
 /*
@@ -93,7 +94,7 @@ export function T({
       x={x}
       y={y}
       style={{
-        ...(size ? { fontSize: `${size}px` } : null),
+        ...(size ? { fontSize: `${legible(size)}px` } : null),
         ...(bold ? { fontWeight: 600 } : null),
         ...(end ? { textAnchor: "end" } : null),
       }}
@@ -144,6 +145,15 @@ export function Wire({
 }
 
 /** A tick or a cross in a dot: ink when it passes, red when it is stopped. */
+/**
+ * A wire with square bends, given as a path of H and V runs (DESIGN.md "The
+ * Bend Arrow Rule"); coloured and tipped like `Wire`.
+ */
+export function Bend({ d, c, dash, plain }: { d: string; c?: string; dash?: boolean; plain?: boolean }) {
+  const hue = wireHue(c);
+  return <path className={cn("w", hue !== "muted" && hue, dash && "dash")} d={d} markerEnd={plain ? undefined : arrowHead(hue)} />;
+}
+
 export function Mark({ cx, cy, ok, r = 11 }: { cx: number; cy: number; ok: boolean; r?: number }) {
   return (
     <>
@@ -158,7 +168,7 @@ export function Mark({ cx, cy, ok, r = 11 }: { cx: number; cy: number; ok: boole
 /** A small capitals heading inside a drawing ("CONNECTION TABLE"). */
 export function Caps({ x, y, children }: { x: number; y: number; children: ReactNode }) {
   return (
-    <text className="f" x={x} y={y} style={{ fontSize: "11px", letterSpacing: ".05em" }}>
+    <text className="f" x={x} y={y} style={{ fontSize: `${legible(11)}px`, letterSpacing: ".05em" }}>
       {children}
     </text>
   );

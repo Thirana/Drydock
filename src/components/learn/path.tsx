@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { courseHref, courses } from "@/lib/content/learn";
-import { allLabs, labHref } from "@/lib/content/registry";
-import { labStats } from "@/lib/content/stats";
+import { harbour, harbourHref } from "@/lib/content/harbour";
+import { caseStats } from "@/lib/content/stats";
 import type { Course } from "@/lib/content/types";
 import { cn } from "@/lib/utils";
 
@@ -21,10 +21,9 @@ interface Move {
   meta: string;
 }
 
-/** The whole guide in order: the two courses, then the first lab. */
+/** The whole guide in order: the two courses, then the case study. */
 export function pathMoves(): Move[] {
-  const lab = allLabs()[0];
-  const stats = lab && labStats(lab.lab);
+  const stats = caseStats(harbour.architecture);
   return [
     ...courses.map((c) => ({
       href: courseHref(c),
@@ -32,18 +31,12 @@ export function pathMoves(): Move[] {
       body: c.summary,
       meta: `${numbered(c).length} chapters · ${readingTime(c)}`,
     })),
-    ...(lab
-      ? [
-          {
-            href: labHref(lab),
-            title: `Fix a broken platform: ${lab.lab.title}`,
-            body: lab.lab.summary,
-            meta: stats
-              ? `${stats.defects} defects · fixed in ${stats.phases} phases`
-              : (lab.lab.disclaimer ?? ""),
-          },
-        ]
-      : []),
+    {
+      href: harbourHref,
+      title: `Case study: ${harbour.title}`,
+      body: harbour.summary,
+      meta: `${stats.journeys} packet journeys · ${stats.defects} defects`,
+    },
   ];
 }
 

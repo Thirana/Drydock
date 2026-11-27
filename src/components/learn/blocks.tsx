@@ -73,15 +73,27 @@ export function Equation({ children }: { children: ReactNode }) {
   );
 }
 
-/** A group of sections inside a long chapter. */
+/**
+ * A group of sections inside a long chapter. A heavy rule and a solid ink
+ * letter, so a new part is plain to see while scrolling; ink, not a hue,
+ * since hues belong to the drawings.
+ */
 export function Part({ n, children }: { n: string; children: ReactNode }) {
   return (
-    <p className="dd-part not-prose border-ink mt-20 mb-2 max-w-[760px] border-t-2 pt-5">
-      <span className="text-ink-faint block font-mono text-[14px] font-bold">
-        Part {n}
+    <p className="dd-part not-prose border-ink mt-20 mb-2 flex max-w-[760px] items-start gap-4 border-t-[3px] pt-6">
+      <span
+        aria-hidden="true"
+        className="bg-ink text-ground grid size-12 shrink-0 place-items-center rounded-[2px] font-mono text-[24px] leading-none font-bold"
+      >
+        {n}
       </span>
-      <span className="text-ink mt-1 block text-[24px] leading-[1.2] font-bold">
-        {children}
+      <span className="min-w-0">
+        <span className="text-ink-muted block font-mono text-[13.5px] font-bold tracking-[0.08em] uppercase">
+          Part {n}
+        </span>
+        <span className="text-ink mt-0.5 block text-[26px] leading-[1.2] font-bold text-balance">
+          {children}
+        </span>
       </span>
     </p>
   );

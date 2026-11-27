@@ -1,5 +1,5 @@
 import { IpFate } from "@/components/learn/widgets/lazy";
-import { FigExternal, FigTiers } from "@content/learn/gcp/figures/03-ip-addressing";
+import { FigExternal, FigKeepIp, FigTiers } from "@content/learn/gcp/figures/03-ip-addressing";
 
 <Box kind="problem" title="The problem">
 
@@ -17,25 +17,27 @@ A VM's network card can carry several addresses, and other resources have addres
 
 <Table>
   <thead>
-    <tr><th>#</th><th>Address</th><th>On the VM's card?</th><th>Comes from</th><th>Kadé's example</th><th>Chapter</th></tr>
+    <tr><th>#</th><th>Address</th><th>On the VM's card?</th><th>Comes from</th><th>Scope</th><th>Kadé's example</th><th>Chapter</th></tr>
   </thead>
   <tbody>
-    <tr><td>1</td><td>Primary internal IPv4</td><td><St k="ok">yes</St></td><td>The subnet's primary range</td><td>`10.10.1.10` on kade-api-1</td><td className="whitespace-nowrap">3</td></tr>
-    <tr><td>2</td><td>Alias IP range</td><td><St k="ok">yes</St></td><td>The subnet's primary or secondary range</td><td>none yet (section 08)</td><td className="whitespace-nowrap">2, 3</td></tr>
-    <tr><td>3</td><td>External IPv4</td><td><St k="bad">no</St></td><td>Google's public pool, mapped by 1:1 NAT</td><td>the old `34.87.120.15`</td><td className="whitespace-nowrap">3</td></tr>
-    <tr><td>4</td><td>IPv6 (internal or external)</td><td><St k="ok">yes</St></td><td>The subnet's `/64`; no NAT</td><td>none; Kadé is IPv4 only</td><td className="whitespace-nowrap">3</td></tr>
-    <tr><td>5</td><td>Internal load balancer IP</td><td>-</td><td>A subnet's primary range, held by a forwarding rule</td><td>none yet</td><td className="whitespace-nowrap">11</td></tr>
-    <tr><td>6</td><td>Global external IP</td><td>-</td><td>Google's anycast pool</td><td>load balancer `34.120.88.10`</td><td className="whitespace-nowrap">3, 11</td></tr>
-    <tr><td>7</td><td>Regional external IP for a service</td><td>-</td><td>Google's pool in one region</td><td>Cloud NAT `34.87.200.7`</td><td className="whitespace-nowrap">3, 7</td></tr>
-    <tr><td>8</td><td>Global internal IP</td><td>-</td><td>Any free internal range outside your subnets</td><td>a Private Service Connect endpoint for Google APIs</td><td className="whitespace-nowrap">9</td></tr>
+    <tr><td>1</td><td>Primary internal IPv4</td><td><St k="ok">yes</St></td><td>The subnet's primary range</td><td>Regional</td><td>`10.10.1.10` on kade-api-1</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>2</td><td>Alias IP range</td><td><St k="ok">yes</St></td><td>The subnet's primary or secondary range</td><td>Regional</td><td>none yet (section 08)</td><td className="whitespace-nowrap">2, 3</td></tr>
+    <tr><td>3</td><td>External IPv4</td><td><St k="bad">no</St></td><td>Google's public pool, mapped by 1:1 NAT</td><td>Regional</td><td>the old `34.87.120.15`</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>4</td><td>IPv6 (internal or external)</td><td><St k="ok">yes</St></td><td>The subnet's `/64`; no NAT</td><td>Regional</td><td>none; Kadé is IPv4 only</td><td className="whitespace-nowrap">3</td></tr>
+    <tr><td>5</td><td>Internal load balancer IP</td><td>-</td><td>A subnet's primary range, held by a forwarding rule</td><td>Regional</td><td>none yet</td><td className="whitespace-nowrap">11</td></tr>
+    <tr><td>6</td><td>Global external IP</td><td>-</td><td>Google's anycast pool</td><td>**Global**</td><td>load balancer `34.120.88.10`</td><td className="whitespace-nowrap">3, 11</td></tr>
+    <tr><td>7</td><td>Regional external IP for a service</td><td>-</td><td>Google's pool in one region</td><td>Regional</td><td>Cloud NAT `34.87.200.7`</td><td className="whitespace-nowrap">3, 7</td></tr>
+    <tr><td>8</td><td>Global internal IP</td><td>-</td><td>Any free internal range outside your subnets</td><td>**Global**</td><td>a Private Service Connect endpoint for Google APIs</td><td className="whitespace-nowrap">9</td></tr>
   </tbody>
 </Table>
+
+Only rows 6 and 8 are global, and no address is zonal. Even when a zonal VM holds an address, the address belongs to a region, so it can outlive the VM's zone (section 07).
 
 ## The external IP is not on the VM
 
 <Recalls><Recall n="10">NAT, and 1:1 NAT</Recall></Recalls>
 
-The internal IP is real in every sense: it is on the network card, it shows in `ip addr`, and the app can bind to it. The external IP is only a **mapping** kept by the data plane on the VM's host (<Ch n="1">chapter 1</Ch>). It is the 1:1 NAT from the fundamentals course, done beside every VM instead of in a box at the edge.
+The internal IP is real in every sense: it is on the network card, it shows in `ip addr`, and the app can bind to it. The external IP is only a **mapping** kept by the data plane on the VM's host (<Ch n="1.2">chapter 1.2</Ch>). It is the 1:1 NAT from the fundamentals course, done beside every VM instead of in a box at the edge.
 
 <Figure wide hues={["plum", "teal", "green"]} drawing={<FigExternal />}>
 
@@ -131,7 +133,7 @@ So the rule is simple: **if anything depends on an address, make it static.** A 
 
 ## Regional and global external addresses
 
-A static external address is reserved as either regional or global (<Ch n="1">chapter 1</Ch> section 11), and one cannot be used where the other is needed:
+A static external address is reserved as either regional or global (<Ch n="1.1" section="Three scopes: global, regional, zonal">chapter 1.1</Ch>), and one cannot be used where the other is needed:
 
 <Table>
   <thead>
@@ -153,7 +155,7 @@ A static external address is reserved as either regional or global (<Ch n="1">ch
 
 <Recalls><Recall n="12">How routing works across the internet</Recall></Recalls>
 
-Every external address has a <Term>network tier</Term>. The tier decides where traffic joins or leaves Google's network, and so how much of the trip happens on the public internet.
+Every external address has a <Term>network tier</Term>. The tier decides where traffic joins or leaves Google's network, and so how much of the trip happens on the public internet. **Premium** is the path from <Ch n="1.1" section="Google's network: the backbone and the edge">chapter 1.1</Ch>: the shopper enters Google at the nearest edge and rides the backbone to Singapore. **Standard** skips that edge.
 
 <Figure wide hues={["plum", "teal"]} drawing={<FigTiers />}>
 
@@ -176,6 +178,16 @@ The difference is who carries the packet. Premium: Google, from near the user. S
 </Table>
 
 The tier is set per address or resource, and a project has a default tier (Premium unless changed). A resource and its address must use the same tier, which is why a global load balancer can only ever have a Premium address. Everything shopper-facing at Kadé is Premium.
+
+<Key title="Who picks the edge">
+
+Google does not pick an edge for each packet. It picks **where it announces your address range** with BGP, the protocol networks use to tell each other which addresses they can deliver. Premium announces it from Google's edges around the world. Standard announces it only near your region.
+
+- **The way in is chosen by the shopper's ISP.** From the routes it hears, it usually takes the first place it meets Google: a direct link if it has one, and the earliest handoff, because carrying traffic further costs it money. So "the nearest edge" means where the ISP meets Google first. That is usually close to the shopper, but not always: a Colombo ISP with no link to Google at home may hand off in Chennai, Mumbai or Singapore.
+- **The way back is chosen by Google.** With Premium, the reply rides Google's backbone to the edge nearest the shopper. With Standard, it leaves Google near the region and crosses the public internet.
+- **Global and regional Premium addresses differ at the edge.** `34.120.88.10` is one address announced from every edge (anycast), and Google's front ends at that edge finish the connection there (<Ch n="1.1" section="Google's network: the backbone and the edge">chapter 1.1</Ch>). A Premium regional address, such as a VM's external IP, also enters near the shopper, but the packet rides the backbone straight to the VM, with no front end on the way.
+
+</Key>
 
 ## Between your own VMs, always use internal addresses
 
@@ -212,6 +224,16 @@ By default a VM gets the next free address in its subnet. You can choose one whe
 
 For Kadé, that means promoting kade-db's `10.10.2.5` now, so the hardcoded address is safe until <Ch n="8">chapter 8</Ch> gives it a name, and reserving `10.10.1.20` for kade-worker, which arrives in <Ch n="10">chapter 10</Ch>.
 
+A reserved internal address belongs to its subnet, so to the region, not to the VM's zone (section 01). That matters for a zonal VM like kade-db. If it ever has to be rebuilt in another zone, after a zone failure or simply a move, it can come back with the same address:
+
+<Figure wide hues={["plum", "teal", "green"]} labels={{ plum: "Google's: the region and its zones", teal: "The reserved address", green: "kade-db, old and new" }} drawing={<FigKeepIp />}>
+
+The address outlives the zone. Once the old VM is deleted, a new one in any zone of the region can take it.
+
+</Figure>
+
+The new VM asks for it by name: `--private-network-ip=kade-db-ip`. This keeps the address, not the data. kade-db's disk is zonal and stays in zone b, so the new VM needs a snapshot (global) or a regional disk. Cloud SQL with high availability (<Ch n="9">chapter 9</Ch>) handles both for you.
+
 ## Alias IPs in practice
 
 <Ch n="2">Chapter 2</Ch> introduced alias IP ranges. Adding one, or moving it from one VM to another, is a change to the VM's network card through GCP, not inside the OS:
@@ -229,7 +251,7 @@ For Kadé, that means promoting kade-db's `10.10.2.5` now, so the hardcoded addr
 
 <Caption>An address can only be on one network card at a time, so a move is always "remove, then add". The full commands are at the end of the chapter.</Caption>
 
-On Google's standard images, the guest agent adds the alias to the OS's local routing table, so the VM accepts traffic for it without any manual setup. This remove-then-add move is the GCP way to do what gratuitous ARP did on a real LAN (<Ch n="1">chapter 1</Ch> section 10). For automatic failover, an internal load balancer with health checks is still the better tool (<Ch n="11">chapter 11</Ch>).
+On Google's standard images, the guest agent adds the alias to the OS's local routing table, so the VM accepts traffic for it without any manual setup. This remove-then-add move is the GCP way to do what gratuitous ARP did on a real LAN (<Ch n="1.2">chapter 1.2</Ch> section 10). For automatic failover, an internal load balancer with health checks is still the better tool (<Ch n="11">chapter 11</Ch>).
 
 ## IP forwarding and the anti-spoofing check
 

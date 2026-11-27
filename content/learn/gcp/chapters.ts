@@ -4,7 +4,8 @@ import type { ChapterLoaders } from "@/lib/content/types";
 
 export const chapters: ChapterLoaders = {
   "kade-on-gcp": () => import("./chapters/00-kade-on-gcp.mdx"),
-  "the-mental-model-andromeda-no-layer-2": () => import("./chapters/01-the-mental-model-andromeda-no-layer-2.mdx"),
+  "regions-zones-and-googles-network": () => import("./chapters/01.1-regions-zones-and-googles-network.mdx"),
+  "the-mental-model-andromeda-no-layer-2": () => import("./chapters/01.2-the-mental-model-andromeda-no-layer-2.mdx"),
   "vpc-networks-and-subnets": () => import("./chapters/02-vpc-networks-and-subnets.mdx"),
   "ip-addressing": () => import("./chapters/03-ip-addressing.mdx"),
   "routing": () => import("./chapters/04-routing.mdx"),
@@ -19,6 +20,8 @@ export const chapters: ChapterLoaders = {
   "load-balancing-the-family-and-how-to-choose": () => import("./chapters/11-load-balancing-the-family-and-how-to-choose.mdx"),
   "load-balancing-inside-the-https-load-balancer": () => import("./chapters/12.1-load-balancing-inside-the-https-load-balancer.mdx"),
   "load-balancing-vms-behind-the-load-balancer": () => import("./chapters/12.2-load-balancing-vms-behind-the-load-balancer.mdx"),
+  "cloud-armor-the-web-application-firewall": () => import("./chapters/12.3-cloud-armor-the-web-application-firewall.mdx"),
+  "cloud-cdn": () => import("./chapters/12.4-cloud-cdn.mdx"),
   "cloudflare-and-gcp": () => import("./chapters/13-cloudflare-and-gcp.mdx"),
   "a-second-vpc-briefly": () => import("./chapters/14-a-second-vpc-briefly.mdx"),
   "hybrid-vpn-and-interconnect": () => import("./chapters/15-hybrid-vpn-and-interconnect.mdx"),

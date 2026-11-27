@@ -10,7 +10,7 @@ import {
   neighbours,
   type ChapterContext,
 } from "@/lib/content/learn";
-import { allLabs, labHref } from "@/lib/content/registry";
+import { harbour, harbourHref } from "@/lib/content/harbour";
 import { ChapterRail, type RailPart } from "./chapter-rail";
 import { chapterMdxComponents } from "./mdx";
 import { SearchMeta } from "@/components/site/search-meta";
@@ -50,8 +50,8 @@ export function ChapterPage({
   }));
 
   const { prev, next } = neighbours(ctx);
-  // After the last chapter, the path continues into the first lab.
-  const lab = next ? undefined : allLabs()[0];
+  // After the last chapter, the path continues into the case study.
+  const study = next ? undefined : harbour;
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-x-24">
@@ -94,7 +94,7 @@ export function ChapterPage({
           <Content components={chapterMdxComponents(course)} />
         </article>
 
-        <SeeItBroken labs={practiceFor(ctx)} />
+        <SeeItBroken defects={practiceFor(ctx)} />
 
         <nav
           aria-label="Chapters"
@@ -148,21 +148,20 @@ export function ChapterPage({
                 {next.chapter.lead}
               </span>
             </Link>
-          ) : lab ? (
-            <Link href={labHref(lab)} className="group flex flex-col gap-1.5">
+          ) : study ? (
+            <Link href={harbourHref} className="group flex flex-col gap-1.5">
               <span className="text-ink-muted text-[15px]">
-                Next: fix a broken platform
+                Next: the case study
               </span>
               <span className="dd-head text-accent inline-flex items-baseline gap-3 text-[24px]">
-                {lab.lab.title}
+                {study.title}
                 <IconArrowRight
                   size={12}
                   className="size-4 self-center transition-transform duration-200 group-hover:translate-x-1"
                 />
               </span>
               <span className="text-ink-body max-w-[48ch] text-[16px] leading-[1.55] text-pretty">
-                {lab.lab.summary}
-                {lab.lab.disclaimer && <> {lab.lab.disclaimer}</>}
+                {study.summary} {study.disclaimer}
               </span>
             </Link>
           ) : (

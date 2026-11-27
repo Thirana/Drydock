@@ -1,0 +1,20 @@
+## The component chain
+
+<Lede>
+  A proxy load balancer is not one object. Walk the chain link by link, or click
+  any link, to see what lives there. The two attachment points worth memorising
+  are the target proxy, which holds everything about TLS, and the backend
+  service, which holds everything about health, balancing, the WAF, and the CDN.
+</Lede>
+
+<LoadBalancerExplorer />
+
+<Note>
+  Serverless NEGs take no health check. Cloud Run manages its own instance
+  health, so there is nothing for the load balancer to probe - which is why the
+  probe path on this diagram only reaches the MIG.
+</Note>
+
+### Where to look when something breaks
+
+<LoadBalancerSymptoms />

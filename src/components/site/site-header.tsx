@@ -16,7 +16,7 @@ interface SiteHeaderProps {
 }
 
 const within = (pathname: string, link: NavLink) => {
-  // Some static hosts serve "/labs" as "/labs.html".
+  // Some static hosts serve "/harbour" as "/harbour.html".
   const path = pathname.replace(/\.html$/, "");
   return (link.match ?? [link.href]).some(
     (p) => path === p || path.startsWith(`${p}/`),

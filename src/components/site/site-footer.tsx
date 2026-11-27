@@ -7,13 +7,7 @@ import {
   glossaryHref,
   learnHref,
 } from "@/lib/content/learn";
-import {
-  allLabs,
-  allTracks,
-  labHref,
-  labsHref,
-  trackHref,
-} from "@/lib/content/registry";
+import { harbour, sections } from "@/lib/content/harbour";
 
 export function SiteFooter() {
   const columns = [
@@ -26,27 +20,14 @@ export function SiteFooter() {
       ],
     },
     {
-      title: "Labs",
-      links: [
-        { href: labsHref, label: "All labs" },
-        ...allLabs().map((ctx) => ({
-          href: labHref(ctx),
-          label: ctx.lab.title,
-        })),
-      ],
-    },
-    {
-      title: "Tracks",
-      links: allTracks().map((ctx) => ({
-        href: trackHref(ctx),
-        label: `${ctx.lab.title} · ${ctx.track.title}`,
-      })),
+      title: `Case study: ${harbour.title}`,
+      links: sections.map((s) => ({ href: s.href, label: s.label })),
     },
   ];
 
   return (
     <footer className="border-rule mt-auto border-t">
-      <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-x-8 gap-y-10 px-5 pt-12 pb-14 sm:grid-cols-4 sm:px-8">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-x-8 gap-y-10 px-5 pt-12 pb-14 sm:grid-cols-3 sm:px-8">
         <div className="col-span-2 sm:col-span-1">
           <LogoLockup />
           <p className="text-ink-muted mt-3 max-w-[280px] text-[15px] leading-[1.55]">

@@ -77,8 +77,10 @@ To describe a whole network we need a way to name a range of addresses. <Term>CI
 <CidrBar ip="192.168.1.0" prefix="24" />
 
 - **The /24** is how many bits, counted from the left, form the network part. The rest are the host part.
-- **The .0 address**, the first of the range, stands for the network itself. It is never given to a device.
-- **The .255 address**, the last of the range, is the <Term>broadcast address</Term>: a message sent to it reaches every device on this network. It is not given to a device either.
+- **The .0 address** is the <Term>network address</Term>: the name of the network as a whole. Keep the network bits and set every host bit to 0, and you get it: `192.168.1.0`. Routes and firewall rules use it to mean "this whole network". It is never given to a device.
+- **The .255 address** is the <Term>broadcast address</Term>: set every host bit to 1 instead. A message sent to it reaches every device on this network. It is not given to a device either.
+
+You will also meet the same split written a second way, as a **subnet mask**. For a /24 it is `255.255.255.0`: 24 ones, then 8 zeros, written like an address. It is what your laptop got from DHCP (above). <Ch n="4">Chapter 4</Ch> shows how a device uses it to decide where to send each packet.
 
 In 192.168.1.0/24, the first 24 bits (three octets: 8 + 8 + 8) are the network part. They are the same for every device on the network. The last 8 bits (the last octet) are the host part, different for each device:
 
@@ -158,7 +160,7 @@ Subnets inside one VPC must not overlap. GCP also keeps 4 addresses in every sub
 
 <Caption>So a /24 subnet in GCP has 256 − 4 = 252 usable addresses. kade-api's 10.10.1.10 is one of them.</Caption>
 
-Try any range:
+Type any range. The calculator shows its network address, the same range as a subnet mask, its broadcast address, and how many addresses are left for devices: at home, and in a GCP subnet, where 4 are kept.
 
 <CidrCalc cidr="10.10.1.0/24" />
 

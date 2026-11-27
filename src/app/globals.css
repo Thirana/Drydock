@@ -102,24 +102,11 @@
   --gl-danger-soft: var(--dd-fault-soft);
   --gl-danger-ink: #ffffff;
 
-  /* Diagram tones: a monochrome drawing; only a fault takes colour. */
-  --tone-edge: var(--dd-ink);
-  --tone-compute: var(--dd-ink-muted);
-  --tone-data: var(--dd-ink-muted);
-  --tone-private: var(--dd-ink);
-  --tone-danger: var(--dd-fault);
-  --tone-external: var(--dd-ink-faint);
-  --tone-line: var(--dd-rule);
-  --tone-lineStrong: var(--dd-ink-faint);
   /* Hue fills: a tenth of the hue mixed into the page, per theme. */
   --dd-plum-soft: color-mix(in oklab, var(--dd-plum) 10%, var(--dd-ground));
   --dd-teal-soft: color-mix(in oklab, var(--dd-teal) 10%, var(--dd-ground));
   --dd-green-soft: color-mix(in oklab, var(--dd-green) 10%, var(--dd-ground));
   --dd-amber-soft: color-mix(in oklab, var(--dd-amber) 10%, var(--dd-ground));
-
-  --diagram-group-wash: color-mix(in srgb, var(--dd-ink) 1.5%, transparent);
-  --diagram-selection-wash: var(--dd-accent-soft);
-  --dd-sel: var(--dd-accent);
 
   --background: var(--dd-ground);
   --foreground: var(--dd-ink);
@@ -288,7 +275,9 @@
   }
   /* A link that reads as text until you reach for it. */
   /* A link: blue and always underlined, so it never passes for text. */
-  .dd-link {
+  /* Links inside a margin note (.dd-note) read as links too. */
+  .dd-link,
+  .dd-note a {
     color: var(--dd-accent);
     font-weight: 600;
     text-decoration: underline;
@@ -301,8 +290,21 @@
     text-underline-offset: 0.22em;
     transition: text-decoration-color 150ms;
   }
-  .dd-link:hover {
+  .dd-link:hover,
+  .dd-note a:hover {
     text-decoration-color: currentColor;
+  }
+  /* A margin note's own lists and paragraphs. */
+  .dd-note ul {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+    list-style: disc;
+  }
+  .dd-note li + li {
+    margin-top: 0.25rem;
+  }
+  .dd-note :is(p, ul) + p {
+    margin-top: 0.75rem;
   }
 
   /* Highlighter: one per block, on the fact or value to notice first. */
@@ -405,7 +407,7 @@
   }
   .gl-prose :where(th):not(:where(.not-prose, .not-prose *)) {
     border-bottom: 1px solid var(--dd-ink);
-    padding: 0.6rem 1.25rem 0.6rem 0;
+    padding: 0.6rem 1.75rem 0.6rem 0;
     color: var(--dd-ink);
     font-size: 14px;
     font-weight: 700;
@@ -414,7 +416,7 @@
   }
   .gl-prose :where(td):not(:where(.not-prose, .not-prose *)) {
     border-bottom: 1px solid var(--dd-rule);
-    padding: 0.85rem 1.25rem 0.85rem 0;
+    padding: 0.85rem 1.75rem 0.85rem 0;
     color: var(--dd-ink-body);
     font-size: 16px;
     line-height: 1.55;
@@ -443,7 +445,7 @@
   }
   /* A part heading carries the rule; the section that opens it does not. */
   .dd-chapter .dd-part + h2 {
-    margin-top: 1.25rem !important;
+    margin-top: 2.5rem !important;
     border-top: 0 !important;
     padding-top: 0 !important;
   }
@@ -477,38 +479,50 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 @layer components {
-  /* Drawings keep a readable size and scroll sideways on narrow screens. */
+  /*
+   * Drawings are 920-960 units wide and their text is sized in those units,
+   * so the drawing's scale is the text's scale. Never let it shrink far:
+   * below 1024px a drawing keeps nearly its natural width and scrolls; from
+   * 1024px its frame breaks out into the right margin (.dd-breakout).
+   */
   .dd-fig svg {
     display: block;
     width: 100%;
-    min-width: 680px;
+    min-width: 880px;
     height: auto;
+  }
+  @media (min-width: 1024px) {
+    .dd-fig svg {
+      min-width: 0;
+    }
   }
   .dd-fig text {
     fill: var(--dd-ink);
     font-family:
       var(--font-atkinson), "Atkinson Hyperlegible Next", ui-sans-serif,
       sans-serif;
-    font-size: 13px;
+    font-size: 14px;
   }
   /* Title of a box. */
   .dd-fig text.t {
-    font-size: 13.5px;
+    font-size: 15px;
     font-weight: 600;
   }
-  /* Sub-line: addresses, ports, values. */
+  /* Sub-line: addresses, ports, values. Body ink and a little weight: at
+     this size grey mono is what made drawings hard to read. */
   .dd-fig text.s {
-    fill: var(--dd-ink-muted);
+    fill: var(--dd-ink-body);
+    font-weight: 500;
     font-family:
       var(--font-atkinson-mono), "Atkinson Hyperlegible Mono", ui-monospace,
       monospace;
     font-variant-numeric: tabular-nums;
-    font-size: 11.5px;
+    font-size: 13px;
   }
   /* Words on a wire (a sub-line on a wire keeps the sub-line style). */
   .dd-fig text.l:not(.s) {
     fill: var(--dd-ink-muted);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
   }
   .dd-fig text.f {
@@ -570,8 +584,16 @@
   .dd-fig .zone.plum {
     stroke: var(--dd-plum);
   }
+  .dd-fig .zone.amber {
+    stroke: var(--dd-amber);
+  }
   .dd-fig .zone.fault {
     stroke: var(--dd-fault);
+  }
+  /* A zone inside a region: one of several equal compartments. */
+  .dd-fig .zone.panel {
+    fill: var(--dd-sunk);
+    stroke-dasharray: none;
   }
   /* A box that joins the drawing later. */
   .dd-fig .ghost {
@@ -608,6 +630,12 @@
     stroke: var(--dd-ink-faint);
     stroke-dasharray: 4 3;
   }
+  /* A range the plan needs that does not exist yet: a defect. */
+  .dd-fig .blk.gone {
+    fill: var(--dd-fault-soft);
+    stroke: var(--dd-fault);
+    stroke-dasharray: 3 2;
+  }
 
   /* Status dots and marks: ink for fine, red for broken - never green. */
   .dd-fig circle.ok {
@@ -623,14 +651,14 @@
   /* A number inside a filled dot. */
   .dd-fig text.bn {
     fill: var(--dd-ground);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     text-anchor: middle;
   }
   /* A chapter or note reference at the end of a row. */
   .dd-fig text.ch {
-    fill: var(--dd-ink-faint);
-    font-size: 11px;
+    fill: var(--dd-ink-muted);
+    font-size: 12.5px;
     text-anchor: end;
   }
   /* A cross on a broken path. */
@@ -713,6 +741,47 @@
     opacity: 0.4;
   }
 
+  /* Boxes and zones you can open (the case study's map and load balancer
+     chain): a heavier outline on hover, blue once opened. */
+  .dd-fig [role="button"]:hover > rect.n,
+  .dd-fig [role="button"]:hover > rect.zone {
+    stroke-width: 2.25;
+  }
+  .dd-fig [role="button"] > rect.sel {
+    stroke: var(--dd-accent);
+    stroke-width: 2.5;
+    stroke-dasharray: none;
+  }
+
+  /* A drawing shown at a third of its size as a locator: no words, only
+     boxes, wires, route numbers and crosses, with strokes that survive the
+     shrink. */
+  .dd-fig.dd-mini svg {
+    min-width: 0;
+  }
+  .dd-mini text:not(.bn):not(.x) {
+    display: none;
+  }
+  .dd-mini text.x {
+    font-size: 44px;
+  }
+  .dd-mini .n,
+  .dd-mini .zone {
+    stroke-width: 3;
+  }
+  .dd-mini .zone {
+    stroke-dasharray: 12 10;
+  }
+  .dd-mini .n.cur {
+    stroke-width: 8;
+  }
+  .dd-mini .w {
+    stroke-width: 4;
+  }
+  .dd-mini circle.badge {
+    stroke-width: 3;
+  }
+
   /* Arrowhead fills, used by the markers in <DiagramDefs />. */
   .dd-mk-muted {
     fill: var(--dd-ink-faint);
@@ -774,6 +843,29 @@
   .animate-rise {
     animation: dd-rise 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
+  /* The home stage: a figure settling in as its move is chosen. */
+  .dd-stage-in {
+    animation: dd-stage-in 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dd-stage-in {
+      animation: none;
+    }
+  }
+  /* The hero drawing: each hop draws in once, in order; the broken one arrives last. */
+  .dd-hop {
+    stroke-dasharray: 1;
+    animation: dd-hop 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .dd-hop-fault {
+    animation: dd-fade 500ms ease backwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dd-hop,
+    .dd-hop-fault {
+      animation: none;
+    }
+  }
   .animate-fade-in {
     animation: dd-fade 0.25s ease both;
   }
@@ -829,5 +921,322 @@
     animation-iteration-count: 1 !important;
     animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Course drawings break out of the reading column into the right margin, up to
+ * their natural size (960 units + frame), leaving 24px of page at the edge, so
+ * their text is drawn near 1:1. The offsets follow the chapter layout: the
+ * column starts 364px in below 1200px (gutter 32 + rail 236 + gap 96), and at
+ * 50vw - 236px above. Unlayered, so it outranks a frame's max-width utility.
+ */
+@media (min-width: 1024px) {
+  [data-chapter] figure:has(.dd-fig) {
+    width: min(1004px, max(100%, 100vw - 388px));
+    max-width: none;
+  }
+}
+@media (min-width: 1200px) {
+  [data-chapter] figure:has(.dd-fig) {
+    width: min(1004px, max(100%, 50vw + 212px));
+  }
+}
+
+/*
+ * An expanded course drawing (ExpandDrawing): the figure itself fills the
+ * window on a solid page ground (a see-through one let the page show), its bar on top, the frame sized by script
+ * (--dd-x-width) and centred. "Actual size" draws the drawing 1:1 (--dd-x-svg)
+ * and the frame pans. `:root` matches the breakout rule's weight, which it
+ * must override.
+ */
+:root figure.dd-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  width: auto;
+  max-width: none;
+  padding: 0 24px 32px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--dd-ground);
+}
+:root figure.dd-expanded .dd-x-bar {
+  order: -1;
+  align-self: stretch;
+}
+:root figure.dd-expanded > :not(.dd-x-bar, [hidden]) {
+  width: var(--dd-x-width, 100%);
+  max-width: 100%;
+  flex-shrink: 0;
+}
+:root figure.dd-expanded .dd-fig svg {
+  min-width: 0;
+}
+:root figure.dd-expanded.dd-actual .dd-fig svg {
+  min-width: var(--dd-x-svg);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Slider (`Slider` in components/ui/inputs.tsx): a ruled track filled in ink
+   up to a square ink handle; the handle turns blue while pressed or hovered.
+   `--dd-fill` is the filled share, set by the component.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  .dd-range {
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+    height: 24px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .dd-range:focus-visible {
+    outline: none;
+  }
+  .dd-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      var(--dd-ink) var(--dd-fill, 0%),
+      var(--dd-rule-strong) var(--dd-fill, 0%)
+    );
+  }
+  .dd-range::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--dd-rule-strong);
+  }
+  .dd-range::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--dd-ink);
+  }
+  .dd-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    margin-top: -7px;
+    border: 3px solid var(--dd-ground);
+    border-radius: 2px;
+    background: var(--dd-ink);
+    transition: background-color 120ms ease-out;
+  }
+  .dd-range::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--dd-ground);
+    border-radius: 2px;
+    background: var(--dd-ink);
+    transition: background-color 120ms ease-out;
+  }
+  .dd-range:hover::-webkit-slider-thumb,
+  .dd-range:active::-webkit-slider-thumb {
+    background: var(--dd-accent);
+  }
+  .dd-range:hover::-moz-range-thumb,
+  .dd-range:active::-moz-range-thumb {
+    background: var(--dd-accent);
+  }
+  .dd-range:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--dd-accent);
+    outline-offset: 1px;
+  }
+  .dd-range:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--dd-accent);
+    outline-offset: 1px;
+  }
+}
+
+@keyframes dd-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes dd-hop {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+/*
+ * View transitions on the home page (src/lib/view-transition.ts).
+ * Content changes inside a widget leave and arrive instead of swapping in
+ * place. Each widget names its transition on html[data-vt], so these rules
+ * never touch a page navigation. Browsers without view transitions keep
+ * .dd-stage-in as the fallback.
+ */
+@supports (view-transition-name: none) {
+  .dd-stage-in {
+    animation: none;
+  }
+  /* The view transition moves the marker; a CSS transition would fight it. */
+  .dd-vt-marker {
+    transition: none;
+  }
+}
+
+html {
+  --dd-vt-dx: 0px;
+}
+html[data-vt-dir="fwd"] {
+  --dd-vt-dx: 24px;
+}
+html[data-vt-dir="back"] {
+  --dd-vt-dx: -24px;
+}
+
+/* The rest of the page holds still while one widget changes. */
+html[data-vt]::view-transition-old(root),
+html[data-vt]::view-transition-new(root) {
+  animation: none;
+}
+
+/* The five steps: copy and figure step aside, the next move steps in. */
+html[data-vt="try"]::view-transition-group(try-copy),
+html[data-vt="try"]::view-transition-group(try-figure) {
+  animation-duration: 690ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-vt="try"]::view-transition-old(try-copy),
+html[data-vt="try"]::view-transition-old(try-figure) {
+  animation: dd-vt-out 150ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+html[data-vt="try"]::view-transition-new(try-copy) {
+  animation: dd-vt-in 460ms cubic-bezier(0.16, 1, 0.3, 1) 130ms both;
+}
+html[data-vt="try"]::view-transition-new(try-figure) {
+  animation: dd-vt-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 190ms both;
+}
+html[data-vt="try"]::view-transition-old(try-copy),
+html[data-vt="try"]::view-transition-new(try-copy),
+html[data-vt="try"]::view-transition-old(try-figure),
+html[data-vt="try"]::view-transition-new(try-figure) {
+  mix-blend-mode: normal;
+  height: 100%;
+  object-fit: none;
+  object-position: top left;
+}
+html[data-vt="try"]::view-transition-group(try-marker) {
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* One drawing, three states: the drawing crossfades in place, the verdict settles. */
+[data-vt-active] .dd-vt-fig {
+  view-transition-name: step-fig;
+}
+[data-vt-active] .dd-vt-verdict {
+  view-transition-name: step-verdict;
+}
+[data-vt-active] .dd-vt-extra {
+  view-transition-name: step-extra;
+}
+html[data-vt="step"]::view-transition-group(*) {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-vt="step"]::view-transition-old(step-fig) {
+  animation: dd-fade-out 220ms ease both;
+}
+html[data-vt="step"]::view-transition-new(step-fig) {
+  animation: dd-fade 320ms ease 40ms both;
+}
+html[data-vt="step"]::view-transition-old(step-verdict),
+html[data-vt="step"]::view-transition-old(step-extra) {
+  animation: dd-fade-out 140ms ease both;
+}
+html[data-vt="step"]::view-transition-new(step-verdict),
+html[data-vt="step"]::view-transition-new(step-extra) {
+  animation: dd-vt-rise 380ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+html[data-vt="step"]::view-transition-old(step-verdict),
+html[data-vt="step"]::view-transition-new(step-verdict),
+html[data-vt="step"]::view-transition-old(step-extra),
+html[data-vt="step"]::view-transition-new(step-extra) {
+  mix-blend-mode: normal;
+  height: 100%;
+  object-fit: none;
+  object-position: top left;
+}
+
+/* Kadé's three maps crossfade, so what changed between them stands out. */
+html[data-vt="map"]::view-transition-group(kade-map) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-vt="map"]::view-transition-old(kade-map) {
+  animation: dd-fade-out 260ms ease both;
+}
+html[data-vt="map"]::view-transition-new(kade-map) {
+  animation: dd-fade 380ms ease 60ms both;
+}
+html[data-vt="map"]::view-transition-old(kade-map),
+html[data-vt="map"]::view-transition-new(kade-map) {
+  height: 100%;
+  object-fit: none;
+  object-position: top left;
+}
+
+@keyframes dd-vt-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--dd-vt-dx) * -0.5));
+    filter: blur(2px);
+  }
+}
+@keyframes dd-vt-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--dd-vt-dx));
+    filter: blur(3px);
+  }
+}
+@keyframes dd-vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes dd-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* The one-time phone notice rises from the bottom edge. */
+.dd-sheet-in {
+  animation: dd-sheet-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes dd-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dd-sheet-in {
+    animation: dd-fade 200ms ease both;
   }
 }

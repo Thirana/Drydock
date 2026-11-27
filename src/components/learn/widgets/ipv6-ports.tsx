@@ -8,6 +8,7 @@ import { Field, FieldError } from "./field";
 import { HeaderLayout } from "./headers";
 import { Choices, KeyValues, Select, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Checkbox } from "@/components/ui/inputs";
 
 /*
  * Chapters 30 and 31: IPv6 addresses in every spelling, EUI-64 interface
@@ -211,10 +212,9 @@ export function BindSim({ wide }: { wide?: boolean }) {
     ],
   ];
   const check = (label: string, value: boolean, set: (v: boolean) => void) => (
-    <label className="text-ink-body flex cursor-pointer items-center gap-2.5 text-[15px]">
-      <input type="checkbox" checked={value} onChange={(e) => set(e.target.checked)} className="accent-ink size-4" />
+    <Checkbox checked={value} onChange={set}>
       {label}
-    </label>
+    </Checkbox>
   );
   return (
     <WidgetFrame wide={wide} label="Who can reach the dev server?">

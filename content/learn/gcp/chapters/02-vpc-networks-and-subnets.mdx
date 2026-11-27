@@ -1,5 +1,5 @@
 import { ExpCheck, SubnetGrid } from "@/components/learn/widgets/lazy";
-import { FigAlias, FigScope } from "@content/learn/gcp/figures/02-vpc-networks-and-subnets";
+import { FigAlias, FigMap, FigScope } from "@content/learn/gcp/figures/02-vpc-networks-and-subnets";
 
 <Box kind="problem" title="The problem">
 
@@ -34,6 +34,27 @@ Two VPCs in the same project are two separate worlds. There is no router between
 A VPC is the outer wall. Subnets divide the inside, but they are not walls: by default any VM can route to any subnet in the same VPC, and only firewall rules stop it.
 
 </Figure>
+
+A VPC is also a boundary on the map, and this is where GCP differs most from AWS. A GCP VPC is **global** and a subnet is **regional** (<Ch n="1.1" section="Three scopes: global, regional, zonal">chapter 1.1</Ch>). Here are Kadé's two web servers, drawn both ways:
+
+<Figure wide hues={["plum", "teal"]} labels={{ plum: "Google's: the region and its zones", teal: "What you create: the VPC, its subnets and VMs" }} drawing={<FigMap />}>
+
+In GCP, kade-api-1 and kade-api-2 run in different zones and still share sn-app. Adding a region adds a subnet, not a second network.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>AWS</th><th>GCP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A VPC lives in</td><td>One region</td><td>**Every region** (global)</td></tr>
+    <tr><td>2</td><td>A subnet lives in</td><td>One zone (an Availability Zone)</td><td>**One region**, across all its zones</td></tr>
+    <tr><td>3</td><td>VMs in two zones need</td><td>Two subnets</td><td>One subnet</td></tr>
+    <tr><td>4</td><td>A second region needs</td><td>A second VPC, joined by peering or a transit gateway</td><td>A new subnet in the same VPC</td></tr>
+    <tr><td>5</td><td>Traffic between regions</td><td>Goes through the peering or transit gateway</td><td>Stays inside the VPC, on Google's backbone (<Ch n="1.1" section="Google's network: the backbone and the edge">chapter 1.1</Ch>)</td></tr>
+  </tbody>
+</Table>
 
 A VPC network itself has only a few settings. Most of what matters lives on its subnets:
 
@@ -163,7 +184,7 @@ A subnet is a regional object inside one VPC. These are its properties, and the 
   </thead>
   <tbody>
     <tr><td>1</td><td>`name`</td><td>The subnet's name</td><td><St k="bad">no</St></td><td>Unique per project per region. To rename, create a new one and delete the old one once nothing uses it</td></tr>
-    <tr><td>2</td><td>`region`</td><td>The region it lives in</td><td><St k="bad">no</St></td><td>Covers every zone in that region (<Ch n="1">chapter 1</Ch>)</td></tr>
+    <tr><td>2</td><td>`region`</td><td>The region it lives in</td><td><St k="bad">no</St></td><td>Covers every zone in that region (<Ch n="1.1" section="Three scopes: global, regional, zonal">chapter 1.1</Ch>)</td></tr>
     <tr><td>3</td><td>`network`</td><td>The VPC it belongs to</td><td><St k="bad">no</St></td><td>A subnet cannot move to another VPC</td></tr>
     <tr><td>4</td><td>`ipCidrRange`</td><td>The primary IPv4 range</td><td><St k="plan">grow only</St></td><td>Can be expanded, never shrunk or moved. Must not overlap any other range in the VPC. Loses 4 addresses (section 05). Smallest is `/29`</td></tr>
     <tr><td>5</td><td>`secondaryIpRanges`</td><td>Extra named ranges</td><td><St k="ok">add / remove</St></td><td>Only for alias IPs (section 07). Removable only when nothing uses them</td></tr>
@@ -176,6 +197,14 @@ A subnet is a regional object inside one VPC. These are its properties, and the 
     <tr><td>12</td><td>`logConfig` (flow logs)</td><td>Record samples of traffic</td><td><St k="ok">yes</St></td><td>Off by default; the sampling rate is the main cost setting (<Ch n="16">chapter 16</Ch>)</td></tr>
   </tbody>
 </Table>
+
+<Key title="A subnet is not a place">
+
+kade-api-1 runs on a host in zone a and kade-api-2 on a host in zone b. The two zones fail independently, and Google's private links between them carry their traffic (<Ch n="1.1" section="Zones: failure domains inside a region">chapter 1.1</Ch>). Yet both VMs are in sn-app and reach each other as neighbours, as if they shared one switch. No such switch exists.
+
+The subnet is not a piece of the network. It is a range of addresses plus rules, and the data plane on every host applies them (<Ch n="1.2">chapter 1.2</Ch>). That is why one subnet can cover every zone in its region, and why a VM recreated in another zone of that region keeps its subnet. If its address is reserved, it keeps that too (<Ch n="3" section="Choosing and keeping internal addresses">chapter 3</Ch>).
+
+</Key>
 
 <Box kind="check" title="gcloud check">
 
@@ -200,7 +229,7 @@ stackType: IPV4_ONLY
 
 <Label>What it tells you</Label>
 
-The gateway is the `.1`, the purpose is `PRIVATE` (for VMs), and there is no `logConfig` block at all: flow logs are off, which is finding 8. The `network` and `region` are full self links, the same idea as <Ch n="1">chapter 1</Ch> section 11.
+The gateway is the `.1`, the purpose is `PRIVATE` (for VMs), and there is no `logConfig` block at all: flow logs are off, which is finding 8. The `network` and `region` are full self links, the same idea as <Ch n="1.1" section="Reading the scope in names and commands">chapter 1.1</Ch>.
 
 </Box>
 
@@ -218,7 +247,7 @@ A normal network loses two addresses: the network address and the broadcast addr
   </thead>
   <tbody>
     <tr><td>1</td><td>`10.10.1.0`</td><td>Network address</td><td>Names the subnet itself, so it cannot be given to a machine</td></tr>
-    <tr><td>2</td><td>`10.10.1.1`</td><td>Default gateway</td><td>The address the data plane answers for (<Ch n="1">chapter 1</Ch>). Not a real router</td></tr>
+    <tr><td>2</td><td>`10.10.1.1`</td><td>Default gateway</td><td>The address the data plane answers for (<Ch n="1.2">chapter 1.2</Ch>). Not a real router</td></tr>
     <tr><td>3</td><td>`10.10.1.254`</td><td>Second-to-last</td><td>Kept by Google for possible future use; it does nothing today</td></tr>
     <tr><td>4</td><td>`10.10.1.255`</td><td>Broadcast address</td><td>Kept for compatibility, even though broadcast does not work in a VPC</td></tr>
   </tbody>
@@ -280,7 +309,7 @@ GCP creates routes for both ranges automatically, so the rest of the VPC can rea
   </thead>
   <tbody>
     <tr><td>1</td><td>Several containers or services on one VM, each with its own IP</td><td>Give the VM an alias block; the apps inside use addresses from it</td></tr>
-    <tr><td>2</td><td>A "floating" IP that can move between two VMs</td><td>Move the alias from one VM to the other through GCP. This is the replacement for gratuitous ARP (<Ch n="1">chapter 1</Ch> section 10)</td></tr>
+    <tr><td>2</td><td>A "floating" IP that can move between two VMs</td><td>Move the alias from one VM to the other through GCP. This is the replacement for gratuitous ARP (<Ch n="1.2">chapter 1.2</Ch> section 10)</td></tr>
     <tr><td>3</td><td>Keep a service address separate from the VM's own address</td><td>Clients use the alias; the VM can be replaced and the alias moved to the new one</td></tr>
   </tbody>
 </Table>
@@ -330,7 +359,8 @@ Because ranges can only grow and can never overlap anything you might connect to
     <tr><td>4</td><td>Size by purpose, not by habit</td><td>VM subnets rarely need more than a `/24`; services like Cloud SQL need their own block</td><td>`/24` subnets, a `/20` for private services</td></tr>
     <tr><td>5</td><td>Avoid `10.128.0.0/9`</td><td>Auto mode networks use it; overlapping blocks peering or VPN with them</td><td>Not used</td></tr>
     <tr><td>6</td><td>Avoid `172.17.0.0/16`</td><td>Docker's default bridge network uses it inside VMs</td><td>Not used</td></tr>
-    <tr><td>7</td><td>Write the plan down</td><td>GCP does not store it (<Ch n="0">chapter 0</Ch>)</td><td><Ch n="0">Chapter 0</Ch> section 06</td></tr>
+    <tr><td>7</td><td>One subnet per region per job, not one per zone</td><td>A subnet already covers every zone of its region. Splitting by zone only wastes ranges and firewall rules</td><td>sn-app holds kade-api-1 (zone a) and kade-api-2 (zone b)</td></tr>
+    <tr><td>8</td><td>Write the plan down</td><td>GCP does not store it (<Ch n="0">chapter 0</Ch>)</td><td><Ch n="0">Chapter 0</Ch> section 06</td></tr>
   </tbody>
 </Table>
 

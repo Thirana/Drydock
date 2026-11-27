@@ -85,8 +85,26 @@ export const ObjEx = dynamic(() => import("./gcp/access").then((m) => m.ObjEx));
 export const RuleEx = dynamic(() =>
   import("./gcp/access").then((m) => m.RuleEx),
 );
+export const ScopeEx = dynamic(() =>
+  import("./gcp/access").then((m) => m.ScopeEx),
+);
+export const PriorityEx = dynamic(() =>
+  import("./gcp/access").then((m) => m.PriorityEx),
+);
 export const SshCheck = dynamic(() =>
   import("./gcp/access").then((m) => m.SshCheck),
+);
+export const IapGrantEx = dynamic(() =>
+  import("./gcp/access").then((m) => m.IapGrantEx),
+);
+export const IapTunnelEx = dynamic(() =>
+  import("./gcp/access").then((m) => m.IapTunnelEx),
+);
+export const IapWebEx = dynamic(() =>
+  import("./gcp/access").then((m) => m.IapWebEx),
+);
+export const OsLoginEx = dynamic(() =>
+  import("./gcp/access").then((m) => m.OsLoginEx),
 );
 export const StatefulEx = dynamic(() =>
   import("./gcp/access").then((m) => m.StatefulEx),
@@ -129,11 +147,17 @@ export const ExpCheck = dynamic(() =>
 export const IpFate = dynamic(() =>
   import("./gcp/foundations").then((m) => m.IpFate),
 );
+export const OutageSim = dynamic(() =>
+  import("./gcp/foundations").then((m) => m.OutageSim),
+);
 export const PktWalk = dynamic(() =>
   import("./gcp/foundations").then((m) => m.PktWalk),
 );
 export const RouteEx = dynamic(() =>
   import("./gcp/foundations").then((m) => m.RouteEx),
+);
+export const TagRoutes = dynamic(() =>
+  import("./gcp/foundations").then((m) => m.TagRoutes),
 );
 export const RoutePick = dynamic(() =>
   import("./gcp/foundations").then((m) => m.RoutePick),
@@ -143,6 +167,18 @@ export const ScopeQuiz = dynamic(() =>
 );
 export const SubnetGrid = dynamic(() =>
   import("./gcp/foundations").then((m) => m.SubnetGrid),
+);
+export const ArmorWalk = dynamic(() =>
+  import("./gcp/armor").then((m) => m.ArmorWalk),
+);
+export const ArmorRate = dynamic(() =>
+  import("./gcp/armor").then((m) => m.ArmorRate),
+);
+export const CdnDecide = dynamic(() =>
+  import("./gcp/cdn").then((m) => m.CdnDecide),
+);
+export const CdnKey = dynamic(() =>
+  import("./gcp/cdn").then((m) => m.CdnKey),
 );
 export const ArmorEx = dynamic(() =>
   import("./gcp/frontdoor").then((m) => m.ArmorEx),
@@ -258,6 +294,12 @@ export const GcpDnsWalk = dynamic(() =>
 export const NatCalc = dynamic(() =>
   import("./gcp/private").then((m) => m.NatCalc),
 );
+export const NatScenarios = dynamic(() =>
+  import("./gcp/egress").then((m) => m.NatScenarios),
+);
+export const NatPorts = dynamic(() =>
+  import("./gcp/egress").then((m) => m.NatPorts),
+);
 export const PgaEx = dynamic(() =>
   import("./gcp/private").then((m) => m.PgaEx),
 );
@@ -351,11 +393,17 @@ export const V6Tool = dynamic(() =>
 export const ArpFan = dynamic(() =>
   import("./local-delivery").then((m) => m.ArpFan),
 );
+export const ArpMessages = dynamic(() =>
+  import("./local-delivery").then((m) => m.ArpMessages),
+);
 export const ArpSim = dynamic(() =>
   import("./local-delivery").then((m) => m.ArpSim),
 );
 export const HopExplorer = dynamic(() =>
   import("./local-delivery").then((m) => m.HopExplorer),
+);
+export const NatRewrite = dynamic(() =>
+  import("./local-delivery").then((m) => m.NatRewrite),
 );
 export const NatLookup = dynamic(() =>
   import("./local-delivery").then((m) => m.NatLookup),

@@ -2,41 +2,43 @@
 // styled by `.dd-fig` in globals.css; arrowheads come from <DiagramDefs />.
 
 export function FigSwap() {
+  // What NAT rewrote, in each label.
+  const changed = { fontWeight: 700, fill: "var(--dd-ink)" };
   return (
-    <svg viewBox="0 0 920 270" role="img" aria-label="Outgoing packet source 192.168.1.23:52814 is rewritten by the home router to 203.0.113.45:40001; the reply to 203.0.113.45:40001 is rewritten back to 192.168.1.23:52814.">
-      <rect className="zone" x="16" y="20" width="300" height="230" rx="2" />
-      <text className="s" x="32" y="42">home LAN (private)</text>
-      <rect className="zone" x="604" y="20" width="300" height="230" rx="2" />
-      <text className="s" x="620" y="42">internet (public)</text>
-      <rect className="n plum" x="32" y="112" width="140" height="64" rx="2" />
-      <text className="t" x="46" y="138">Laptop</text>
-      <text className="s" x="46" y="158">192.168.1.23</text>
-      <rect className="n teal" x="360" y="100" width="200" height="88" rx="2" />
-      <text className="t" x="376" y="126">Home router</text>
-      <text className="s" x="376" y="148">does NAT</text>
-      <text className="s" x="376" y="168">WAN 203.0.113.45</text>
-      <rect className="n green" x="748" y="112" width="140" height="64" rx="2" />
-      <text className="t" x="762" y="138">kade-api</text>
-      <text className="s" x="762" y="158">34.87.120.15</text>
-      <line className="w amber" x1="172" y1="128" x2="358" y2="128" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber" x1="560" y1="128" x2="746" y2="128" markerEnd="url(#dd-ah-amber)" />
-      <line className="w green" x1="746" y1="162" x2="562" y2="162" markerEnd="url(#dd-ah-green)" />
-      <line className="w green" x1="358" y1="162" x2="174" y2="162" markerEnd="url(#dd-ah-green)" />
-      <text className="s" x="32" y="70">1 · out, before</text>
-      <text className="s" x="32" y="88">src 192.168.1.23:52814</text>
-      <text className="s" x="32" y="104">dst 34.87.120.15:443</text>
-      <text className="s" x="620" y="70">2 · out, after</text>
-      <text className="s" x="620" y="88">
+    <svg viewBox="0 0 920 330" role="img" aria-label="Outgoing packet source 192.168.1.23:52814 is rewritten by the home router to 203.0.113.45:40001; the reply to 203.0.113.45:40001 is rewritten back to 192.168.1.23:52814.">
+      <rect className="zone" x="16" y="16" width="300" height="298" rx="2" />
+      <text className="s" x="32" y="40">home LAN (private)</text>
+      <rect className="zone" x="604" y="16" width="300" height="298" rx="2" />
+      <text className="s" x="620" y="40">internet (public)</text>
+      <rect className="n plum" x="32" y="160" width="140" height="64" rx="2" />
+      <text className="t" x="46" y="186">Laptop</text>
+      <text className="s" x="46" y="206">192.168.1.23</text>
+      <rect className="n teal" x="360" y="148" width="200" height="88" rx="2" />
+      <text className="t" x="376" y="174">Home router</text>
+      <text className="s" x="376" y="196">does NAT</text>
+      <text className="s" x="376" y="216">WAN 203.0.113.45</text>
+      <rect className="n green" x="748" y="160" width="140" height="64" rx="2" />
+      <text className="t" x="762" y="186">kade-api</text>
+      <text className="s" x="762" y="206">34.87.120.15</text>
+      <line className="w amber" x1="172" y1="178" x2="358" y2="178" markerEnd="url(#dd-ah-amber)" />
+      <line className="w amber" x1="560" y1="178" x2="746" y2="178" markerEnd="url(#dd-ah-amber)" />
+      <line className="w green" x1="746" y1="208" x2="562" y2="208" markerEnd="url(#dd-ah-green)" />
+      <line className="w green" x1="358" y1="208" x2="174" y2="208" markerEnd="url(#dd-ah-green)" />
+      <text className="l" x="32" y="80">1 · out, before</text>
+      <text className="s" x="32" y="102">src 192.168.1.23:52814</text>
+      <text className="s" x="32" y="122">dst 34.87.120.15:443</text>
+      <text className="l" x="620" y="80">2 · out, after</text>
+      <text className="s" x="620" y="102">
         {"src "}
-        <tspan className="l">203.0.113.45:40001</tspan>
+        <tspan style={changed}>203.0.113.45:40001</tspan>
       </text>
-      <text className="s" x="620" y="104">dst 34.87.120.15:443</text>
-      <text className="s" x="620" y="206">3 · reply</text>
-      <text className="s" x="620" y="224">dst 203.0.113.45:40001</text>
-      <text className="s" x="32" y="206">4 · reply, after</text>
-      <text className="s" x="32" y="224">
+      <text className="s" x="620" y="122">dst 34.87.120.15:443</text>
+      <text className="l" x="620" y="264">3 · reply</text>
+      <text className="s" x="620" y="286">dst 203.0.113.45:40001</text>
+      <text className="l" x="32" y="264">4 · reply, after</text>
+      <text className="s" x="32" y="286">
         {"dst "}
-        <tspan className="l">192.168.1.23:52814</tspan>
+        <tspan style={changed}>192.168.1.23:52814</tspan>
       </text>
     </svg>
   );
@@ -49,7 +51,7 @@ export function FigTimeouts() {
       <line x1="80" y1="79" x2="187" y2="79" style={{"stroke": "var(--dd-green)", "strokeWidth": "7"}} />
       <line className="w amber dash" x1="187" y1="79" x2="720" y2="79" />
       <text className="s" x="330" y="64">idle 20 minutes: no packets either way</text>
-      <text className="mid l" x="720" y="84" style={{"fontSize": "18px"}}>✕</text>
+      <text className="mid l" x="720" y="84" style={{"fontSize": "18.0px"}}>✕</text>
       <text className="s" x="660" y="110">row removed</text>
       <circle cx="773" cy="79" r="6" style={{"fill": "var(--dd-fault)"}} />
       <text className="s" x="760" y="60">late reply: dropped</text>
@@ -75,37 +77,38 @@ export function FigTimeouts() {
 
 export function FigTraverse() {
   return (
-    <svg viewBox="0 0 920 310" role="img" aria-label="Hole punching: each laptop asks a STUN server for its public address, they exchange addresses, then both send to each other at the same time so each NAT has a row for the other side.">
-      <rect className="n" x="360" y="16" width="200" height="56" rx="2" />
-      <text className="t" x="376" y="40">STUN server</text>
-      <text className="s" x="376" y="59">{"\"your public ip:port is …\""}</text>
-      <rect className="n plum" x="20" y="206" width="170" height="56" rx="2" />
-      <text className="t" x="34" y="230">Your laptop</text>
-      <text className="s" x="34" y="249">192.168.1.23:5000</text>
-      <rect className="n teal" x="220" y="140" width="170" height="70" rx="2" />
-      <text className="t" x="234" y="166">Home NAT</text>
-      <text className="s" x="234" y="188">203.0.113.45:40010</text>
-      <rect className="n teal" x="530" y="140" width="170" height="70" rx="2" />
-      <text className="t" x="544" y="166">Their NAT</text>
-      <text className="s" x="544" y="188">203.0.113.88:51022</text>
-      <rect className="n plum" x="730" y="206" width="170" height="56" rx="2" />
-      <text className="t" x="744" y="230">Their laptop</text>
-      <text className="s" x="744" y="249">192.168.1.23:5000</text>
-      <line className="w" x1="190" y1="225" x2="218" y2="200" />
-      <line className="w" x1="730" y1="225" x2="702" y2="200" />
-      <line className="w dash" x1="305" y1="140" x2="420" y2="74" markerEnd="url(#dd-ah-muted)" />
-      <line className="w dash" x1="615" y1="140" x2="500" y2="74" markerEnd="url(#dd-ah-muted)" />
-      <circle className="badge" cx="362" cy="107" r="11" />
-      <text className="mid" x="362" y="112">1</text>
-      <circle className="badge" cx="558" cy="107" r="11" />
-      <text className="mid" x="558" y="112">1</text>
-      <text className="s mid" x="460" y="112">2 · swap</text>
-      <text className="s mid" x="460" y="128">ip:port</text>
-      <line className="w green" x1="392" y1="175" x2="528" y2="175" markerStart="url(#dd-ah-green)" markerEnd="url(#dd-ah-green)" />
-      <text className="mid l" x="460" y="232">3 · both send at the same time</text>
-      <text className="s mid" x="460" y="250">each NAT now has a row for the other side,</text>
-      <text className="s mid" x="460" y="266">{"so the other side's packets are let in"}</text>
-      <text className="s" x="20" y="296">{"1 · each asks STUN \"what is my public ip:port?\"   2 · they swap those through any server both can reach"}</text>
+    <svg viewBox="0 0 920 372" role="img" aria-label="Hole punching: each laptop asks a STUN server for its public address, they exchange addresses, then both send to each other at the same time so each NAT has a row for the other side.">
+      <rect className="n" x="340" y="16" width="240" height="56" rx="2" />
+      <text className="t" x="356" y="40">STUN server</text>
+      <text className="s" x="356" y="59">{"\"your public ip:port is …\""}</text>
+      <rect className="n teal" x="220" y="152" width="170" height="70" rx="2" />
+      <text className="t" x="234" y="178">Home NAT</text>
+      <text className="s" x="234" y="200">203.0.113.45:40010</text>
+      <rect className="n teal" x="530" y="152" width="170" height="70" rx="2" />
+      <text className="t" x="544" y="178">Their NAT</text>
+      <text className="s" x="544" y="200">203.0.113.88:51022</text>
+      <rect className="n plum" x="20" y="270" width="170" height="56" rx="2" />
+      <text className="t" x="34" y="294">Your laptop</text>
+      <text className="s" x="34" y="313">192.168.1.23:5000</text>
+      <rect className="n plum" x="730" y="270" width="170" height="56" rx="2" />
+      <text className="t" x="744" y="294">Their laptop</text>
+      <text className="s" x="744" y="313">192.168.1.23:5000</text>
+      {/* Each laptop up to its NAT; each NAT up to STUN (square bends). */}
+      <path className="w" d="M105 270 V187 H220" />
+      <path className="w" d="M815 270 V187 H700" />
+      <path className="w dash" d="M305 152 V44 H338" markerEnd="url(#dd-ah-muted)" />
+      <path className="w dash" d="M615 152 V44 H582" markerEnd="url(#dd-ah-muted)" />
+      <circle className="badge" cx="305" cy="100" r="11" />
+      <text className="mid" x="305" y="105">1</text>
+      <circle className="badge" cx="615" cy="100" r="11" />
+      <text className="mid" x="615" y="105">1</text>
+      <text className="l mid" x="460" y="104">2 · swap ip:port</text>
+      <text className="s mid" x="460" y="124">through any server</text>
+      <path className="w green" d="M392 187 H528" markerStart="url(#dd-ah-green)" markerEnd="url(#dd-ah-green)" />
+      <text className="l mid" x="460" y="256">3 · both send at the same time</text>
+      <text className="s mid" x="460" y="276">each NAT now has a row for the other side,</text>
+      <text className="s mid" x="460" y="294">{"so the other side's packets are let in"}</text>
+      <text className="s" x="20" y="358">{"1 · each asks STUN \"what is my public ip:port?\"   2 · they swap those through any server both can reach"}</text>
     </svg>
   );
 }
@@ -115,26 +118,72 @@ export function FigCloudnat() {
     <svg viewBox="0 0 920 250" role="img" aria-label="kade-api and kade-db without external IPs send outbound traffic through Cloud NAT, which uses static IP 34.87.200.7, to PayGate and OS update servers.">
       <rect className="zone" x="16" y="20" width="560" height="214" rx="2" />
       <text className="s" x="32" y="42">kade-vpc · asia-southeast1</text>
-      <rect className="n green" x="36" y="56" width="236" height="62" rx="2" />
+      <rect className="n green" x="36" y="56" width="252" height="62" rx="2" />
       <text className="t" x="52" y="82">kade-api (later)</text>
       <text className="s" x="52" y="102">10.10.1.10 · no external IP</text>
-      <rect className="n" x="36" y="146" width="236" height="62" rx="2" />
+      <rect className="n" x="36" y="146" width="252" height="62" rx="2" />
       <text className="t" x="52" y="172">kade-db</text>
       <text className="s" x="52" y="192">10.10.2.5 · no external IP</text>
       <rect className="n teal" x="330" y="96" width="226" height="74" rx="2" />
       <text className="t" x="346" y="122">Cloud NAT</text>
       <text className="s" x="346" y="142">set up on a Cloud Router</text>
       <text className="s" x="346" y="160">static IP 34.87.200.7</text>
-      <line className="w amber" x1="272" y1="87" x2="328" y2="120" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber" x1="272" y1="177" x2="328" y2="146" markerEnd="url(#dd-ah-amber)" />
+      {/* Both VMs merge on one trunk into Cloud NAT; out of it, one bus splits to each destination. */}
+      <path className="w amber" d="M288 87 H308 V133 H328" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M288 177 H308 V133" />
       <rect className="n" x="660" y="40" width="244" height="62" rx="2" />
       <text className="t" x="676" y="66">PayGate API</text>
       <text className="s" x="676" y="86">allow list: 34.87.200.7/32</text>
       <rect className="n" x="660" y="150" width="244" height="62" rx="2" />
       <text className="t" x="676" y="176">OS update servers</text>
       <text className="s" x="676" y="196">package mirrors</text>
-      <line className="w amber" x1="556" y1="120" x2="658" y2="72" markerEnd="url(#dd-ah-amber)" />
-      <line className="w amber" x1="556" y1="146" x2="658" y2="180" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M556 133 H612 V71 H658" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M556 133 H612 V181 H658" markerEnd="url(#dd-ah-amber)" />
+    </svg>
+  );
+}
+
+export function FigTunnel() {
+  return (
+    <svg viewBox="0 0 920 344" role="img" aria-label="Reverse tunnel: the laptop opens an outgoing connection through the home router to a tunnel service and keeps it open. PayGate sends its webhook to the service's public URL, and the service sends it back down that open connection to the laptop. Sent straight to the router's public IP, the same webhook is dropped.">
+      <rect className="zone" x="16" y="16" width="446" height="236" rx="2" />
+      <text className="s" x="32" y="40">home (private)</text>
+      <rect className="zone" x="478" y="16" width="426" height="236" rx="2" />
+      <text className="s" x="494" y="40">internet (public)</text>
+      <rect className="n green" x="32" y="124" width="160" height="72" rx="2" />
+      <text className="t" x="46" y="152">Your laptop</text>
+      <text className="s" x="46" y="174">kade-api on :3000</text>
+      <rect className="n teal" x="276" y="112" width="170" height="96" rx="2" />
+      <text className="t" x="290" y="138">Home router</text>
+      <text className="s" x="290" y="160">203.0.113.45</text>
+      <text className="s" x="290" y="182">row made by step 1</text>
+      <rect className="n teal" x="530" y="112" width="176" height="96" rx="2" />
+      <text className="t" x="544" y="138">Tunnel service</text>
+      <text className="s" x="544" y="160">Cloudflare, ngrok</text>
+      <text className="s" x="544" y="182">gives a public URL</text>
+      <rect className="n plum" x="760" y="124" width="128" height="72" rx="2" />
+      <text className="t" x="774" y="152">PayGate</text>
+      <text className="s" x="774" y="174">sends webhook</text>
+      {/* The tunnel: one outgoing connection, opened from the laptop and kept open. */}
+      <path className="w teal" d="M192 144 H274" markerEnd="url(#dd-ah-teal)" style={{ strokeWidth: 3 }} />
+      <path className="w teal" d="M446 144 H528" markerEnd="url(#dd-ah-teal)" style={{ strokeWidth: 3 }} />
+      {/* The webhook: to the service, then back down the tunnel. */}
+      <path className="w amber" d="M760 176 H708" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M530 176 H448" markerEnd="url(#dd-ah-amber)" />
+      <path className="w amber" d="M276 176 H194" markerEnd="url(#dd-ah-amber)" />
+      {/* Straight to the router's public IP: no row, so dropped. */}
+      <path className="w fault dash" d="M824 124 V76 H361 V92" />
+      <text className="x" x="361" y="106">✕</text>
+      <text className="s flt" x="494" y="66">straight to 203.0.113.45: no row, dropped</text>
+      <circle className="badge" cx="234" cy="144" r="11" />
+      <text className="mid" x="234" y="149">1</text>
+      <circle className="badge" cx="734" cy="176" r="11" />
+      <text className="mid" x="734" y="181">2</text>
+      <circle className="badge" cx="504" cy="176" r="11" />
+      <text className="mid" x="504" y="181">3</text>
+      <text className="s" x="16" y="284">1 · the laptop connects out and keeps the connection open. Like any outgoing connection, it gets a NAT row.</text>
+      <text className="s" x="16" y="308">{"2 · PayGate sends the webhook to the tunnel's public URL, not to your router."}</text>
+      <text className="s" x="16" y="332">3 · the service sends it back down the open connection. It matches the row, so the router lets it in.</text>
     </svg>
   );
 }

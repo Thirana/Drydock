@@ -3,7 +3,7 @@ import { FigRepeat } from "@content/learn/fundamentals/figures/08-mac-vs-ip-why-
 
 ## Side by side
 
-<Table>
+<Table widths={["28%", "36%", "36%"]}>
   <thead>
     <tr><th>Property</th><th>IP address</th><th>MAC address</th></tr>
   </thead>
@@ -24,7 +24,7 @@ import { FigRepeat } from "@content/learn/fundamentals/figures/08-mac-vs-ip-why-
 
 Different lengths, different notation. Here are the laptop's two addresses bit by bit:
 
-<SizeCompare />
+<SizeCompare wide />
 
 ## An IP can repeat, a MAC cannot
 
@@ -38,7 +38,7 @@ A MAC is different. It must be unique within any network it joins, and maker-set
 
 Follow the laptop's request to kade-api hop by hop. At every router, the destination IP is used to make a routing decision: each router checks its table (<Ch n="5">chapter 5</Ch>) and picks the next step. The MAC pair is thrown away and rebuilt at every hop. Step through it:
 
-<HopExplorer />
+<HopExplorer wide />
 
 <Key title="The point">
 

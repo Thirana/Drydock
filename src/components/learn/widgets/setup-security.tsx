@@ -9,6 +9,7 @@ import data from "./data/fundamentals.json";
 import { Field, FieldError } from "./field";
 import { Choices, KeyValues, Outcome, Select, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Checkbox } from "@/components/ui/inputs";
 
 /*
  * Chapters 27 to 29: how a device gets an address and keeps it, how clocks
@@ -196,7 +197,7 @@ export function LeaseSim({ wide }: { wide?: boolean }) {
           {r.ev.map((e, i) => (
             <g key={i}>
               <line x1={X(e.t)} y1="44" x2={X(e.t)} y2="86" style={{ stroke: e.k === "ok" ? "var(--dd-ink)" : "var(--dd-fault)", strokeWidth: 2 }} />
-              <text className="mid" x={X(e.t)} y="100" style={{ fill: e.k === "ok" ? "var(--dd-ink)" : "var(--dd-fault)", fontSize: 13 }}>
+              <text className="mid" x={X(e.t)} y="100" style={{ fill: e.k === "ok" ? "var(--dd-ink)" : "var(--dd-fault)", fontSize: 15 }}>
                 {e.k === "ok" ? "✓" : "✕"}
               </text>
             </g>
@@ -343,10 +344,9 @@ export function CorsSim({ wide }: { wide?: boolean }) {
   }
 
   const check = (label: string, value: boolean, set: (v: boolean) => void) => (
-    <label className="text-ink-body flex cursor-pointer items-center gap-2.5 text-[15px]">
-      <input type="checkbox" checked={value} onChange={(e) => set(e.target.checked)} className="accent-ink size-4" />
+    <Checkbox checked={value} onChange={set}>
       {label}
-    </label>
+    </Checkbox>
   );
 
   return (

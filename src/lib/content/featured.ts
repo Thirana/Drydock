@@ -1,19 +1,19 @@
-import { anchor, boundsOf, fitAspect } from "@/lib/architecture/geometry";
-import { edgeKey } from "@/lib/architecture/journeys";
-import { boxIndex, SEVERITIES } from "@/lib/architecture/state";
+import { SEVERITIES } from "@/lib/architecture/state";
 import type {
-  ArchGroup,
-  ArchNode,
   ArchitectureModel,
   Defect,
-  MapCallout,
-  MapModel,
-  Rect,
   Severity,
-  Side,
 } from "@/lib/architecture/types";
-import { allTracks, labHref, trackHref, viewHref } from "./registry";
-import { trackStats, type TrackStats } from "./stats";
+import {
+  defectHref,
+  defectsHref,
+  harbour,
+  harbourHref,
+  journeysHref,
+  platformHref,
+  sections,
+} from "./harbour";
+import { caseStats, type CaseStats } from "./stats";
 import type { IconName } from "./types";
 
 export interface FeaturedDefect {
@@ -28,15 +28,6 @@ export interface FeaturedDefect {
   after: string;
 }
 
-export interface FeaturedCallout extends Required<MapCallout> {
-  title: string;
-  severity: Severity;
-  phase: number;
-  /** Pin position, in map viewBox units. */
-  x: number;
-  y: number;
-}
-
 /** A defect with everything needed to follow it from finding to fix. */
 export interface FollowedDefect extends FeaturedDefect {
   explanation: string;
@@ -44,17 +35,17 @@ export interface FollowedDefect extends FeaturedDefect {
   remediation: string;
 }
 
-/** Serializable snapshot of one track, for marketing previews. */
+/** Serializable snapshot of the case study, for marketing previews. */
 export interface FeaturedTrack {
-  provider: string;
-  lab: string;
-  track: string;
+  /** The case study's name. */
+  name: string;
   href: string;
-  /** The lab's own page, where the long walkthrough lives. */
-  labHref: string;
   mapHref: string;
+  journeysHref: string;
   defectsHref: string;
-  totals: TrackStats;
+  /** The followed defect's own page. */
+  followedHref: string;
+  totals: CaseStats;
   phases: {
     number: number;
     name: string;
@@ -63,14 +54,6 @@ export interface FeaturedTrack {
   }[];
   /** Every defect, as the phase rail hangs it. */
   trims: Pick<Defect, "id" | "title" | "severity" | "phase" | "blockedBy">[];
-  /** Everything needed to draw the map at any phase, without the prose. */
-  map: MapModel;
-  /** Defects pinned on the hero map. */
-  callouts: FeaturedCallout[];
-  /** The part of the map shown on narrow screens. */
-  focus: Rect;
-  /** Box id → the phase it first appears at on the hero map. */
-  revealAt: Record<string, number>;
   /**
    * The defect the landing page follows from finding it to fixing it: the
    * bypass defect when there is one, else the most severe.
@@ -82,44 +65,25 @@ export interface FeaturedTrack {
     /** Defects that cannot close until this one does. */
     unblocks: FeaturedDefect[];
   };
-  /** The most severe defect that opens a path around the intended one. */
-  bypass?: {
-    defect: FeaturedDefect;
-    /** Map region framing the bypass. */
-    crop: Rect;
-    lit: string[];
-    failing: string[];
-    /** `from|to` keys of the bypass edges. */
-    edges: string[];
-  };
   /** The defect that waits on the most other fixes. */
   blocked?: { defect: FeaturedDefect; blockers: FeaturedDefect[] };
   /** The first phase where the wrong order causes an outage. */
   riskiest?: { number: number; name: string; verify: string };
-  views: {
-    slug: string;
+  /** The case study's parts after the overview. */
+  sections: {
     href: string;
-    title: string;
+    label: string;
     description: string;
-    icon?: IconName;
+    icon: IconName;
   }[];
 }
 
-const SIDE: Record<FeaturedCallout["placement"], Side> = {
-  top: "t",
-  bottom: "b",
-  left: "l",
-  right: "r",
-};
-
-/** The first architecture track in the registry. */
+/** The case study, condensed for the home page. */
 export function getFeaturedTrack(): FeaturedTrack | undefined {
-  const ctx = allTracks().find((c) => c.track.architecture);
-  const model = ctx?.track.architecture;
-  const totals = ctx && trackStats(ctx.track);
-  if (!ctx || !model || !totals || !model.defects.length) return undefined;
+  const model = harbour.architecture;
+  const totals = caseStats(model);
+  if (!model.defects.length) return undefined;
 
-  const boxes = boxIndex(model);
   const defectById = new Map(model.defects.map((d) => [d.id, d]));
   const phaseName = (n: number) =>
     model.phases.find((p) => p.number === n)?.name ?? "";
@@ -134,11 +98,6 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
     before: d.before,
     after: d.after,
   });
-  const hrefFor = (slug: string) =>
-    ctx.track.views.some((v) => v.slug === slug)
-      ? viewHref(ctx, slug)
-      : trackHref(ctx);
-
   const sortedPhases = [...model.phases].sort((a, b) => a.number - b.number);
   let closedSoFar = 0;
   const phases = sortedPhases.map((p) => {
@@ -152,43 +111,20 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
       SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) ||
       a.phase - b.phase,
   );
-  const bypass = findBypass(model, bySeverity);
   const byPhase = (a: FeaturedDefect, b: FeaturedDefect) => a.phase - b.phase;
-  const followedSource = bypass?.defect ?? bySeverity[0];
+  const followedSource = findBypass(model, bySeverity) ?? bySeverity[0];
   const mostBlocked = [...model.defects].sort(
     (a, b) => b.blockedBy.length - a.blockedBy.length,
   )[0];
   const riskiest = sortedPhases.find((p) => p.riskLevel === "high");
 
-  const callouts: FeaturedCallout[] = (model.showcase?.callouts ?? []).flatMap(
-    (c) => {
-      const defect = defectById.get(c.defect);
-      const anchorId = c.anchor ?? c.at;
-      const box = boxes.get(anchorId);
-      if (!defect || !box) return [];
-      const placement = c.placement ?? "top";
-      return [
-        {
-          ...c,
-          anchor: anchorId,
-          placement,
-          title: defect.title,
-          severity: defect.severity,
-          phase: defect.phase,
-          ...anchor(box, SIDE[placement]),
-        },
-      ];
-    },
-  );
-
   return {
-    provider: ctx.provider.name,
-    lab: ctx.lab.title,
-    track: ctx.track.title,
-    href: trackHref(ctx),
-    labHref: labHref(ctx),
-    mapHref: hrefFor("map"),
-    defectsHref: hrefFor("defects"),
+    name: harbour.title,
+    href: harbourHref,
+    mapHref: platformHref,
+    journeysHref,
+    defectsHref,
+    followedHref: defectHref(followedSource.id),
     totals,
     phases,
     trims: model.defects.map((d) => ({
@@ -198,25 +134,6 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
       phase: d.phase,
       blockedBy: d.blockedBy,
     })),
-    map: {
-      name: model.name,
-      viewBox: model.viewBox,
-      groups: model.groups,
-      nodes: model.nodes,
-      edges: model.edges,
-      defects: model.defects.map(({ id, phase, applies }) => ({
-        id,
-        phase,
-        applies,
-      })),
-    },
-    callouts,
-    focus: model.showcase?.focus ?? { x: 0, y: 0, ...model.viewBox },
-    revealAt: Object.fromEntries(
-      (model.showcase?.reveals ?? []).flatMap((r) =>
-        r.boxes.map((id) => [id, r.phase]),
-      ),
-    ),
     followed: {
       defect: {
         ...toFeatured(followedSource),
@@ -235,7 +152,6 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
         .map(toFeatured)
         .sort(byPhase),
     },
-    bypass: bypass && { ...bypass, defect: toFeatured(bypass.defect) },
     blocked: mostBlocked.blockedBy.length
       ? {
           defect: toFeatured(mostBlocked),
@@ -252,35 +168,13 @@ export function getFeaturedTrack(): FeaturedTrack | undefined {
       name: riskiest.name,
       verify: riskiest.verify,
     },
-    views: ctx.track.views.slice(1).map((v) => ({
-      slug: v.slug,
-      href: viewHref(ctx, v.slug),
-      title: v.title,
-      description: v.description,
-      icon: v.icon,
-    })),
+    sections: sections.slice(1),
   };
 }
 
 /** The first defect, in the given order, whose fix removes a path from the map. */
 function findBypass(model: ArchitectureModel, candidates: Defect[]) {
-  const boxes = boxIndex(model);
-  for (const defect of candidates) {
-    const edges = model.edges.filter((e) => e.closedBy === defect.id);
-    const lit = [...new Set(edges.flatMap((e) => [e.from, e.to]))];
-    const framed = lit
-      .map((id) => boxes.get(id))
-      .filter((b): b is ArchGroup | ArchNode => !!b);
-    if (!framed.length) continue;
-    return {
-      defect,
-      crop: fitAspect(boundsOf(framed, 28), 2, model.viewBox),
-      lit,
-      failing: [...model.groups, ...model.nodes]
-        .filter((b) => b.defects?.includes(defect.id))
-        .map((b) => b.id),
-      edges: edges.map((e) => edgeKey(e.from, e.to)),
-    };
-  }
-  return undefined;
+  return candidates.find((defect) =>
+    model.edges.some((e) => e.closedBy === defect.id),
+  );
 }

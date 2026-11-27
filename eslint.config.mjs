@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Local, gitignored working files (source notes, extracts, plans).
     "doc/**",
+    // Editor and agent skills: third-party scripts, not the site's code.
+    ".claude/**",
+    ".cursor/**",
   ]),
 ]);
 

@@ -107,7 +107,7 @@ function CidrResult({ ip, p }: { ip: number; p: number }) {
           ["Subnet mask", intToIp(mask)],
           ["First usable", intToIp(first)],
           ["Last usable", intToIp(last)],
-          ["Broadcast", intToIp(broadcast)],
+          ["Broadcast address", intToIp(broadcast)],
           ["Total addresses", `${fmt(total)}  (2^${32 - p})`],
           ["Usable on a normal network", fmt(usable)],
           ["Usable in a GCP subnet", p <= 29 ? fmt(total - 4) : "not allowed (GCP subnets must be /29 or bigger)"],

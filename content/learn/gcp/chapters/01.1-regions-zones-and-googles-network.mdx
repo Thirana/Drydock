@@ -1,0 +1,395 @@
+import { OutageSim, ScopeQuiz } from "@/components/learn/widgets/lazy";
+import { FigEdge, FigLevels, FigPlacement, FigScope } from "@content/learn/gcp/figures/01.1-regions-zones-and-googles-network";
+
+## From the planet to one host
+
+Everything in GCP runs on hardware in real buildings. Google groups that hardware in levels, and each level is a boundary that matters later: for speed, for price, and for what fails together.
+
+<Figure wide hues={["plum", "teal"]} labels={{ plum: "Google's: the region, zones, hosts and network", teal: "Kadé's: VMs it created, each on one host" }} drawing={<FigLevels />} />
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Level</th><th>What it is</th><th>For Kadé</th><th>Who picks it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Google's network</td><td>Google's own fibre, joining every region and every edge location (section 04)</td><td>Carries a shopper's request from Colombo to Singapore</td><td>Google</td></tr>
+    <tr><td>2</td><td>Region</td><td>An independent geographic area, usually one city, made of three or more zones</td><td>`asia-southeast1`, Singapore</td><td>You, for every regional and zonal resource</td></tr>
+    <tr><td>3</td><td>Zone</td><td>A deployment area inside a region, built so that it fails on its own</td><td>`asia-southeast1-a` and `-b`</td><td>You, for every zonal resource</td></tr>
+    <tr><td>4</td><td>Host</td><td>One physical server in a zone</td><td>Never visible to you</td><td>Google. It can move a VM to another host in the same zone without stopping it (live migration)</td></tr>
+    <tr><td>5</td><td>VM</td><td>Your machine, running on one host</td><td>kade-api-1</td><td>You create it; Google places it</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Key idea">
+
+You choose levels 2 and 3. Google chooses everything else. A VM never leaves its zone: even when Google moves it to another host, the new host is in the same zone.
+
+</Key>
+
+## Regions: where in the world
+
+A <Term>region</Term> is an independent geographic area, such as Singapore, Mumbai or London. Its name says where it is: `asia-southeast1` is the first region in south-east Asia, and `asia-southeast2` (Jakarta) is the second.
+
+There is no region in Sri Lanka, so Kadé's two nearest choices are `asia-south1` (Mumbai) and `asia-southeast1` (Singapore). Kadé runs in Singapore. Mumbai would be just as reasonable. What matters is how a region scores on the questions below, not which one looks closer on a map:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Question</th><th>Why it matters</th><th>For Kadé</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>How far is it from the users?</td><td>Every request pays the round trip, and nothing makes light faster (section 07)</td><td>Measure from Colombo; do not guess from a map</td></tr>
+    <tr><td>2</td><td>Does it offer what you need?</td><td>Not every product and machine type is in every region, and new ones reach some regions later</td><td>Cloud Run, Cloud SQL and Cloud NAT are all in Singapore</td></tr>
+    <tr><td>3</td><td>What does it cost?</td><td>The same VM has a different price in different regions</td><td>Compare in Google's pricing calculator</td></tr>
+    <tr><td>4</td><td>Must the data stay in one country?</td><td>Some laws and contracts say where data may be stored</td><td>No such rule for Kadé today</td></tr>
+  </tbody>
+</Table>
+
+A region is chosen **per resource**, not per project. Nothing stops `kade-prod` from holding resources in ten regions. It holds them in one, which keeps it simple and has a cost that section 08 makes visible.
+
+## Zones: failure domains inside a region
+
+A <Term>zone</Term> is a deployment area inside a region. Google builds zones so that a power, cooling or network failure in one is unlikely to reach another. Google's advice is to treat each zone as a **single failure domain**: plan for a whole zone to go dark at once.
+
+- **Three or more per region.** Every general-purpose region has at least three zones. `asia-southeast1` has `a`, `b` and `c`.
+- **Named region plus letter.** `asia-southeast1-a` is zone `a` of `asia-southeast1`. The letter means nothing about location or size.
+- **A zone is not a building you can point at.** Google calls zones and regions logical areas over physical hardware. A zone may be part of a building or span several. Google promises that zones fail independently. It does not publish where each zone is.
+- **Joined by fast private links.** The zones of one region are close enough for a round trip of about a millisecond, and far enough apart not to share a failure.
+
+Kadé already uses this, half by accident. kade-api-1 and kade-api-2 are in different zones, so losing one zone leaves one API server. But kade-db exists only in zone `b`. Section 08 shows what that means.
+
+## Google's network: the backbone and the edge
+
+<Recalls><Recall n="12" section="Anycast: one IP, many places">Anycast</Recall><Recall n="33">Load balancers</Recall></Recalls>
+
+Regions are joined to each other by Google's <Term>backbone</Term>: fibre that Google owns or leases, including undersea cables. Around the backbone sit Google's <Term>edge locations</Term> (also called points of presence), where Google's network meets ISPs. There are far more edge locations than regions, so most internet users are near one.
+
+Two kinds of Kadé traffic ride this network:
+
+<Figure wide hues={["plum", "teal"]} labels={{ plum: "Google's: edges, backbone and regions", teal: "Kadé's: kade-vpc and its VMs" }} drawing={<FigEdge />}>
+
+`34.120.88.10` is an **anycast** address: every Google edge announces it, so each shopper's ISP delivers it to the nearest one. A shopper in Colombo and a shopper in Tokyo use the same IP and enter Google at different places.
+
+</Figure>
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Traffic</th><th>Where it enters Google</th><th>How it travels</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>A shopper to the load balancer `34.120.88.10`</td><td>The edge nearest the shopper. The Google Front End there ends TLS</td><td>Google's backbone, from that edge to the region</td><td className="whitespace-nowrap">12.1</td></tr>
+    <tr><td>2</td><td>A VM to a VM in another region of the same VPC</td><td>It never leaves Google</td><td>The backbone, on internal IPs. No VPN, no NAT</td><td className="whitespace-nowrap">2</td></tr>
+  </tbody>
+</Table>
+
+An edge location is not a small region. It is Google's network equipment in a shared building where many networks connect, often an internet exchange. The difference matters:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th></th><th>Region</th><th>Edge location</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**What is there**</td><td>Google's own data centres, full of hosts</td><td>Google's routers and front-end servers, inside a building shared with ISPs</td></tr>
+    <tr><td>2</td><td>**Can you run a VM there?**</td><td>Yes: VMs, disks, databases, Cloud Run</td><td>No. You never create anything in an edge location</td></tr>
+    <tr><td>3</td><td>**How many**</td><td>A few dozen, in large cities</td><td>Many more, in many more cities</td></tr>
+    <tr><td>4</td><td>**What it does for Kadé**</td><td>Runs kade-api and the database</td><td>Receives shoppers' requests, ends TLS, and runs Cloud CDN and Cloud Armor (<Ch n="12.1">chapter 12.1</Ch>)</td></tr>
+  </tbody>
+</Table>
+
+Why entering Google at the nearest edge helps a shopper in Colombo, even though kade-api is in Singapore:
+
+- **Less of the trip is on the public internet.** The shopper's packets only cross their ISP to reach the edge. The rest of the way is Google's own backbone, which Google runs end to end, so the path is shorter and steadier.
+- **Connecting is faster.** Opening a connection takes round trips: one for TCP, more for TLS (<Ch course="fundamentals" n="25">Fundamentals ch 25</Ch>). Those happen between the shopper and the nearby edge, so each one is short. Only the finished request makes the long trip to Singapore.
+- **Some requests never reach Singapore.** Cloud Armor can block a bad request at the edge, and Cloud CDN can answer a cached one there (<Ch n="12.1">chapter 12.1</Ch>).
+
+<Note>
+
+**Premium and Standard tier.** The shopper's path above is the default, **Premium tier**: traffic enters and leaves Google at the edge nearest the user. **Standard tier** is cheaper and hands traffic to the public internet near the region instead, so more of the trip is outside Google. A global load balancer needs Premium tier. <Ch n="3" section="Network tiers: Premium and Standard">Chapter 3</Ch> compares the two.
+
+</Note>
+
+## Three scopes: global, regional, zonal
+
+Every GCP resource has one of three <Term>scopes</Term>. The scope tells you two things: where the resource can be used, and what an outage can take down. It is not a free choice Google made per product. It follows from what the resource is:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Scope</th><th>Meaning</th><th>Why it has this scope</th><th>If a zone fails</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>**Zonal**</td><td>Pinned to one zone</td><td>It is a physical thing: a VM runs on one host, a disk sits next to it</td><td>Down until the zone is back</td></tr>
+    <tr><td>2</td><td>**Regional**</td><td>Lives in one region; Google spreads it over the zones inside</td><td>It is a range or a service that Google runs in several zones for you: a subnet, Cloud NAT, Cloud Run</td><td>Keeps working from the other zones</td></tr>
+    <tr><td>3</td><td>**Global**</td><td>One object for the whole planet, not a copy per region</td><td>It is only configuration. The control plane (<Ch n="1.2">chapter 1.2</Ch>) pushes it to every host that needs it: the VPC, its firewall rules, its routes</td><td>Not affected</td></tr>
+  </tbody>
+</Table>
+
+<Key title="Key idea">
+
+The more physical a thing is, the narrower its scope. A VM is a process on one machine, so it is zonal. A firewall rule is a few lines of configuration, so it can be global.
+
+</Key>
+
+<Figure wide hues={["plum", "teal"]} labels={{ plum: "Google's: the region and the load balancer", teal: "Kadé's: what it creates in kade-vpc" }} drawing={<FigScope />}>
+
+A subnet is regional, so it stretches across every zone of its region. That only works because a subnet is a range of addresses and a set of rules, not a cable (<Ch n="1.2">chapter 1.2</Ch>).
+
+</Figure>
+
+Every resource Kadé uses in this course, by scope:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Scope</th><th>Resource</th><th>Kadé's</th><th>Chapter</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Global</td><td>VPC network, routes</td><td>`kade-vpc`, its subnet routes and default route</td><td className="whitespace-nowrap">2, 4</td></tr>
+    <tr><td>2</td><td>Global</td><td>Firewall rules, global firewall policies</td><td>`kade-allow-*`</td><td className="whitespace-nowrap">5.1, 5.2</td></tr>
+    <tr><td>3</td><td>Global</td><td>Global external IP and the global load balancer's parts</td><td>`kade-lb-ip` `34.120.88.10`, `kade-https-rule`, `kade-url-map`, `kade-api-backend`, `kade-hc`</td><td className="whitespace-nowrap">11, 12.1</td></tr>
+    <tr><td>4</td><td>Global</td><td>Cloud DNS zones, Cloud Armor policies</td><td>`kade-lk`, `kade-internal`, `kade-edge-policy`</td><td className="whitespace-nowrap">8, 12.1</td></tr>
+    <tr><td>5</td><td>Global</td><td>Images, snapshots</td><td>The images VMs boot from</td><td className="whitespace-nowrap">12.2</td></tr>
+    <tr><td>6</td><td>Regional</td><td>Subnets</td><td>`sn-app`, `sn-data`, later `sn-run`</td><td className="whitespace-nowrap">2</td></tr>
+    <tr><td>7</td><td>Regional</td><td>Regional external IPs</td><td>`kade-nat-ip` `34.87.200.7`</td><td className="whitespace-nowrap">3, 7</td></tr>
+    <tr><td>8</td><td>Regional</td><td>Cloud Router, Cloud NAT</td><td>`kade-router`, `kade-nat`</td><td className="whitespace-nowrap">7</td></tr>
+    <tr><td>9</td><td>Regional</td><td>Cloud Run services, Cloud SQL with high availability</td><td>Cloud Run `kade-api`, `kade-sql`</td><td className="whitespace-nowrap">9, 10</td></tr>
+    <tr><td>10</td><td>Regional</td><td>Regional managed instance groups, HA VPN</td><td>The VM group behind the load balancer, `kade-havpn`</td><td className="whitespace-nowrap">12.2, 15</td></tr>
+    <tr><td>11</td><td>Zonal</td><td>VMs and their disks</td><td>kade-api-1 (zone a), kade-api-2 and kade-db (zone b), kade-worker (zone a)</td><td className="whitespace-nowrap">0, 10</td></tr>
+    <tr><td>12</td><td>Zonal</td><td>Zonal managed instance groups, machine types</td><td>`e2-small` exists separately in each zone</td><td className="whitespace-nowrap">12.2</td></tr>
+    <tr><td>13</td><td>Zonal</td><td>Cloud SQL without high availability</td><td>Not used: `kade-sql` runs with high availability (row 9)</td><td className="whitespace-nowrap">9</td></tr>
+  </tbody>
+</Table>
+
+<Note>
+
+**Some resources come in both kinds.** External IPs, health checks, backend services and load balancers exist as global or regional versions; managed instance groups as zonal or regional. Which one you need depends on what uses it: a global load balancer needs a global IP, while Cloud NAT and VMs use regional IPs. <Ch n="3">Chapters 3</Ch> and <Ch n="11">11</Ch> cover this.
+
+</Note>
+
+## Placement rules: what can use what
+
+Scopes are not only labels. They decide which resources can be joined, and they are the reason behind many "not found" and "invalid" errors when you create something:
+
+<Key title="The rule">
+
+A resource can use a **global** resource from anywhere, a **regional** resource only from the same region, and a **zonal** resource only from the same zone.
+
+</Key>
+
+<Figure wide hues={["teal", "green"]} labels={{ teal: "The VM, in zone a", green: "Can use it" }} drawing={<FigPlacement />}>
+
+Green: kade-api-1 can use it. Red: it cannot. The fourth red row is a different kind of mismatch: the address is global, but only a global load balancer can hold a global address.
+
+</Figure>
+
+The same rule, for the joins you will make in this course:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Join</th><th>Rule</th><th>What goes wrong if you break it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>VM → subnet</td><td>The subnet must be in the VM's region</td><td>The subnet is "not found": GCP looks for it in the VM's region</td></tr>
+    <tr><td>2</td><td>VM → disk</td><td>The disk must be in the VM's zone</td><td>The disk cannot be attached. Copy it with a snapshot (global) first</td></tr>
+    <tr><td>3</td><td>VM or Cloud NAT → external IP</td><td>A regional IP from the same region</td><td>A Mumbai IP cannot be given to a Singapore VM</td></tr>
+    <tr><td>4</td><td>Cloud NAT → subnets</td><td>Only subnets in Cloud NAT's own region</td><td>A future subnet in Mumbai would need its own Cloud NAT (<Ch n="7">chapter 7</Ch>)</td></tr>
+    <tr><td>5</td><td>Global load balancer → backends</td><td>Backends in any region</td><td>Nothing: this is what "global" buys you (<Ch n="11">chapter 11</Ch>)</td></tr>
+    <tr><td>6</td><td>Any resource → VPC, firewall rules, routes</td><td>Always allowed; they are global</td><td>Nothing: one rule protects VMs in every region</td></tr>
+  </tbody>
+</Table>
+
+<Box kind="check" title="gcloud check">
+
+Look for sn-app in Singapore, then in Mumbai:
+
+```sh
+gcloud compute networks subnets describe sn-app \
+  --region=asia-southeast1 --format="value(ipCidrRange)"
+gcloud compute networks subnets describe sn-app \
+  --region=asia-south1 --format="value(ipCidrRange)"
+```
+
+<Label>Output</Label>
+
+```text
+10.10.1.0/24
+ERROR: (gcloud.compute.networks.subnets.describe) Could not fetch resource:
+ - The resource 'projects/kade-prod/regions/asia-south1/subnetworks/sn-app' was not found
+```
+
+<Label>What it tells you</Label>
+
+A subnet's name is only unique inside its region. kade-vpc could have a different subnet called `sn-app` in Mumbai, with its own range, and the `default` network has a subnet called `default` in every region (<Ch n="2">chapter 2</Ch>). This is the error you get when you create a VM in `asia-south1-a` with `--subnet=sn-app`: GCP looks for sn-app in the VM's own region.
+
+</Box>
+
+## Speed and price across zones and regions
+
+<Recalls><Recall n="12" section="Where latency comes from">Where latency comes from</Recall></Recalls>
+
+Inside one VPC, every VM can reach every other VM on internal IPs, whatever their zones and regions. What changes is how long a round trip takes and what each gigabyte costs:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Path</th><th>Kadé's example</th><th>Round trip</th><th>Price per GiB</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Same zone</td><td>kade-api-2 → kade-db, both in zone b</td><td>Well under 1 ms</td><td>Free, on internal IPs</td></tr>
+    <tr><td>2</td><td>Another zone, same region</td><td>kade-api-1 (zone a) → kade-db (zone b)</td><td>About 1 ms or less</td><td>$0.01</td></tr>
+    <tr><td>3</td><td>Another region</td><td>Singapore → Mumbai</td><td>Tens of milliseconds</td><td>About $0.08 within Asia, more between continents</td></tr>
+  </tbody>
+</Table>
+
+Row 3 is set by physics, not by Google. Light in fibre covers about 200 km per millisecond, and Singapore to Mumbai is about 3,900 km:
+
+<Equation>3,900 km × 2 ÷ 200 km per ms ≈ 39 ms at the very least</Equation>
+
+<Box kind="cost" title="Cost and limits (checked October 2026)">
+
+VM-to-VM traffic in the same zone is free on internal IPs. Between zones of one region it costs $0.01 per GiB, and between regions in Asia about $0.08 per GiB. Incoming traffic is free. Prices change: check Google's network pricing page before you design around them.
+
+</Box>
+
+Every query kade-api-1 sends to kade-db crosses from zone `a` to zone `b`, so it pays the cross-zone price and up to a millisecond. That is the cost of keeping the two API servers in different zones, and it is almost always worth paying.
+
+## What an outage takes down
+
+Pick a failure and see which of Kadé's pieces survive it, as the project is today and as it will be after the course:
+
+<OutageSim />
+
+Three things to take from it:
+
+- **A zonal resource that everything needs is a single point of failure.** Today, a zone `b` outage takes kade-db, and with it the whole shop, even though kade-api-1 keeps running.
+- **Regional services survive a zone for you.** Cloud SQL with high availability (<Ch n="9">chapter 9</Ch>) and Cloud Run (<Ch n="10">chapter 10</Ch>) keep copies in more than one zone. Google moves the work when a zone fails.
+- **Surviving a whole region costs much more.** It needs a second region with its own copy of the data and a global load balancer in front of both. Kadé accepts the risk for now; most small businesses do.
+
+<Box kind="exam" title="Exam angle">
+
+"Survive a zone failure" means at least two zones: a regional managed instance group, a regional (HA) Cloud SQL instance, or a regional service such as Cloud Run. "Survive a region failure" means a second region and a global load balancer. "Lowest latency for users in one country" means the region nearest them.
+
+</Box>
+
+## Reading the scope in names and commands
+
+Every resource has a full name, its <Term>self link</Term>, and the path in it says the scope: `global`, `regions/…` or `zones/…`. gcloud asks for the matching flag:
+
+<Table>
+  <thead>
+    <tr><th>#</th><th>Resource</th><th>Path in its full name</th><th>gcloud flag</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>kade-vpc</td><td>`projects/kade-prod/global/networks/kade-vpc`</td><td>none</td></tr>
+    <tr><td>2</td><td>sn-app</td><td>`projects/kade-prod/regions/asia-southeast1/subnetworks/sn-app`</td><td>`--region`</td></tr>
+    <tr><td>3</td><td>kade-api-1</td><td>`projects/kade-prod/zones/asia-southeast1-a/instances/kade-api-1`</td><td>`--zone`</td></tr>
+  </tbody>
+</Table>
+
+To stop typing the flags, save Kadé's region and a default zone in your gcloud config. This changes only your own machine, not the project:
+
+```sh
+gcloud config set compute/region asia-southeast1
+gcloud config set compute/zone asia-southeast1-a
+```
+
+<Note>
+
+**A default zone is only a default.** kade-api-2 and kade-db are in zone `b`. A command that names them without `--zone` looks in zone `a` and says "not found". When a VM "disappears", check the zone first.
+
+</Note>
+
+## Try it: which scope?
+
+<ScopeQuiz />
+
+<Box kind="exam" title="Exam angle">
+
+"VPCs are global, subnets are regional, VMs are zonal" is tested often, usually as "can one subnet span two zones?" (yes) or "do I need a VPN between two regions of the same VPC?" (no).
+
+</Box>
+
+## Back to Kadé
+
+<Box kind="fixed" title="What this means for Kadé">
+
+- **What is a zone?** A deployment area inside a region that Google builds to fail on its own. Kadé uses zones `a` and `b` of `asia-southeast1`, Singapore.
+- **How far apart are `a` and `b`?** Close enough for a round trip of about a millisecond, far enough apart not to share a power, cooling or network failure.
+- **If zone `b` goes dark tonight?** Today the shop goes down, because kade-db is zonal and lives there. Moving the database to Cloud SQL with high availability (<Ch n="9">chapter 9</Ch>) fixes this.
+- **Why is there no sn-app in Mumbai?** Subnets are regional. sn-app exists in `asia-southeast1` only; a VM in Mumbai would need a subnet of its own there.
+- **Why `--zone`, `--region` or nothing?** The flag follows the scope: VMs are zonal, subnets regional, kade-vpc global.
+
+</Box>
+
+## Commands in this chapter
+
+All read-only, except command 6, which only changes your local gcloud settings.
+
+<TryIt n={1} title="List the regions near Kadé">
+
+- **What it shows:** Every region whose name starts with `asia`, with its status.
+- **What to look for:** `asia-south1` (Mumbai) and `asia-southeast1` (Singapore), Kadé's two nearest choices.
+
+```sh
+gcloud compute regions list --filter="name~^asia"
+```
+
+</TryIt>
+
+<TryIt n={2} title="List the zones of Kadé's region">
+
+- **What it shows:** The zones of `asia-southeast1`.
+- **What to look for:** Three zones, `a`, `b` and `c`, all `UP`.
+
+```sh
+gcloud compute zones list --filter="region:asia-southeast1"
+```
+
+</TryIt>
+
+<TryIt n={3} title="See which zone each VM runs in">
+
+- **What it shows:** Each VM with its zone and internal IP.
+- **What to look for:** kade-db alone in zone `b`, with nothing to take over if zone `b` fails.
+
+```sh
+gcloud compute instances list \
+  --format="table(name,zone.basename(),networkInterfaces[0].networkIP)"
+```
+
+</TryIt>
+
+<TryIt n={4} title="See a resource's scope in its full name">
+
+- **What it shows:** The self link of the VM and of its subnet.
+- **What to look for:** `zones/asia-southeast1-a` in the VM's path, `regions/asia-southeast1` in the subnet's.
+
+```sh
+gcloud compute instances describe kade-api-1 --zone=asia-southeast1-a \
+  --format="value(selfLink,networkInterfaces[0].subnetwork)"
+```
+
+</TryIt>
+
+<TryIt n={5} title="Measure same-zone and cross-zone round trips">
+
+- **What it shows:** Ping times to kade-db from kade-api-2 (same zone) and from kade-api-1 (another zone). Run each line on the VM named in it.
+- **What to look for:** Both are small; the cross-zone one is a little higher.
+
+```sh
+# on kade-api-2, zone b
+ping -c 5 10.10.2.5
+# on kade-api-1, zone a
+ping -c 5 10.10.2.5
+```
+
+</TryIt>
+
+<TryIt n={6} title="Save Kadé's region and zone as defaults">
+
+- **What it shows:** Nothing on screen. Later commands use these when you leave out `--region` or `--zone`.
+- **What to look for:** `gcloud config list` now shows both under `[compute]`.
+
+```sh
+gcloud config set compute/region asia-southeast1
+gcloud config set compute/zone asia-southeast1-a
+gcloud config list
+```
+
+</TryIt>

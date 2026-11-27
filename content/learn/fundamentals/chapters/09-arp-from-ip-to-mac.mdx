@@ -1,4 +1,4 @@
-import { ArpFan, ArpSim } from "@/components/learn/widgets/lazy";
+import { ArpFan, ArpMessages, ArpSim } from "@/components/learn/widgets/lazy";
 
 ## What ARP does
 
@@ -49,20 +49,9 @@ The PC already knows the printer's IP (the print setup stores it, just as your f
 
 ## What is inside an ARP message
 
-Both messages have the same four fields. Only the values change:
+Both messages carry the same four address fields: a sender MAC and IP, and a target MAC and IP. Only the values change:
 
-<Table>
-  <thead>
-    <tr><th>Field</th><th>Request</th><th>Reply</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>Frame destination</td><td><Mono>ff:ff:ff:ff:ff:ff <Sub>everyone</Sub></Mono></td><td><Mono>3c:7c:3f:10:22:01 <Sub>only the PC</Sub></Mono></td></tr>
-    <tr><td>Sender MAC</td><td><Mono>3c:7c:3f:10:22:01</Mono></td><td><Mono>30:05:5c:8a:12:e0 <Sub>the answer</Sub></Mono></td></tr>
-    <tr><td>Sender IP</td><td><Mono>172.16.1.10</Mono></td><td><Mono>172.16.1.20</Mono></td></tr>
-    <tr><td>Target MAC</td><td><Mono>00:00:00:00:00:00 <Sub>unknown, that's the question</Sub></Mono></td><td><Mono>3c:7c:3f:10:22:01</Mono></td></tr>
-    <tr><td>Target IP</td><td><Mono>172.16.1.20</Mono></td><td><Mono>172.16.1.10</Mono></td></tr>
-  </tbody>
-</Table>
+<ArpMessages wide />
 
 <Caption>ARP is carried directly in a frame. There is no IP packet around it, which is why it can work before a device knows anyone's MAC.</Caption>
 
@@ -119,7 +108,7 @@ Broadcasts stop at the router. The PC never learns kade-api's MAC, and never nee
 
 Pick a sender and a target, then press Send. The first time, you will see a broadcast. Press Send again and the cache answers instead. The cache stays until you clear it.
 
-<ArpSim />
+<ArpSim wide />
 
 ## ARP trusts everyone
 

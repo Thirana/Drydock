@@ -73,6 +73,14 @@ export const IconX = makeIcon(
   12,
   <path d="M3 3l6 6M9 3L3 9" />,
 );
+/** Two corners pulling outwards: open a drawing larger. */
+export const IconExpand = makeIcon(
+  "IconExpand",
+  14,
+  1.8,
+  14,
+  <path d="M8.5 2.5h3v3M11.5 2.5L8 6M5.5 11.5h-3v-3M2.5 11.5L6 8" />,
+);
 export const IconSearch = makeIcon(
   "IconSearch",
   16,

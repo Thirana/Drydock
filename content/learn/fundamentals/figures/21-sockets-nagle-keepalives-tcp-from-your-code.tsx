@@ -3,7 +3,7 @@
 
 export function FigQueues() {
   return (
-    <svg viewBox="0 0 920 220" role="img" aria-label="SYN arrives and waits in the SYN queue; after the final ACK the connection moves to the accept queue; accept() hands it to the app.">
+    <svg viewBox="0 0 920 240" role="img" aria-label="SYN arrives and waits in the SYN queue; after the final ACK the connection moves to the accept queue; accept() hands it to the app.">
       <rect className="n plum" x="16" y="80" width="130" height="56" rx="2" />
       <text className="t" x="30" y="104">Clients</text>
       <text className="s" x="30" y="124">SYN, then ACK</text>
@@ -23,7 +23,8 @@ export function FigQueues() {
       <rect className="n green" x="792" y="80" width="112" height="56" rx="2" />
       <text className="t" x="806" y="104">Node app</text>
       <text className="s" x="806" y="124">handles it</text>
-      <text className="s" x="208" y="190">Full SYN queue: SYN flood (chapter 16).     Full accept queue: the app is not calling accept() fast enough.</text>
+      <text className="s" x="208" y="190">Full SYN queue: SYN flood (chapter 16).</text>
+      <text className="s" x="208" y="210">Full accept queue: the app is not calling accept() fast enough.</text>
     </svg>
   );
 }

@@ -146,18 +146,18 @@ typography:
     fontFeature: "\"tnum\" 1"
   figure-title:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "13.5px"
+    fontSize: "15px"
     fontWeight: 600
     lineHeight: 1.2
   figure-sub:
     fontFamily: "Atkinson Hyperlegible Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
-    fontSize: "11.5px"
-    fontWeight: 400
+    fontSize: "13px"
+    fontWeight: 500
     lineHeight: 1.2
     fontFeature: "\"tnum\" 1"
   figure-label:
     fontFamily: "Atkinson Hyperlegible Next, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "12px"
+    fontSize: "13px"
     fontWeight: 600
     lineHeight: 1.2
 rounded:
@@ -236,7 +236,7 @@ components:
 
 **Creative North Star: "The Annotated Score"**
 
-A Drydock track reads like an annotated game. The remediation order is a line of numbered moves; each defect carries the annotator's mark beside its word; the author's disagreements sit in the margin under a "!?". The page is the printed page of that score: off-white ground, near-black ink, one reading column, generous white space, hairline rules where another site would draw boxes. Diagrams are the only thing allowed to break out wide.
+A Drydock track reads like an annotated game. The remediation order is a line of numbered moves; each defect carries the annotator's mark beside its word; the author's asides sit in the margin under a "!?". The page is the printed page of that score: off-white ground, near-black ink, one reading column, generous white space, hairline rules where another site would draw boxes. Diagrams are the only thing allowed to break out wide.
 
 Two colours carry all the meaning. Blue marks where the reader is and what they can follow - the current move, the current view, links, the one solid action on hover. Red is kept for faults and nothing else. Everything else is type weight, the four steps of ink, and space. Dark mode is the same page with the lamp off, not a different world: the same roles, re-valued for a near-black ground.
 
@@ -259,7 +259,7 @@ A near-neutral paper-and-ink palette with exactly two signal hues, each with a s
 - **Current-Move Blue** (accent): the sliding marker on the score, the current view in the view strip, the chosen move's numeral and name, links (`dd-link`, prose links, header call to action), the hover state of the primary button, focus outlines, text selection, and diagram selection. Hover deepens to **Pressed Blue** (accent-hover). **Blue Wash** (accent-soft) tints a selected diagram region only. **Blue Ink** (accent-ink) is the text colour on a solid blue fill.
 
 ### Secondary
-- **Fault Red** (fault): defect IDs wherever they appear (register gutter, defect references, diagram defect marks), the critical and high severity marks and words, open-defect counts, the "Now" half of a before/after pair, failing hops, defective diagram paths (`--tone-danger`), and any range or status that is bad. **Fault Wash** (fault-soft) is its only tint.
+- **Fault Red** (fault): defect IDs wherever they appear (register gutter, defect references, diagram defect marks), the critical and high severity marks and words, open-defect counts, the "Now" half of a before/after pair, failing hops, defective diagram paths (`.w.fault`), and any range or status that is bad. **Fault Wash** (fault-soft) is its only tint.
 
 ### Neutral
 - **Page Ground** (ground): the page, the sticky strips (at 95% with a light blur: the view strip, the mobile chapter strip, the glossary letter row), diagram wells, and the search scrim (at 80%, flat, no blur).
@@ -293,7 +293,7 @@ Dark values (the `-dark` tokens) replace each role one for one when `[data-theme
 
 **The Drawing Hue Rule.** Course drawings and widgets may colour a box, wire or arrowhead by what it is in that course's legend, and nothing else. Hue lives on strokes, arrowheads, soft fills and a small key swatch; text inside a drawing stays in ink and muted ink. Hues never appear in chrome - header, rails, links, buttons, headings and prose stay ink, blue and red. Any drawing with two or more hues shows its key, and every coloured thing also carries a label, so colour is never the only code.
 
-**The Monochrome Lab Rule.** Lab drawings (the Harbour map, journeys, load balancer chain) stay in ink tones through the `--tone-*` tokens (edge and private in ink, compute and data in muted ink, external in faint ink, lines in hairline). Only `--tone-danger` takes colour, and selection is blue. A lab is about what is broken, so nothing competes with the red.
+**The One Vocabulary Rule.** Every case study drawing - the Harbour map, the load balancer chain, journeys and defect drawings - uses the course figures' classes and the GCP legend (`DrawingKey`): teal your VPC, plum run by Google, amber firewall and access rules, green allowed traffic, red where it breaks, a dashed outline for what is not built yet. A drawing never invents its own tones, type sizes or legend, so a box looks the same on the map as on the journey that passes through it.
 
 **The Plain Verdict Rule.** A quiz or check answers in words: "Correct" or "Not quite", with a drawn check or cross icon in ink and the reason. Never a green/red verdict - a wrong answer is not a fault, and green never means "good".
 
@@ -318,7 +318,7 @@ The ramp is set in px per role, stepping up once at 640px (`sm`) and, for displa
 - **Title Row** (700, 19px, 1.3): the title of a row that is a link or a disclosure - view-guide items, walkthrough steps, chapter-list part names, component sheets, the wordmark. Learning-path titles are 21px; search results, see-it-broken defects, glossary terms and register titles 18px.
 - **Lead** (400, 19px, 20px from 640px, 1.55): the paragraph under a page title, max 40-62ch. Landing leads are 20px flat (the home lead 20 / 22px, 1.5); the MDX lead primitive is 21px.
 - **Body** (400, 18px, 1.65, max 68ch): long-form prose in `gl-prose`; section-intro text is 18 / 19px.
-- **Summary** (400, 17px, 1.55-1.6): one-paragraph summaries beside a heading - lab and track summaries, argument reasoning, the see-it-broken sentence, Course Parts rows, the mobile menu links.
+- **Summary** (400, 17px, 1.55-1.6): one-paragraph summaries beside a heading - lab and track summaries, the see-it-broken sentence, Course Parts rows, the mobile menu links.
 - **Body Note** (400, 16.5px, 1.55-1.6): margin notes, row bodies under a title (learning path, home steps, glossary sentences).
 - **Body Small** (400, 16px, 1.6): column text, register explanations, table cells, pager leads, "Continue" line.
 - **Meta** (400, 15px, 1.5): header links, chapter meta line, captions, the search status, footer links and tagline, the lab page's counts; 15.5px for the search excerpt and the "New to this?" line.
@@ -326,7 +326,7 @@ The ramp is set in px per role, stepping up once at 640px (`sm`) and, for displa
 - **Label** (600, 13px, 0.01em, sentence case, muted ink): names a group of data - "Phase", "Severity", "Learn it", footer column heads. Never set above a heading.
 - **Move** (mono 700, 13.5-18px): move numerals ("3."), defect IDs, severity marks. 13-14px inline with text, 15-17px at the head of a row, 18px beside a 24px+ heading.
 - **Code** (mono 400, 14px, 13.5px from 1024px, 1.7): command blocks; inline code at 0.86em on code ground.
-- **Figure** (inside drawings and widgets only): box titles sans 600 13.5px; sub-lines (addresses, ports, values) mono 11.5px; words on a wire sans 600 12px in muted ink; widget cell and axis text 11-12.5px. Nothing below 11px outside a drawing.
+- **Figure** (inside drawings and widgets only, in drawing units, which render near 1:1): box titles sans 600 15; sub-lines (addresses, ports, values) mono 500 13 in body ink; words on a wire sans 600 13 in muted ink; other drawing text 14. Sizes a drawing sets itself pass through `legible()` (x1.15, never below 12). A text that outgrows its box, zone or column is fitted down to no less than 11. On screen that is about 12.5px for most drawing text and never below 10px.
 
 ### Named Rules
 **The Plain Label Rule.** Labels are small, sentence-case and literal, and they label data, not headings. No uppercase tracking, no kicker line above a title.
@@ -339,7 +339,7 @@ The ramp is set in px per role, stepping up once at 640px (`sm`) and, for displa
 
 A single centred container (max 1200px) with 20px side gutters, 32px from 640px up. Inside it, reading happens in one column: page headers cap at 760px, prose at 68ch, leads at 40-62ch. Diagrams break out of the column on large screens to roughly the viewport minus 48px (capped near 1440px) and scroll sideways on small screens. A sideways-scrolling box (`ScrollX`) adds the plain note "Wide by design - scroll it sideways." only when its content actually overflows; a table that fits carries no note.
 
-Rhythm is set by rules and rows rather than boxes: list-like content (view guide, arguments, columns, register rows, metadata) starts each item with a hairline and 16-24px of vertical padding. Groups separate by 56px; column grids use a 40px gap at 2 and 3 columns. Page tops breathe (48-96px). A track view's structure is: sticky view strip, title and lead, prose, and a pager to the neighbouring views.
+Rhythm is set by rules and rows rather than boxes: list-like content (view guide, columns, register rows, metadata) starts each item with a hairline and 16-24px of vertical padding. Groups separate by 56px; column grids use a 40px gap at 2 and 3 columns. Page tops breathe (48-96px). A track view's structure is: sticky view strip, title and lead, prose, and a pager to the neighbouring views.
 
 A chapter page uses the same 1200px container as the header: from 1024px a 236px rail, a 96px gap, then the text column; header, "See it broken" and the pager all cap at 760px. Landing pages (home, labs, lab) use a 12-column grid from 1024px for a heading beside a drawing or widget (5 / 7 or 6 / 6), and a single column below. The glossary list caps at 1000px.
 
@@ -375,6 +375,13 @@ Plain and few: one solid ink action, an outlined companion, a text link.
 - **Style:** text, not chips. A row of 15px words 20px apart, each at least 40px tall.
 - **State:** unselected is muted ink; selected is ink, semibold, with a 2px blue underline offset 7px.
 
+### Form controls (`components/ui/inputs.tsx`)
+Never the browser's own; all three are square, flat and in ink.
+- **Dropdown:** a 44px field with a strong hairline and a muted chevron (ink and turned up while open). The list opens 4px under it (above when there is no room) in the top layer, so a scrolling widget never clips it: ground, a 1px ink frame, no shadow, 40px rows, the active row on sunk ground, the chosen one ink and semibold with a drawn tick. Arrows, Home/End, Enter/Space, Escape and first letters work as on a native select.
+- **Checkbox:** an 18px square with a strong hairline that darkens to ink on hover; ticked, it fills in ink with a ground-coloured tick. The words beside it are part of the target.
+- **Slider:** a 4px rule-strong track filled in ink up to an 18px square ink handle ringed in ground; the handle turns blue on hover and while dragged.
+- **Disclosure rows** (defect register, "Try it yourself" and "Commands in this chapter"): a hairline row with a mono faint numeral, the title, and a chevron that turns on open; the row washes to sunk on hover.
+
 ### Links
 - **Inline:** blue text with a 35%-blue 1px underline that goes solid on hover (150ms).
 - **Defect reference:** mono 14px bold fault red with a dotted 1.5px underline - set like a move in the score.
@@ -406,21 +413,28 @@ Defects grouped by phase under a heading with a faint mono numeral, a 22px title
 Title and lead in the 760px column; when a course teaches the track, one muted 15.5px line under the lead: "New to this? Learn it first in <course>." with the course as a blue link.
 
 ### Margin Mark (signature)
-The author's asides and positions (Note, Argument) sit on a 28px gutter holding a bold mono "!?" in ink - the annotator's "interesting move". Notes are 16.5px body; arguments add a 20px bold claim above 17px reasoning and a top hairline.
+The author's asides (Note) sit on a 28px gutter holding a bold mono "!?" in ink - the annotator's "interesting move". Notes are 16.5px body.
 
 ### Wordmark
 "Drydock" in 19px bold ink with a blue mono "?!" set high beside it - the dubious-move mark that names the site.
 
 ### Figures and Diagrams
-Course figures (`.dd-fig`): the same hairline 2px frame on ground. Boxes are 2px-cornered with a 1.25px stroke - ink-faint for a neutral box, a hue with its soft fill for a box the legend names. Titles in sans 13.5px semibold ink, sub-lines (addresses, ports) in mono 11.5px muted. Wires 1.5px with a matching arrowhead (`DiagramDefs`, rendered once by the course layout); dashed means "not built yet" or "optional", exactly as in the lab. The key sits under the drawing as small swatch-and-word pairs, then the caption in muted 15px. On narrow screens a drawing keeps 680px and scrolls sideways, with the plain note only when it overflows. Address-block charts (`blk`: used, plan, goog, res, free) and status dots (ink for fine, red for broken) are part of the same vocabulary.
+Course figures (`.dd-fig`): the same hairline 2px frame on ground. Boxes are 2px-cornered with a 1.25px stroke - ink-faint for a neutral box, a hue with its soft fill for a box the legend names. Titles in sans 15 semibold ink, sub-lines (addresses, ports) in mono 13 at weight 500 in body ink - grey, light and small together were what made drawings hard to read. Wires 1.5px with a matching arrowhead (`DiagramDefs`, rendered once by the course layout); dashed means "not built yet" or "optional", exactly as in the lab. The key sits under the drawing as small swatch-and-word pairs, then the caption in muted 15px. A drawing is drawn 920-960 units wide and its text is sized in those units, so the drawing's scale is the text's scale, and it is never shrunk far: from 1024px a course drawing's frame breaks out of the reading column into the right margin, up to its natural size (1004px, keeping 24px of page at the edge); below 1024px it keeps 880px and scrolls sideways, with the plain note only when it overflows.
 
-Lab figures: caption above (16px bold title, muted meta, a line legend of traffic / not built yet / defective path), the drawing below inside a hairline 2px frame on ground. Drawn in the monochrome tones; defect marks and defective paths in red; selected regions washed blue.
+**The Bend Arrow Rule** (the "bend arrow approach"). Wires in course drawings run in straight horizontal and vertical segments with square 90° bends (`<path d="M x y H … V … H …">`), never on a diagonal. A wire leaves from the side and height of what it belongs to - a route table's row, the box it starts at - and enters its target square on. Several sources going to one target join a shared trunk and arrive as one line with one arrowhead, the way a phone, laptop and TV all reach the home router in Fundamentals 5. Place boxes so the bends land in clear space: move a box rather than bend a wire through text or another box. Lay a target level with its source when you can, so the wire stays straight. Curves are kept for drawings where the curve itself is the point (a packet looping back, a path around something). Ladder (sequence) diagrams keep their slanted messages between the two timelines: the slope is the time the message takes (ping's Echo Request and Reply, a UDP query and answer).
 
-Text never crosses a box edge (`src/lib/architecture/text-fit.ts`). A box's sub-line wraps to a second line at its " · " separators before it is ever squeezed; defect IDs sit as a small tag on the box's top-right edge, clear of the title; edge labels take the longest stretch of their line that no box covers, are painted above the boxes, and drop to two smaller lines when the gap is narrow. A label with no room at all is left off rather than drawn under a box.
+**Fitting** (`FitText`, in every course figure and widget frame): after the drawing renders, and again when a widget changes it or the web fonts load, a text that outgrows its box, its zone or the gap before the next text on its line shrinks just enough to fit, never below 11 units; a label on a wire that is meant to cross a zone's dashed line gets a ring of page colour so the line breaks behind it; a free sentence wider than the drawing wraps and the drawing grows to hold it. Hand-fixed geometry comes first - fitting is for the long tail.
+
+**Expand** (`ExpandDrawing`): under every frame that holds a drawing, a right-aligned muted "Expand" with a drawn icon. It opens the figure itself - so a widget keeps its state - over the whole window on solid page ground, with a sticky bar: "Fit to screen | Actual size" (a SegmentedControl) and Close. Fit sizes a plain drawing to the window both ways (up to 1.6x) and a widget to its width; Actual size draws 1:1 and pans, the default on a phone. Esc or Close returns to the same place; Tab stays inside while it is open; focus goes back to Expand. Address-block charts (`blk`: used, plan, goog, res, free) and status dots (ink for fine, red for broken) are part of the same vocabulary.
+
+Lab figures (the map, the load balancer chain): caption above (16px bold title, muted meta, the drawing key), the drawing below inside a hairline 2px frame on ground, breaking out of the column on large screens. Drawn 1440 units wide or less so they show near 1:1, in the course figures' sizes; a box you can open thickens on hover and turns blue (`.sel`) once opened.
+
+Text never crosses a box edge (`src/lib/architecture/text-fit.ts`, widths measured from the site's faces). A box's sub-line wraps to a second line at its " · " separators, then between words; a box is 60 units tall with one sub-line and 80 when any phase's sub-line wraps. Defect IDs sit as a tag on the box's top-right edge, closed ones struck through; inside a group with a sub-line, boxes start 64 below its top so the tags clear the group's words. Edge labels are placed by hand (`labelAt`) where a stretch of wire has room, with a ring of page colour; a label with no room is left off the map and still listed on the component's sheet.
 
 ### Course chapters
 - **Chapter rail:** sticky, text only, 236px on the left from 1024px, 96px from the text column (the section numerals hang in that gap). Course title, parts as plain labels, chapters as numbered rows (mono faint numeral, body-ink title; the current one blue and bold; unpublished ones faint and not linked). Under the current chapter its sections, with a 2px blue marker that slides to the section in view (500ms, the score's curve). Below 1024px it folds into a sticky 48px strip - "Chapters" muted, a strong-hairline "/", then the mono numeral, the chapter title in ink semibold and the section in view muted, and a chevron - that opens the same list as a full-height sheet (`<dialog>`).
 - **Chapter header:** the title as the headline, the lead, then one muted meta line under it - part, "chapter 4 of 34", reading time. Nothing sits above the title.
+- **Chapter parts** (`Part`, long chapters only): a 3px ink rule, then a 48px solid ink square holding the part letter in mono, beside "PART A" (13.5px mono, uppercase, muted) over the part title (26px bold). Ink, never a hue: hues belong to drawings. The section that opens the part follows 40px below, without its own rule.
 - **Numbered sections:** every `##` takes a move numeral from a CSS counter - mono, faint, hanging in the gutter from 1024px, inline before it below. Summary, Try it yourself and Commands in this chapter are unnumbered recaps.
 - **Asides on the gutter:** a key idea under "!", a note under "!?", the GCP blocks under their own mark - the problem "?" in red, the fix "!", a read-only gcloud check "$"; console, cost and exam blocks carry no mark. Each starts with a hairline and a bold title; its body is indented by the gutter, which is what shows where it ends.
 - **Builds on:** a muted line under a heading linking the fundamentals chapters a section relies on.

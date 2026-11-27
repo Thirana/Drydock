@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Field, FieldError } from "./field";
 import { Action, Choices, KeyValues, Select, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Slider } from "@/components/ui/inputs";
 
 /*
  * Chapters 14 to 19: what UDP does not promise, how big a segment can be,
@@ -59,15 +60,7 @@ export function UdpSim({ wide }: { wide?: boolean }) {
         <label htmlFor={lossId} className="text-ink-muted text-[14px]">
           Network loss: <b className="text-ink">{loss}%</b>
         </label>
-        <input
-          id={lossId}
-          type="range"
-          min={0}
-          max={50}
-          value={loss}
-          onChange={(e) => setLoss(Number(e.target.value))}
-          className="accent-ink"
-        />
+        <Slider id={lossId} min={0} max={50} value={loss} onChange={setLoss} />
       </div>
       <div className="mt-4">
         <Action primary onClick={run}>

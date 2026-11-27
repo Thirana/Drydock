@@ -103,7 +103,7 @@ With two tunnels, there are two ways to use them. BGP decides, through the prior
 
 <Recalls><Recall n="18">MTU, MSS and fragmentation</Recall></Recalls>
 
-IPsec wraps each packet in extra headers before it crosses the internet. The inside packet must therefore be smaller than the outside path allows. <Ch n="1">Chapter 1</Ch> promised this would come back:
+IPsec wraps each packet in extra headers before it crosses the internet. The inside packet must therefore be smaller than the outside path allows. <Ch n="1.2">Chapter 1.2</Ch> promised this would come back:
 
 <MtuBar />
 
@@ -112,7 +112,7 @@ IPsec wraps each packet in extra headers before it crosses the internet. The ins
     <tr><th>#</th><th>Rule</th><th>Why</th></tr>
   </thead>
   <tbody>
-    <tr><td>1</td><td>Cloud VPN carries inner packets up to 1460 bytes</td><td>The same as kade-vpc's default MTU (<Ch n="1">chapter 1</Ch>), so VMs and the tunnel agree</td></tr>
+    <tr><td>1</td><td>Cloud VPN carries inner packets up to 1460 bytes</td><td>The same as kade-vpc's default MTU (<Ch n="1.2">chapter 1.2</Ch>), so VMs and the tunnel agree</td></tr>
     <tr><td>2</td><td>Set the office side of the tunnel to the same size, and clamp TCP MSS on the office router</td><td>Office PCs think in 1500-byte packets. Clamping MSS (Google's peer guides suggest values around 1360 to 1420) makes TCP pick smaller segments from the start</td></tr>
     <tr><td>3</td><td>If kade-vpc's MTU is ever raised to 1500 or 8896, the VPN does not follow</td><td>Large packets to the office would no longer fit through the tunnel</td></tr>
     <tr><td>4</td><td>The symptom of getting it wrong</td><td>Small things work (ping, DNS, logins); large transfers or big pages hang. The fundamentals course' "black hole" again</td></tr>

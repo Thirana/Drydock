@@ -2,6 +2,11 @@
  * Arrowheads for course figures, one per hue. Render once per page; drawings
  * point at them with `markerEnd="url(#dd-ah-amber)"`. Fills come from the
  * `.dd-mk-*` classes in globals.css, so they follow the theme.
+ *
+ * Heads are sized in drawing units, not by stroke width, so a thick
+ * highlighted wire gets the same head as a thin one. The wire stops inside
+ * the head (refX 7), so even a 3-unit wire never shows a blunt end beside
+ * the tip; the tip lands 3 units past the wire's end.
  */
 
 export const ARROW_HUES = [
@@ -33,10 +38,11 @@ export function DiagramDefs() {
             key={hue}
             id={`dd-ah-${hue}`}
             viewBox="0 0 10 10"
-            refX="9"
+            refX="7"
             refY="5"
-            markerWidth="7"
-            markerHeight="7"
+            markerUnits="userSpaceOnUse"
+            markerWidth="10"
+            markerHeight="10"
             orient="auto-start-reverse"
           >
             <path className={`dd-mk-${hue}`} d="M0,0 L10,5 L0,10 z" />

@@ -11,12 +11,10 @@ const LABEL = "dd-label text-ink-muted";
 export function ComponentPanel({
   model,
   id,
-  defectsHref,
   onBack,
 }: {
   model: ArchitectureModel;
   id: string;
-  defectsHref: string;
   onBack: () => void;
 }) {
   const boxes = boxIndex(model);
@@ -106,7 +104,7 @@ export function ComponentPanel({
               <p className={LABEL}>Defects here</p>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {box.defects.map((d) => (
-                  <DefectLink key={d} id={d} defectsHref={defectsHref} />
+                  <DefectLink key={d} id={d} />
                 ))}
               </div>
             </div>

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { IconCheck, IconX } from "@/components/ui/icons";
+import { Checkbox } from "@/components/ui/inputs";
 import { cn } from "@/lib/utils";
 import { Action } from "../ui";
 
@@ -17,11 +18,14 @@ export function Examples({
   current,
   onPick,
   label = "Examples",
+  names,
 }: {
   values: string[];
   current: string;
   onPick: (value: string) => void;
   label?: string;
+  /** A word for each value, shown after it: what the example is. */
+  names?: Record<string, string>;
 }) {
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
@@ -36,6 +40,7 @@ export function Examples({
           )}
         >
           {ex}
+          {names?.[ex] && <span className="ml-2 font-sans text-[13px] opacity-70">{names[ex]}</span>}
         </button>
       ))}
     </div>
@@ -53,10 +58,9 @@ export function Check({
   children: ReactNode;
 }) {
   return (
-    <label className="text-ink-body flex cursor-pointer items-center gap-2.5 text-[15px]">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-ink size-4 shrink-0" />
-      <span>{children}</span>
-    </label>
+    <Checkbox checked={checked} onChange={onChange}>
+      {children}
+    </Checkbox>
   );
 }
 

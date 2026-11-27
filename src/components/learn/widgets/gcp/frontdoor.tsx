@@ -80,9 +80,9 @@ export function LbDecoder() {
 /** Global anycast against a regional IP. */
 export function LbGlobal() {
   const users: [string, number][] = [
-    ["Shopper, Colombo", 60],
-    ["Visitor, London", 150],
-    ["Partner, Sydney", 240],
+    ["Shopper, Colombo", 62],
+    ["Visitor, London", 152],
+    ["Partner, Sydney", 242],
   ];
   return (
     <WidgetFrame wide label="Global and regional load balancers">
@@ -101,7 +101,7 @@ export function LbGlobal() {
         <T x={226} y={92} size={11}>edge, each</T>
         <T x={226} y={108} size={11}>announcing</T>
         <T x={226} y={126} size={11} bold>34.120.88.10</T>
-        <path className="w plum" d="M324 180 C 360 180, 370 180, 397 180" markerEnd="url(#dd-ah-plum)" />
+        <line className="w plum" x1={324} y1={180} x2={397} y2={180} markerEnd="url(#dd-ah-plum)" />
         <T x={330} y={168} size={10.5}>backbone</T>
         <Box x={400} y={130} w={80} h={100} c="blue" />
         <T x={410} y={158} size={11}>backend</T>
@@ -112,7 +112,8 @@ export function LbGlobal() {
           <g key={`r${u}`}>
             <Box x={500} y={y} w={170} h={56} />
             <T x={514} y={y + 33} size={12}>{u}</T>
-            <path className="w dash" d={`M670 ${y + 28} C 720 ${y + 28}, 720 180, 757 180`} markerEnd="url(#dd-ah-muted)" />
+            {/* Everyone joins one trunk into the region: one arrowhead. */}
+            <path className="w dash" d={y + 28 === 180 ? "M670 180 H757" : `M670 ${y + 28} H714 V180`} markerEnd={y + 28 === 180 ? "url(#dd-ah-muted)" : undefined} />
           </g>
         ))}
         <Box x={760} y={110} w={184} h={140} c="blue" />
@@ -132,51 +133,70 @@ export function LbGlobal() {
 
 /** What an L7 load balancer can read that an L4 one cannot. */
 export function LbL7L4() {
-  const routes: [string, string, number][] = [
-    ["/api/*", "kade-api-backend", 60],
-    ["/images/*", "kade-static bucket", 110],
-    ["everything else", "web backend", 160],
-  ];
-  return (
-    <WidgetFrame wide label="Layer 7 and layer 4 load balancers">
-      <Drawing h={230} label="An L7 load balancer picks a backend by host and path; an L4 one only by connection">
-        <Caps x={16} y={24}>L7 · reads the request</Caps>
-        <Caps x={500} y={24}>L4 · sees only addresses and ports</Caps>
-        <Box x={16} y={44} w={200} h={120} />
-        <T x={30} y={70} k="t" size={12.5}>HTTPS request</T>
-        <T x={30} y={92} size={11}>Host: www.kade.lk</T>
-        <T x={30} y={110} size={11}>GET /images/rice.jpg</T>
-        <T x={30} y={128} size={11}>Cookie: session=…</T>
-        <Box x={244} y={64} w={90} h={80} c="purple" />
-        <T x={256} y={100} k="t" size={12.5}>L7 LB</T>
-        <T x={256} y={120} size={11}>decrypts</T>
-        <Wire x1={216} y1={104} x2={241} y2={104} />
-        {routes.map(([path, , y], i) => (
-          <g key={path}>
-            <path
-              className={cn("w", i === 1 && "green")}
-              d={`M334 104 C 350 104, 350 ${y + 14}, 362 ${y + 14}`}
-              markerEnd={`url(#dd-ah-${i === 1 ? "green" : "muted"})`}
-            />
-            <Box x={364} y={y} w={120} h={30} c={i === 1 ? "green" : undefined} />
-            <T x={372} y={y + 19} size={10.5}>{path}</T>
+  // One row per kind, sharing columns: what arrives, the load balancer, the three ways out.
+  const fan = (y: number, pick: number, out: [string, string?][], dy: number) => {
+    const mid = y + 60;
+    const ys = [mid - 44, mid, mid + 44];
+    return (
+      <>
+        {ys.map((cy, i) =>
+          i === pick ? null : <path key={cy} className="w" d={`M466 ${mid} H500 V${cy} H537`} markerEnd="url(#dd-ah-muted)" />,
+        )}
+        <path className="w green" d={`M466 ${mid} H500 V${ys[pick]} H537`} markerEnd="url(#dd-ah-green)" />
+        {out.map(([first, second], i) => (
+          <g key={first}>
+            <Box x={540} y={ys[i] - 18} w={180} h={36} c={i === pick ? "green" : undefined} />
+            <T x={554} y={ys[i] + 5 + dy} size={12}>{first}</T>
+            {second && (
+              <>
+                <Wire x1={720} y1={ys[i]} x2={757} y2={ys[i]} c={i === pick ? "green" : undefined} />
+                <Box x={760} y={ys[i] - 18} w={184} h={36} c={i === pick ? "green" : undefined} />
+                <T x={774} y={ys[i] + 5} size={12}>{second}</T>
+              </>
+            )}
           </g>
         ))}
-        <T x={364} y={214} k="f" size={11}>picks by host and path</T>
-        <Box x={500} y={44} w={200} h={120} />
-        <T x={514} y={70} k="t" size={12.5}>TCP connection</T>
-        <T x={514} y={92} size={11}>203.0.113.99:51022</T>
-        <T x={514} y={110} size={11}>→ 34.87.x.x:443</T>
-        <T x={514} y={128} k="f" size={11}>contents: unreadable</T>
-        <Box x={728} y={64} w={90} h={80} c="purple" />
-        <T x={740} y={100} k="t" size={12.5}>L4 LB</T>
-        <T x={740} y={120} size={11}>forwards</T>
-        <Wire x1={700} y1={104} x2={725} y2={104} />
-        <Wire x1={818} y1={104} x2={843} y2={104} c="green" />
-        <Box x={846} y={74} w={98} h={60} c="blue" />
-        <T x={856} y={100} size={11}>any healthy</T>
-        <T x={856} y={118} size={11}>backend</T>
-        <T x={728} y={180} k="f" size={11}>picks by connection only</T>
+      </>
+    );
+  };
+  return (
+    <WidgetFrame wide label="Layer 7 and layer 4 load balancers">
+      <Drawing h={416} label="An L7 load balancer reads the request and picks a backend by host and path; an L4 one sees only addresses and ports and picks by connection">
+        <Caps x={16} y={24}>L7 · reads the request</Caps>
+        <Caps x={540} y={24}>URL map rule</Caps>
+        <Caps x={760} y={24}>backend</Caps>
+        <Box x={16} y={44} w={260} h={120} />
+        <T x={30} y={72} k="t">HTTPS request</T>
+        <T x={30} y={98} size={12}>Host: www.kade.lk</T>
+        <T x={30} y={120} size={12} bold>GET /images/rice.jpg</T>
+        <T x={30} y={142} size={12}>Cookie: session=…</T>
+        <Wire x1={276} y1={104} x2={313} y2={104} />
+        <Box x={316} y={64} w={150} h={80} c="purple" />
+        <T x={330} y={96} k="t">L7 LB</T>
+        <T x={330} y={122} k="">ends TLS</T>
+        <T x={316} y={176} k="f">picks by host and path</T>
+        {fan(44, 1, [["/api/*", "kade-api-backend"], ["/images/*", "kade-static bucket"], ["everything else", "web backend"]], 0)}
+
+        <line className="w dash" x1={16} y1={214} x2={944} y2={214} />
+
+        <Caps x={16} y={250}>L4 · sees only addresses and ports</Caps>
+        <Caps x={540} y={250}>backend</Caps>
+        <Box x={16} y={270} w={260} h={120} />
+        <T x={30} y={298} k="t">TCP connection</T>
+        <T x={30} y={324} size={12}>203.0.113.99:51022</T>
+        <T x={30} y={346} size={12}>→ 34.87.x.x:443</T>
+        <T x={30} y={370} k="f">contents: unreadable</T>
+        <Wire x1={276} y1={330} x2={313} y2={330} />
+        <Box x={316} y={290} w={150} h={80} c="purple" />
+        <T x={330} y={322} k="t">L4 LB</T>
+        <T x={330} y={348} k="">forwards</T>
+        <T x={316} y={402} k="f">picks by connection only</T>
+        {fan(270, 1, [["backend a"], ["backend b"], ["backend c"]], 0)}
+        <rect className="ghost" x={760} y={268} width={184} height={124} rx="2" />
+        <T x={774} y={300} k="f">no rules here:</T>
+        <T x={774} y={322} k="f">the path is inside</T>
+        <T x={774} y={344} k="f">bytes it cannot read.</T>
+        <T x={774} y={372} k="f">Any healthy one will do.</T>
       </Drawing>
     </WidgetFrame>
   );
@@ -199,7 +219,7 @@ export function LbTree() {
   );
   const edge = (x1: number, y1: number, x2: number, y2: number, label?: string) => (
     <g key={`${x1}${y1}${x2}${y2}`}>
-      <path className="w" d={`M${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2 - 3}`} markerEnd="url(#dd-ah-muted)" />
+      <path className="w" d={`M${x1} ${y1} V${(y1 + y2) / 2} H${x2} V${y2 - 3}`} markerEnd="url(#dd-ah-muted)" />
       {label && (
         <T x={(x1 + x2) / 2 + 6} y={(y1 + y2) / 2 - 4} size={11}>
           {label}
@@ -324,9 +344,9 @@ function ProxyView({ c, what }: { c: Case; what: string }) {
             <T x={758} y={68} k="t">backend VM 2</T>
             <T x={758} y={88} k="f" size={11}>not picked this time</T>
           </g>
-          <path className="w" d="M486 160 C 600 160, 640 187, 741 187" markerEnd="url(#dd-ah-muted)" />
-          <path className="w dash off" d="M486 160 C 600 160, 640 72, 741 72" />
-          <path className="w green" d="M760 224 C 740 270, 700 284, 600 284 L 200 284 C 140 284, 116 256, 116 211" markerEnd="url(#dd-ah-green)" />
+          <path className="w" d="M486 160 H660 V187 H741" markerEnd="url(#dd-ah-muted)" />
+          <path className="w dash off" d="M660 160 V72 H741" />
+          <path className="w green" d="M844 224 V284 H116 V211" markerEnd="url(#dd-ah-green)" />
           <T x={470} y={304} k="s mid" bold size={11}>
             reply goes straight back to the shopper: it never passes the load balancer (direct server return)
           </T>
@@ -680,13 +700,14 @@ function HcView({ c, what }: { c: Case; what: string }) {
             const r = y + 28;
             return (
               <g key={name}>
+                {/* One trunk out of the checkers, an elbow to each VM. */}
                 {off ? (
                   <>
-                    <line className="w fault" x1={216} y1={112 + 24 * i} x2={356} y2={r} />
+                    <path className="w fault" d={`M${i ? 300 : 216} 124 H300 V${r} H356`} />
                     <Mark cx={358} cy={r} ok={false} />
                   </>
                 ) : (
-                  <Wire x1={216} y1={112 + 24 * i} x2={597} y2={r} c="green" />
+                  <path className="w green" d={`M${i ? 300 : 216} 124 H300 V${r} H597`} markerEnd="url(#dd-ah-green)" />
                 )}
                 <Box x={600} y={y} w={344} h={56} c={off ? "red" : "green"} />
                 <T x={614} y={y + 22} k="t" size={13}>{name}</T>
@@ -1148,7 +1169,7 @@ export function MigOverview() {
             </g>
           );
         })}
-        <Wire x1={206} y1={90} x2={263} y2={100} c="orange" />
+        <Wire x1={206} y1={100} x2={263} y2={100} c="orange" />
         <T x={30} y={174} k="f" size={10.5}>every new VM is built</T>
         <T x={30} y={190} k="f" size={10.5}>from this recipe</T>
         <Box x={266} y={196} w={214} h={58} />

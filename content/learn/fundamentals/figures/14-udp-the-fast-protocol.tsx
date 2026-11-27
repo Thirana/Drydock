@@ -3,7 +3,7 @@
 
 export function FigConnless() {
   return (
-    <svg viewBox="0 0 920 230" role="img" aria-label="UDP: laptop sends a DNS query straight to the resolver and gets a reply, two messages total. TCP would first need a three-message handshake.">
+    <svg viewBox="0 0 920 250" role="img" aria-label="UDP: laptop sends a DNS query straight to the resolver and gets a reply, two messages total. TCP would first need a three-message handshake.">
       <rect className="n plum" x="40" y="10" width="200" height="44" rx="2" />
       <text className="t" x="56" y="37">Laptop</text>
       <rect className="n teal" x="680" y="10" width="200" height="44" rx="2" />
@@ -15,7 +15,8 @@ export function FigConnless() {
       <line className="w green" x1="778" y1="112" x2="144" y2="132" markerEnd="url(#dd-ah-green)" />
       <text className="s mid" x="460" y="140">{"datagram 2 · \"34.87.120.15\""}</text>
       <text className="s" x="140" y="180">Done. Two datagrams, no setup, no goodbye.</text>
-      <text className="s" x="140" y="200">With TCP, three setup messages would have to finish before the question could even be sent (see the TCP chapters).</text>
+      <text className="s" x="140" y="200">With TCP, three setup messages would have to finish before the question</text>
+      <text className="s" x="140" y="220">could even be sent (see the TCP chapters).</text>
     </svg>
   );
 }

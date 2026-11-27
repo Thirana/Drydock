@@ -7,6 +7,7 @@ import { Field, FieldError } from "./field";
 import { ByteDump, HeaderLayout } from "./headers";
 import { Action, Choices, Outcome, Select, WidgetNote } from "./ui";
 import { WidgetFrame } from "./widget-frame";
+import { Checkbox } from "@/components/ui/inputs";
 
 /*
  * Chapters 24 to 26: loading a page over HTTP/1.1, 2 and 3; agreeing a key
@@ -99,10 +100,9 @@ export function Waterfall({ wide }: { wide?: boolean }) {
     <WidgetFrame wide={wide} label="Page load waterfall">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <Choices label="HTTP version" value={v} onChange={setV} options={(Object.keys(VERSIONS) as Version[]).map((k) => ({ value: k, label: VERSIONS[k] }))} />
-        <label className="text-ink-body flex cursor-pointer items-center gap-2.5 text-[15px]">
-          <input type="checkbox" checked={loss} onChange={(e) => setLoss(e.target.checked)} className="accent-ink size-4" />
+        <Checkbox checked={loss} onChange={setLoss}>
           lose one packet (during milk.jpg)
-        </label>
+        </Checkbox>
       </div>
       <div className="mt-4 overflow-x-auto" aria-live="polite">
         <div className="min-w-[680px]">
@@ -366,7 +366,7 @@ export function RtSim({ wide }: { wide?: boolean }) {
     stats.push([name, req, empty, avg < 1 ? `${Math.round(avg * 1000)} ms` : `${avg.toFixed(1)} s`, li < 2 ? "~700 B per request" : "2-8 B per message"]);
     return (
       <g key={name}>
-        <text className="t" x="16" y={y + 20} fontSize="12.5">{name}</text>
+        <text className="t" x="16" y={y + 20} fontSize="14.5">{name}</text>
         <line className="w dash" x1="175" y1={y + 16} x2="890" y2={y + 16} />
         {evs.map((e) => (
           <polygon key={`s${e}`} points={`${X(e)},${y - 4} ${X(e) + 4},${y} ${X(e)},${y + 4} ${X(e) - 4},${y}`} style={{ fill: "var(--dd-ink)" }} />

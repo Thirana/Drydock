@@ -1,11 +1,8 @@
 import type { MDXComponents } from "mdx/types";
 import { isValidElement, type ReactNode } from "react";
 import { SeverityBadge } from "@/components/architecture/severity-badge";
+import { Fold, Folds } from "@/components/mdx/fold";
 import {
-  AddressBlock,
-  AddressBlocks,
-  Argument,
-  Arguments,
   Caption,
   Column,
   Columns,
@@ -14,6 +11,8 @@ import {
   Note,
   PhaseTag,
   Status,
+  Topic,
+  Topics,
 } from "@/components/mdx/primitives";
 
 // Global MDX components. Most elements are styled by `.gl-prose` in
@@ -28,7 +27,7 @@ function textOf(node: ReactNode): string {
   return "";
 }
 
-/** "Where I would push back" → "where-i-would-push-back". */
+/** "The remediation sequence" → "the-remediation-sequence". */
 function slugOf(node: ReactNode) {
   return textOf(node)
     .toLowerCase()
@@ -53,19 +52,19 @@ const components: MDXComponents = {
       />
     </div>
   ),
-  AddressBlock,
-  AddressBlocks,
-  Argument,
-  Arguments,
   Caption,
   Column,
   Columns,
+  Fold,
+  Folds,
   Hero,
   Lede,
   Note,
   PhaseTag,
   SeverityBadge,
   Status,
+  Topic,
+  Topics,
 };
 
 export function useMDXComponents(): MDXComponents {

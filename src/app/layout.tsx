@@ -3,6 +3,7 @@ import {
   Atkinson_Hyperlegible_Mono,
   Atkinson_Hyperlegible_Next,
 } from "next/font/google";
+import { DesktopHint } from "@/components/site/desktop-hint";
 import { site } from "@/config/site";
 import "./globals.css";
 
@@ -21,12 +22,15 @@ const atkinsonMono = Atkinson_Hyperlegible_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(site.url),
   title: {
     default: `${site.name} - ${site.tagline}`,
     template: `%s · ${site.name}`,
   },
   description: site.description,
   openGraph: { siteName: site.name, type: "website" },
+  // The preview image (opengraph-image.tsx) shown wide, not as a thumbnail.
+  twitter: { card: "summary_large_image" },
 };
 
 /** Runs before paint: the reader's stored theme, else the system's. */
@@ -42,7 +46,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="flex min-h-full flex-col antialiased">{children}</body>
+      <body className="flex min-h-full flex-col antialiased">
+        {children}
+        <DesktopHint />
+      </body>
     </html>
   );
 }
