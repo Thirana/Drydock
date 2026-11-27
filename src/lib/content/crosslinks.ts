@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { ChapterRef, Defect, Severity } from "@/lib/architecture/types";
 import { headingId } from "./heading-id";
+import { chapterFile } from "./source";
 import {
   chapterHref,
   getChapter,
@@ -35,11 +36,10 @@ function sectionsOf(course: string, chapter: string) {
   const key = `${course}/${chapter}`;
   const cached = sectionCache.get(key);
   if (cached) return cached;
-  const dir = path.join(process.cwd(), "content", "learn", course, "chapters");
-  const file = readdirSync(dir).find((f) => f.endsWith(`-${chapter}.mdx`));
+  const file = chapterFile(course, chapter);
   const ids = new Set<string>();
   if (file) {
-    const source = readFileSync(path.join(dir, file), "utf8");
+    const source = readFileSync(path.join(process.cwd(), file), "utf8");
     for (const [, heading] of source.matchAll(/^## (.+)$/gm)) {
       // A link in a heading reads as its text.
       ids.add(headingId(heading.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")));

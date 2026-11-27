@@ -928,18 +928,39 @@
  * Course drawings break out of the reading column into the right margin, up to
  * their natural size (960 units + frame), leaving 24px of page at the edge, so
  * their text is drawn near 1:1. The offsets follow the chapter layout: the
- * column starts 364px in below 1200px (gutter 32 + rail 236 + gap 96), and at
- * 50vw - 236px above. Unlayered, so it outranks a frame's max-width utility.
+ * column starts 32px + --dd-rail in below 1200px (gutter, then rail and gap:
+ * 236 + 96, or 40 + 96 with the rail hidden), and (100vw - 1200px) / 2 more
+ * above. Unlayered, so it outranks a frame's max-width utility.
  */
+:root {
+  --dd-rail: 332px;
+}
+:root[data-rail="hidden"] {
+  --dd-rail: 136px;
+}
 @media (min-width: 1024px) {
   [data-chapter] figure:has(.dd-fig) {
-    width: min(1004px, max(100%, 100vw - 388px));
+    width: min(1004px, max(100%, 100vw - 56px - var(--dd-rail)));
     max-width: none;
   }
 }
 @media (min-width: 1200px) {
   [data-chapter] figure:has(.dd-fig) {
-    width: min(1004px, max(100%, 50vw + 212px));
+    width: min(1004px, max(100%, 50vw + 544px - var(--dd-rail)));
+  }
+}
+
+/*
+ * The chapter rail, hidden with its toggle (ChapterRail): its column narrows
+ * to the button that brings it back. Phones keep the strip and sheet.
+ */
+@media (min-width: 1024px) {
+  :root[data-rail="hidden"] [data-rail-layout] {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  :root[data-rail="hidden"] [data-rail-full],
+  :root:not([data-rail="hidden"]) [data-rail-mini] {
+    display: none;
   }
 }
 

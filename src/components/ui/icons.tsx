@@ -98,6 +98,14 @@ export const IconMenu = makeIcon(
   16,
   <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />,
 );
+/** A panel with a column down its left side: the chapter rail's toggle. */
+export const IconSidebar = makeIcon(
+  "IconSidebar",
+  16,
+  1.6,
+  16,
+  <path d="M2.5 3h11v10h-11zM6.5 3v10" />,
+);
 export const IconChevronDown = makeIcon(
   "IconChevronDown",
   12,

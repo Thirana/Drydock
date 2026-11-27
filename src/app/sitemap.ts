@@ -19,7 +19,7 @@ import {
 // A static export writes this once, at build time.
 export const dynamic = "force-static";
 
-/** Every page a reader can land on. The old /gcp/harbour URLs only redirect, so they are left out. */
+/** Every page a reader can land on. The old /labs and /gcp URLs only redirect, so they are left out. */
 export default function sitemap(): MetadataRoute.Sitemap {
   const paths = [
     "/",
@@ -27,7 +27,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...courses.map(courseHref),
     ...publishedChapters().map(chapterHref),
     "/learn/glossary",
-    "/labs",
     harbourHref,
     ...harbour.platform.map((p) => platformPageHref(p.slug)),
     journeysHref,

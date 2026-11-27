@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { IconCheck, IconChevronDown, IconX } from "@/components/ui/icons";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  IconCheck,
+  IconChevronDown,
+  IconSidebar,
+  IconX,
+} from "@/components/ui/icons";
 import { recordVisit, useProgress } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 
@@ -133,6 +138,7 @@ function RailNav({
   active,
   opened,
   onNavigate,
+  action,
 }: {
   course: { title: string; href: string };
   parts: RailPart[];
@@ -141,16 +147,21 @@ function RailNav({
   /** Chapters this reader has opened before, by slug. */
   opened: ReadonlySet<string>;
   onNavigate?: () => void;
+  /** Beside the course title: the rail's hide button. */
+  action?: ReactNode;
 }) {
   return (
     <nav aria-label={`${course.title} chapters`}>
-      <Link
-        href={course.href}
-        onClick={onNavigate}
-        className="text-ink hover:text-accent text-[16px] font-bold transition-colors"
-      >
-        {course.title}
-      </Link>
+      <div className="flex items-start justify-between gap-3">
+        <Link
+          href={course.href}
+          onClick={onNavigate}
+          className="text-ink hover:text-accent text-[16px] font-bold transition-colors"
+        >
+          {course.title}
+        </Link>
+        {action}
+      </div>
       {parts.map((part) => (
         <div key={part.title} className="mt-6">
           <p className="dd-label">{part.title}</p>
@@ -216,9 +227,30 @@ function RailNav({
 }
 
 /**
+ * Hides or shows the rail on wide screens. The state lives on <html> as
+ * `data-rail`, which CSS reads (globals.css) and the layout's script restores
+ * before paint, so it is remembered on this device without a flash.
+ */
+function setRailHidden(hidden: boolean) {
+  const root = document.documentElement;
+  if (hidden) root.dataset.rail = "hidden";
+  else delete root.dataset.rail;
+  try {
+    if (hidden) localStorage.setItem("dd-rail", "hidden");
+    else localStorage.removeItem("dd-rail");
+  } catch {
+    // Storage can be blocked; the switch still applies for this visit.
+  }
+}
+
+const railButton =
+  "text-ink hover:text-accent inline-flex size-9 shrink-0 items-center justify-center transition-colors";
+
+/**
  * The course down the left edge: parts, chapters as numbered moves, and the
- * current chapter's sections under it. Below 1024px it folds into a strip that
- * opens the same list as a full-height sheet.
+ * current chapter's sections under it. On wide screens a button beside the
+ * course title hides it, leaving only the button that brings it back. Below
+ * 1024px it folds into a strip that opens the same list as a full-height sheet.
  */
 export function ChapterRail({
   course,
@@ -250,19 +282,66 @@ export function ChapterRail({
 
   const close = () => dialogRef.current?.close();
 
+  const hideRef = useRef<HTMLButtonElement>(null);
+  const showRef = useRef<HTMLButtonElement>(null);
+
+  const hide = () => {
+    setRailHidden(true);
+    showRef.current?.focus();
+  };
+
+  const show = () => {
+    setRailHidden(false);
+    hideRef.current?.focus();
+    // Bring the current chapter back into view without moving the page.
+    const rail = railRef.current;
+    const item = rail?.querySelector<HTMLElement>("[aria-current=page]");
+    if (rail && item) rail.scrollTop = item.offsetTop - rail.clientHeight / 2;
+  };
+
   return (
     <>
       <aside
         ref={railRef}
         className="no-scrollbar sticky top-0 hidden h-dvh overflow-y-auto pt-10 pb-16 lg:block"
       >
-        <RailNav
-          course={course}
-          parts={parts}
-          sections={sections}
-          active={active}
-          opened={opened}
-        />
+        <div id="chapter-rail" data-rail-full>
+          <RailNav
+            course={course}
+            parts={parts}
+            sections={sections}
+            active={active}
+            opened={opened}
+            action={
+              <button
+                ref={hideRef}
+                type="button"
+                onClick={hide}
+                aria-expanded="true"
+                aria-controls="chapter-rail"
+                aria-label="Hide the chapter list"
+                title="Hide the chapter list"
+                className={cn(railButton, "-mt-1.5 -mr-2")}
+              >
+                <IconSidebar size={16} />
+              </button>
+            }
+          />
+        </div>
+        <div data-rail-mini>
+          <button
+            ref={showRef}
+            type="button"
+            onClick={show}
+            aria-expanded="false"
+            aria-controls="chapter-rail"
+            aria-label="Show the chapter list"
+            title="Show the chapter list"
+            className={cn(railButton, "-mt-1.5 -ml-2")}
+          >
+            <IconSidebar size={16} />
+          </button>
+        </div>
       </aside>
 
       <div className="border-rule bg-ground/95 sticky top-0 z-30 -mx-5 border-b px-5 backdrop-blur-sm sm:-mx-8 sm:px-8 lg:hidden">

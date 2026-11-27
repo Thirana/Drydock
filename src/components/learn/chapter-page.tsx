@@ -11,6 +11,8 @@ import {
   type ChapterContext,
 } from "@/lib/content/learn";
 import { harbour, harbourHref } from "@/lib/content/harbour";
+import { chapterFile } from "@/lib/content/source";
+import { site } from "@/config/site";
 import { ChapterRail, type RailPart } from "./chapter-rail";
 import { chapterMdxComponents } from "./mdx";
 import { SearchMeta } from "@/components/site/search-meta";
@@ -49,12 +51,16 @@ export function ChapterPage({
       })),
   }));
 
+  const source = chapterFile(course.slug, chapter.slug);
   const { prev, next } = neighbours(ctx);
   // After the last chapter, the path continues into the case study.
   const study = next ? undefined : harbour;
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-x-24">
+    <div
+      data-rail-layout
+      className="mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-x-24"
+    >
       <ChapterRail
         course={{
           slug: course.slug,
@@ -93,6 +99,20 @@ export function ChapterPage({
           />
           <Content components={chapterMdxComponents(course)} />
         </article>
+
+        {source && (
+          <p className="text-ink-muted mt-14 max-w-[760px] text-[15px] leading-[1.55]">
+            Spotted a mistake, or something unclear?{" "}
+            <a
+              href={`${site.repo.url}/edit/${site.repo.branch}/${source}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="dd-link"
+            >
+              Suggest an edit on GitHub
+            </a>
+          </p>
+        )}
 
         <SeeItBroken defects={practiceFor(ctx)} />
 
