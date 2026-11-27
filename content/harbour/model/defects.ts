@@ -60,7 +60,7 @@ export const defects: Defect[] = [
       {
         course: "gcp",
         chapter: "admin-access-iap-tcp-forwarding",
-        section: "The change, without locking yourself out",
+        section: "The three things that must all be true",
       },
     ],
     symptom: "Port 22 allowed from 0.0.0.0/0 on every VM.",

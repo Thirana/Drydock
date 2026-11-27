@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import { PageShell } from "@/components/site/page-shell";
 import { ButtonLink } from "@/components/ui/button";
 import { IconArrow } from "@/components/ui/icons";
+
+// Next already marks this page noindex.
+export const metadata: Metadata = { title: "Page not found" };
 
 export default function NotFound() {
   return (

@@ -22,12 +22,15 @@ const atkinsonMono = Atkinson_Hyperlegible_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(site.url),
   title: {
     default: `${site.name} - ${site.tagline}`,
     template: `%s · ${site.name}`,
   },
   description: site.description,
   openGraph: { siteName: site.name, type: "website" },
+  // The preview image (opengraph-image.tsx) shown wide, not as a thumbnail.
+  twitter: { card: "summary_large_image" },
 };
 
 /** Runs before paint: the reader's stored theme, else the system's. */

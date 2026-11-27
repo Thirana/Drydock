@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import type { ChapterRef, Defect, Severity } from "@/lib/architecture/types";
 import { headingId } from "./heading-id";
 import {
@@ -23,10 +25,42 @@ export interface Lesson {
   section?: string;
 }
 
+const sectionCache = new Map<string, Set<string>>();
+
+/**
+ * The anchors of a chapter's `##` headings, read from its MDX source. Only
+ * `##` headings get an id (see `src/components/learn/mdx.tsx`).
+ */
+function sectionsOf(course: string, chapter: string) {
+  const key = `${course}/${chapter}`;
+  const cached = sectionCache.get(key);
+  if (cached) return cached;
+  const dir = path.join(process.cwd(), "content", "learn", course, "chapters");
+  const file = readdirSync(dir).find((f) => f.endsWith(`-${chapter}.mdx`));
+  const ids = new Set<string>();
+  if (file) {
+    const source = readFileSync(path.join(dir, file), "utf8");
+    for (const [, heading] of source.matchAll(/^## (.+)$/gm)) {
+      // A link in a heading reads as its text.
+      ids.add(headingId(heading.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")));
+    }
+  }
+  sectionCache.set(key, ids);
+  return ids;
+}
+
 function resolve(ref: ChapterRef): Lesson {
   const ctx = getChapter(ref.course, ref.chapter);
   if (!ctx || !isPublished(ctx.chapter))
     throw new Error(`No published chapter ${ref.course}/${ref.chapter}`);
+  // A renamed or removed heading would otherwise ship as a dead anchor.
+  if (
+    ref.section &&
+    !sectionsOf(ref.course, ref.chapter).has(headingId(ref.section))
+  )
+    throw new Error(
+      `No "## ${ref.section}" heading in ${ref.course}/${ref.chapter}`,
+    );
   return {
     href: ref.section
       ? `${chapterHref(ctx)}#${headingId(ref.section)}`

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SearchMeta } from "@/components/site/search-meta";
 import { glossary, letterOf, type GlossaryEntry } from "@/lib/content/glossary";
 import { headingId } from "@/lib/content/heading-id";
 import { cn } from "@/lib/utils";
@@ -72,7 +73,9 @@ export default function GlossaryPage() {
         </ol>
       </nav>
 
-      <div className="mt-12 max-w-[1000px] space-y-14">
+      {/* Indexed for search: each term is a heading, so a hit opens at the term. */}
+      <div data-pagefind-body className="mt-12 max-w-[1000px] space-y-14">
+        <SearchMeta title="Glossary" where="Learn" />
         {groups
           .filter((g) => g.entries.length)
           .map(({ letter, entries: inGroup }) => (
@@ -94,22 +97,24 @@ export default function GlossaryPage() {
                   letter
                 )}
               </h2>
-              <dl>
+              <div>
                 {inGroup.map((entry) => (
                   <div
                     key={entry.term}
-                    id={`term-${headingId(entry.term)}`}
                     className={cn(
-                      "border-rule grid scroll-mt-20 gap-x-10 gap-y-1.5 border-b py-5",
+                      "border-rule grid gap-x-10 gap-y-1.5 border-b py-5",
                       "md:grid-cols-[220px_minmax(0,1fr)]",
                     )}
                   >
-                    <dt>
+                    <h3
+                      id={`term-${headingId(entry.term)}`}
+                      className="scroll-mt-20"
+                    >
                       <dfn className="text-ink text-[18px] leading-[1.35] font-bold not-italic">
                         {entry.term}
                       </dfn>
-                    </dt>
-                    <dd className="min-w-0">
+                    </h3>
+                    <div className="min-w-0">
                       <p className="text-ink-body max-w-[68ch] text-[16.5px] leading-[1.6] text-pretty">
                         <Sentence entry={entry} />
                       </p>
@@ -120,10 +125,10 @@ export default function GlossaryPage() {
                         </Link>{" "}
                         · {entry.where}
                       </p>
-                    </dd>
+                    </div>
                   </div>
                 ))}
-              </dl>
+              </div>
             </section>
           ))}
       </div>
